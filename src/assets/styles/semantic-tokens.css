@@ -1,0 +1,58 @@
+:root {
+  --surface-base: var(--color-gray-200);
+  --surface-elevated: var(--color-gray-100);
+  --surface-elevated-hover: var(--color-gray-400);
+  --surface-brand-subtle: var(--color-pink-100);
+  --surface-brand-selection: var(--color-pink-200);
+  --surface-danger-subtle: var(--color-red-100);
+  --surface-disabled: var(--color-gray-300);
+  --surface-inverse: var(--color-gray-1000);
+
+  --text-primary: var(--color-gray-1100);
+  --text-secondary: var(--color-gray-900);
+  --text-tertiary: var(--color-gray-800);
+  --text-helper: var(--color-gray-700);
+  --text-placeholder: var(--color-gray-600);
+  --text-disabled: var(--color-gray-600);
+  --text-brand: var(--color-pink-600);
+  --text-danger: var(--color-red-600);
+  --text-inverse: var(--color-gray-100);
+  --text-on-brand: var(--color-gray-100);
+  --text-on-danger: var(--color-gray-100);
+
+  --icon-primary: var(--color-gray-1100);
+  --icon-secondary: var(--color-gray-900);
+  --icon-tertiary: var(--color-gray-800);
+  --icon-helper: var(--color-gray-700);
+  --icon-disabled: var(--color-gray-600);
+  --icon-brand: var(--color-pink-600);
+  --icon-danger: var(--color-red-600);
+  --icon-inverse: var(--color-gray-100);
+  --icon-on-brand: var(--color-gray-100);
+  --icon-on-danger: var(--color-gray-100);
+
+  --border-subtle-1: var(--color-gray-300);
+  --border-subtle-2: var(--color-gray-400);
+  --border-subtle-hover: var(--color-gray-500);
+  --border-brand: var(--color-pink-600);
+  --border-danger: var(--color-red-600);
+  --border-disabled: var(--color-gray-300);
+
+  --field-bg: var(--color-gray-100);
+  --field-border: var(--color-gray-300);
+  --field-border-hover: var(--color-gray-500);
+  --field-bg-focus: var(--color-pink-100);
+  --field-border-focus: var(--color-pink-200);
+  --field-bg-danger: var(--color-red-100);
+  --field-border-danger: var(--color-red-200);
+
+  --interactive-brand: var(--color-pink-600);
+  --interactive-brand-hover: var(--color-pink-700);
+  --interactive-brand-active: var(--color-pink-800);
+
+  --interactive-danger: var(--color-red-600);
+  --interactive-danger-hover: var(--color-red-700);
+  --interactive-danger-active: var(--color-red-800);
+
+  --focus-ring: var(--color-pink-500);
+}
