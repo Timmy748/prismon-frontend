@@ -67,7 +67,7 @@ function handleToggle() {
   --sidebar-title-font-weight: var(--type-heading-04-font-weight);
   --sidebar-title-text-transform: var(--type-heading-04-text-transform);
   --sidebar-transition-duration: var(--duration-normal);
-  --sidebar-transition-easing: var(--easing-standard);
+  --sidebar-transition-easing: var(--easing-in-out);
 
   display: flex;
   flex-direction: column;
@@ -119,5 +119,11 @@ function handleToggle() {
 
 .sidebar__footer {
   flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
+  }
 }
 </style>

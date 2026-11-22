@@ -49,7 +49,9 @@ const tabItemClasses = computed(() => [
   --tab-item-text-transform: var(--type-body-compact-02-text-transform);
   --tab-item-shadow-focus: var(--shadow-focus-ring);
   --tab-item-transition-duration: var(--duration-fast);
-  --tab-item-transition-easing: var(--easing-standard);
+  --tab-item-transition-easing: var(--easing-out);
+  --tab-item-hover-transition-easing: var(--easing-hover);
+  --tab-item-press-scale: var(--scale-press-subtle);
   --tab-item-cursor: pointer;
 
   display: inline-flex;
@@ -71,13 +73,15 @@ const tabItemClasses = computed(() => [
   white-space: nowrap;
   cursor: var(--tab-item-cursor);
   transition:
-    background-color var(--tab-item-transition-duration) var(--tab-item-transition-easing),
-    color var(--tab-item-transition-duration) var(--tab-item-transition-easing),
-    border-color var(--tab-item-transition-duration) var(--tab-item-transition-easing);
+    background-color var(--tab-item-transition-duration) var(--tab-item-hover-transition-easing),
+    color var(--tab-item-transition-duration) var(--tab-item-hover-transition-easing),
+    border-color var(--tab-item-transition-duration) var(--tab-item-hover-transition-easing);
 }
 
-.tab-item:hover:not(:disabled):not(.tab-item--disabled) {
-  background-color: var(--tab-item-bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .tab-item:hover:not(:disabled):not(.tab-item--disabled) {
+    background-color: var(--tab-item-bg-hover);
+  }
 }
 
 .tab-item:focus-visible {
@@ -88,6 +92,17 @@ const tabItemClasses = computed(() => [
 .tab-item__label {
   display: inline-flex;
   align-items: center;
+  transition: transform var(--tab-item-transition-duration) var(--tab-item-transition-easing);
+}
+
+.tab-item:active:not(:disabled):not(.tab-item--disabled) .tab-item__label {
+  transform: scale(var(--tab-item-press-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-item {
+    --tab-item-press-scale: 1;
+  }
 }
 
 .tab-item--active {

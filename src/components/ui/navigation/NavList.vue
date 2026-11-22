@@ -2,6 +2,12 @@
 import { computed, ref } from 'vue'
 import { Icon } from '../icons'
 import { ScrollContainer } from '../layout'
+import {
+  onCollapseAfterEnter,
+  onCollapseAfterLeave,
+  onCollapseEnter,
+  onCollapseLeave,
+} from '../composables/useCollapseTransition'
 
 export type NavListOrientation = 'vertical' | 'horizontal'
 
@@ -53,15 +59,23 @@ function toggleOpen() {
       </button>
       <span v-else-if="title" class="nav-list__title">{{ title }}</span>
     </div>
-    <ScrollContainer
-      v-if="showItems"
-      class="nav-list__items"
-      :direction="orientation"
-      gap="none"
-      :ariaLabel="title"
+    <Transition
+      name="nav-list-collapse"
+      @enter="onCollapseEnter"
+      @after-enter="onCollapseAfterEnter"
+      @leave="onCollapseLeave"
+      @after-leave="onCollapseAfterLeave"
     >
-      <slot />
-    </ScrollContainer>
+      <ScrollContainer
+        v-if="showItems"
+        class="nav-list__items"
+        :direction="orientation"
+        gap="none"
+        :ariaLabel="title"
+      >
+        <slot />
+      </ScrollContainer>
+    </Transition>
   </div>
 </template>
 
@@ -83,8 +97,8 @@ function toggleOpen() {
   --nav-list-title-font-weight: var(--type-heading-compact-01-font-weight);
   --nav-list-title-text-transform: var(--type-heading-compact-01-text-transform);
   --nav-list-shadow-focus: var(--shadow-focus-ring);
-  --nav-list-transition-duration: var(--duration-fast);
-  --nav-list-transition-easing: var(--easing-standard);
+  --nav-list-transition-duration: var(--duration-normal);
+  --nav-list-transition-easing: var(--easing-out);
   --nav-list-chevron-transform: rotate(0deg);
 
   display: flex;
@@ -162,5 +176,29 @@ function toggleOpen() {
 
 .nav-list--horizontal :deep(.list-item:not(.list-item--closed)) {
   --list-item-width: auto;
+}
+
+.nav-list-collapse-enter-active,
+.nav-list-collapse-leave-active {
+  overflow: hidden;
+  transition:
+    height var(--nav-list-transition-duration) var(--nav-list-transition-easing),
+    opacity var(--nav-list-transition-duration) var(--nav-list-transition-easing);
+}
+
+.nav-list-collapse-enter-from,
+.nav-list-collapse-leave-to {
+  opacity: var(--opacity-hidden);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-list__chevron {
+    transition: none;
+  }
+
+  .nav-list-collapse-enter-active,
+  .nav-list-collapse-leave-active {
+    transition: opacity var(--nav-list-transition-duration) var(--easing-hover);
+  }
 }
 </style>

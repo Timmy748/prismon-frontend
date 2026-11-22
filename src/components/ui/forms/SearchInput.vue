@@ -98,7 +98,7 @@ function handleSearch(event: Event) {
   --search-input-font-weight: var(--type-body-compact-02-font-weight);
   --search-input-text-transform: var(--type-body-compact-02-text-transform);
   --search-input-transition-duration: var(--duration-fast);
-  --search-input-transition-easing: var(--easing-standard);
+  --search-input-transition-easing: var(--easing-hover);
   --search-input-cursor: text;
 
   display: flex;
@@ -146,8 +146,10 @@ function handleSearch(event: Event) {
   appearance: none;
 }
 
-.search-input:not(.search-input--disabled):not(.search-input--focused):hover {
-  --search-input-border-color: var(--field-border-hover);
+@media (hover: hover) and (pointer: fine) {
+  .search-input:not(.search-input--disabled):not(.search-input--focused):hover {
+    --search-input-border-color: var(--field-border-hover);
+  }
 }
 
 .search-input:focus-within:not(.search-input--disabled),

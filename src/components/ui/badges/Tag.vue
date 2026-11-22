@@ -69,8 +69,10 @@ const tagClasses = computed(() => ['tag', props.dismissible ? 'tag--dismissible'
   --tag-dismiss-radius: var(--radius-none);
   --tag-dismiss-shadow-focus: var(--shadow-focus-ring);
   --tag-dismiss-cursor: pointer;
+  --tag-press-scale: var(--scale-press);
   --tag-transition-duration: var(--duration-fast);
-  --tag-transition-easing: var(--easing-standard);
+  --tag-transition-easing: var(--easing-out);
+  --tag-hover-transition-easing: var(--easing-hover);
 
   display: inline-flex;
   align-items: center;
@@ -121,19 +123,29 @@ const tagClasses = computed(() => ['tag', props.dismissible ? 'tag--dismissible'
   cursor: var(--tag-dismiss-cursor);
   flex-shrink: 0;
   transition:
-    background-color var(--tag-transition-duration) var(--tag-transition-easing),
-    color var(--tag-transition-duration) var(--tag-transition-easing),
-    box-shadow var(--tag-transition-duration) var(--tag-transition-easing);
+    transform var(--tag-transition-duration) var(--tag-transition-easing),
+    background-color var(--tag-transition-duration) var(--tag-hover-transition-easing),
+    color var(--tag-transition-duration) var(--tag-hover-transition-easing),
+    box-shadow var(--tag-transition-duration) var(--tag-hover-transition-easing);
 }
 
-.tag__dismiss:hover {
-  background-color: var(--tag-dismiss-bg-hover);
-  color: var(--tag-dismiss-color-hover);
+@media (hover: hover) and (pointer: fine) {
+  .tag__dismiss:hover {
+    background-color: var(--tag-dismiss-bg-hover);
+    color: var(--tag-dismiss-color-hover);
+  }
 }
 
 .tag__dismiss:active {
   background-color: var(--tag-dismiss-bg-active);
   color: var(--tag-dismiss-color-hover);
+  transform: scale(var(--tag-press-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag {
+    --tag-press-scale: 1;
+  }
 }
 
 .tag__dismiss:focus-visible {

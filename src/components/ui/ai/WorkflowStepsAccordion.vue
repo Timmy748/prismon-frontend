@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { Icon } from '../icons'
+import {
+  onCollapseAfterEnter,
+  onCollapseAfterLeave,
+  onCollapseEnter,
+  onCollapseLeave,
+} from '../composables/useCollapseTransition'
 
 export interface WorkflowStep {
   id: string
@@ -61,9 +67,17 @@ function toggleStep(stepId: string) {
         </span>
       </button>
 
-      <div v-if="isStepOpen(step.id)" class="workflow-steps-accordion__content">
-        <slot name="step" :step="step" :index="index" />
-      </div>
+      <Transition
+        name="workflow-steps-accordion-collapse"
+        @enter="onCollapseEnter"
+        @after-enter="onCollapseAfterEnter"
+        @leave="onCollapseLeave"
+        @after-leave="onCollapseAfterLeave"
+      >
+        <div v-if="isStepOpen(step.id)" class="workflow-steps-accordion__content">
+          <slot name="step" :step="step" :index="index" />
+        </div>
+      </Transition>
     </div>
   </div>
 </template>
@@ -87,8 +101,8 @@ function toggleStep(stepId: string) {
   --workflow-steps-accordion-title-text-transform: var(--type-heading-compact-01-text-transform);
   --workflow-steps-accordion-icon-color: var(--icon-primary);
   --workflow-steps-accordion-icon-rotation: 0deg;
-  --workflow-steps-accordion-transition-duration: var(--duration-fast);
-  --workflow-steps-accordion-transition-easing: var(--easing-standard);
+  --workflow-steps-accordion-transition-duration: var(--duration-normal);
+  --workflow-steps-accordion-transition-easing: var(--easing-out);
 
   display: flex;
   flex-direction: column;
@@ -146,5 +160,31 @@ function toggleStep(stepId: string) {
   display: flex;
   flex-direction: column;
   gap: var(--workflow-steps-accordion-content-gap);
+}
+
+.workflow-steps-accordion-collapse-enter-active,
+.workflow-steps-accordion-collapse-leave-active {
+  overflow: hidden;
+  transition:
+    height var(--workflow-steps-accordion-transition-duration)
+      var(--workflow-steps-accordion-transition-easing),
+    opacity var(--workflow-steps-accordion-transition-duration)
+      var(--workflow-steps-accordion-transition-easing);
+}
+
+.workflow-steps-accordion-collapse-enter-from,
+.workflow-steps-accordion-collapse-leave-to {
+  opacity: var(--opacity-hidden);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-steps-accordion__icon {
+    transition: none;
+  }
+
+  .workflow-steps-accordion-collapse-enter-active,
+  .workflow-steps-accordion-collapse-leave-active {
+    transition: opacity var(--workflow-steps-accordion-transition-duration) var(--easing-hover);
+  }
 }
 </style>

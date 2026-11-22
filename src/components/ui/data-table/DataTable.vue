@@ -189,22 +189,25 @@ function handleClearSelection() {
         </table>
       </div>
 
-      <slot
-        v-if="selectedRowKeys.length > 0"
-        name="batch-bar"
-        :selected-count="selectedRowKeys.length"
-        :selected-row-keys="selectedRowKeys"
-        :actions="batchActions"
-        :clear-selection="handleClearSelection"
-      >
-        <BatchActionBar
-          class="data-table__batch-bar"
-          :selected-count="selectedRowKeys.length"
-          :actions="batchActions"
-          @action="emit('batch-action', $event)"
-          @cancel="handleClearSelection"
-        />
-      </slot>
+      <Transition name="data-table-batch">
+        <div v-if="selectedRowKeys.length > 0" class="data-table__batch-wrapper">
+          <slot
+            name="batch-bar"
+            :selected-count="selectedRowKeys.length"
+            :selected-row-keys="selectedRowKeys"
+            :actions="batchActions"
+            :clear-selection="handleClearSelection"
+          >
+            <BatchActionBar
+              class="data-table__batch-bar"
+              :selected-count="selectedRowKeys.length"
+              :actions="batchActions"
+              @action="emit('batch-action', $event)"
+              @cancel="handleClearSelection"
+            />
+          </slot>
+        </div>
+      </Transition>
     </div>
   </section>
 </template>
@@ -241,7 +244,11 @@ function handleClearSelection() {
   --data-table-row-bg-selected: var(--surface-table-selected);
   --data-table-row-cursor: default;
   --data-table-row-transition-duration: var(--duration-fast);
-  --data-table-row-transition-easing: var(--easing-standard);
+  --data-table-row-transition-easing: var(--easing-hover);
+  --data-table-batch-transition-duration: var(--duration-normal);
+  --data-table-batch-transition-easing: var(--easing-out);
+  --data-table-batch-closed-scale: var(--scale-press-subtle);
+  --data-table-batch-closed-offset: var(--spacing-2);
   --data-table-row-focus-shadow: var(--shadow-focus-ring);
   --data-table-cell-padding: var(--spacing-3);
   --data-table-cell-border-width: var(--border-width-thin);
@@ -336,13 +343,40 @@ function handleClearSelection() {
   --data-table-row-cursor: pointer;
 }
 
-.data-table__row--selectable:hover {
-  --data-table-row-bg: var(--data-table-row-bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .data-table__row--selectable:hover {
+    --data-table-row-bg: var(--data-table-row-bg-hover);
+  }
+
+  .data-table__row--selected,
+  .data-table__row--selected.data-table__row--selectable:hover {
+    --data-table-row-bg: var(--data-table-row-bg-selected);
+  }
 }
 
-.data-table__row--selected,
-.data-table__row--selected.data-table__row--selectable:hover {
+.data-table__row--selected {
   --data-table-row-bg: var(--data-table-row-bg-selected);
+}
+
+.data-table-batch-enter-active,
+.data-table-batch-leave-active {
+  transition:
+    opacity var(--data-table-batch-transition-duration) var(--data-table-batch-transition-easing),
+    transform var(--data-table-batch-transition-duration) var(--data-table-batch-transition-easing);
+}
+
+.data-table-batch-enter-from,
+.data-table-batch-leave-to {
+  opacity: var(--opacity-hidden);
+  transform: translateY(var(--data-table-batch-closed-offset))
+    scale(var(--data-table-batch-closed-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-table-batch-enter-from,
+  .data-table-batch-leave-to {
+    transform: none;
+  }
 }
 
 .data-table__row--selectable:focus-visible {

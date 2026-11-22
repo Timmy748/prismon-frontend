@@ -185,7 +185,7 @@ function handleDrop(event: DragEvent) {
   --file-upload-font-weight: var(--type-body-compact-02-font-weight);
   --file-upload-text-transform: var(--type-body-compact-02-text-transform);
   --file-upload-transition-duration: var(--duration-fast);
-  --file-upload-transition-easing: var(--easing-standard);
+  --file-upload-transition-easing: var(--easing-hover);
   --file-upload-cursor: pointer;
 
   display: flex;
@@ -274,9 +274,11 @@ function handleDrop(event: DragEvent) {
   text-transform: var(--file-upload-text-transform);
 }
 
-.file-upload:not(.file-upload--disabled):not(.file-upload--dragging):not(.file-upload--error)
-  .file-upload__dropzone:hover {
-  --file-upload-border-color: var(--field-border-hover);
+@media (hover: hover) and (pointer: fine) {
+  .file-upload:not(.file-upload--disabled):not(.file-upload--dragging):not(.file-upload--error)
+    .file-upload__dropzone:hover {
+    --file-upload-border-color: var(--field-border-hover);
+  }
 }
 
 .file-upload--dragging:not(.file-upload--disabled) {

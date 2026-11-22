@@ -192,10 +192,20 @@
 
   --opacity-hidden: 0;
   --opacity-visible: 1;
-  --scale-modal-closed: 0.97;
-  --duration-fast: 150ms;
-  --duration-normal: 220ms;
-  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --scale-press: 0.97;
+  --scale-press-subtle: 0.98;
+  --scale-modal-closed: 0.96;
+  --scale-popover-closed: 0.95;
+  --duration-fast: 160ms;
+  --duration-normal: 200ms;
+  --duration-modal: 250ms;
+  --duration-drawer: 400ms;
+  --duration-toast: 400ms;
+  --easing-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --easing-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --easing-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --easing-hover: ease;
+  --easing-standard: var(--easing-out);
   --z-sticky: 100;
   --z-dropdown: 200;
   --z-backdrop: 300;

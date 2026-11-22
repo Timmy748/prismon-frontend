@@ -66,7 +66,11 @@ const emit = defineEmits<{
   --file-attachment-card-remove-color: var(--icon-primary);
   --file-attachment-card-remove-shadow-focus: var(--shadow-focus-ring);
   --file-attachment-card-transition-duration: var(--duration-fast);
-  --file-attachment-card-transition-easing: var(--easing-standard);
+  --file-attachment-card-transition-easing: var(--easing-out);
+  --file-attachment-card-enter-duration: var(--duration-normal);
+  --file-attachment-card-enter-scale: var(--scale-modal-closed);
+  --file-attachment-card-remove-scale-closed: var(--scale-popover-closed);
+  --file-attachment-card-press-scale: var(--scale-press);
   --file-attachment-card-filename-color: var(--text-primary);
   --file-attachment-card-filename-font-family: var(--type-body-compact-02-font-family);
   --file-attachment-card-filename-font-size: var(--type-body-compact-02-font-size);
@@ -89,6 +93,19 @@ const emit = defineEmits<{
   background-color: var(--file-attachment-card-bg);
   border: var(--file-attachment-card-border-width) solid var(--file-attachment-card-border-color);
   border-radius: var(--file-attachment-card-radius);
+  opacity: var(--opacity-visible);
+  transform: scale(1);
+  transition:
+    opacity var(--file-attachment-card-enter-duration) var(--file-attachment-card-transition-easing),
+    transform var(--file-attachment-card-enter-duration)
+      var(--file-attachment-card-transition-easing);
+}
+
+@starting-style {
+  .file-attachment-card {
+    opacity: var(--opacity-hidden);
+    transform: scale(var(--file-attachment-card-enter-scale));
+  }
 }
 
 .file-attachment-card__thumbnail {
@@ -152,26 +169,56 @@ const emit = defineEmits<{
   border-radius: var(--file-attachment-card-radius);
   cursor: pointer;
   opacity: var(--opacity-hidden);
+  transform: scale(var(--file-attachment-card-remove-scale-closed));
   pointer-events: none;
   transition:
     opacity var(--file-attachment-card-transition-duration)
       var(--file-attachment-card-transition-easing),
-    background-color var(--file-attachment-card-transition-duration)
-      var(--file-attachment-card-transition-easing);
+    transform var(--file-attachment-card-transition-duration)
+      var(--file-attachment-card-transition-easing),
+    background-color var(--file-attachment-card-transition-duration) var(--easing-hover);
 }
 
-.file-attachment-card:hover .file-attachment-card__remove,
 .file-attachment-card:focus-within .file-attachment-card__remove {
   opacity: var(--opacity-visible);
+  transform: scale(1);
   pointer-events: auto;
 }
 
-.file-attachment-card__remove:hover {
-  background-color: var(--file-attachment-card-remove-bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .file-attachment-card:hover .file-attachment-card__remove {
+    opacity: var(--opacity-visible);
+    transform: scale(1);
+    pointer-events: auto;
+  }
+
+  .file-attachment-card__remove:hover {
+    background-color: var(--file-attachment-card-remove-bg-hover);
+  }
+}
+
+@media (hover: none) {
+  .file-attachment-card .file-attachment-card__remove {
+    opacity: var(--opacity-visible);
+    transform: scale(1);
+    pointer-events: auto;
+  }
+}
+
+.file-attachment-card__remove:active {
+  transform: scale(var(--file-attachment-card-press-scale));
 }
 
 .file-attachment-card__remove:focus-visible {
   outline: none;
   box-shadow: var(--file-attachment-card-remove-shadow-focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-attachment-card {
+    --file-attachment-card-enter-scale: 1;
+    --file-attachment-card-remove-scale-closed: 1;
+    --file-attachment-card-press-scale: 1;
+  }
 }
 </style>

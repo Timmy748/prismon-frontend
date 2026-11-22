@@ -19,7 +19,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const DRAG_THRESHOLD_PX = 4
 const LINE_SCROLL_PX = 16
-const MOBILE_MEDIA_QUERY = '(max-width: 767px), (pointer: coarse)'
+const MOBILE_MEDIA_QUERY = '(max-width: 767px)'
 
 const trackRef = ref<HTMLDivElement | null>(null)
 const canScrollStart = ref(false)

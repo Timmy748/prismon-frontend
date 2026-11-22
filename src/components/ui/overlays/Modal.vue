@@ -112,8 +112,9 @@ useEscapeKey(() => props.open, handleClose)
   --modal-subtitle-text-transform: var(--type-label-01-text-transform);
   --modal-opacity-closed: var(--opacity-hidden);
   --modal-scale-closed: var(--scale-modal-closed);
-  --modal-transition-duration: var(--duration-normal);
-  --modal-transition-easing: var(--easing-standard);
+  --modal-dialog-transform-closed: scale(var(--modal-scale-closed));
+  --modal-transition-duration: var(--duration-modal);
+  --modal-transition-easing: var(--easing-out);
 
   position: fixed;
   inset: var(--spacing-0);
@@ -153,6 +154,7 @@ useEscapeKey(() => props.open, handleClose)
   background-color: var(--modal-bg);
   border: var(--modal-border-width) solid var(--modal-border-color);
   border-radius: var(--modal-radius);
+  transform-origin: center;
 }
 
 .modal__header {
@@ -216,6 +218,8 @@ useEscapeKey(() => props.open, handleClose)
     --modal-radius: var(--radius-none);
     --modal-body-flex: 1 1 auto;
     --modal-body-max-height: none;
+    --modal-dialog-transform-closed: translateY(var(--spacing-5));
+    --modal-transition-easing: var(--easing-drawer);
   }
 }
 
@@ -239,6 +243,15 @@ useEscapeKey(() => props.open, handleClose)
 .modal-enter-from .modal__dialog,
 .modal-leave-to .modal__dialog {
   opacity: var(--modal-opacity-closed);
-  transform: scale(var(--modal-scale-closed));
+  transform: var(--modal-dialog-transform-closed);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal,
+  .modal--sm,
+  .modal--lg {
+    --modal-dialog-transform-closed: none;
+    --modal-transition-duration: var(--duration-normal);
+  }
 }
 </style>

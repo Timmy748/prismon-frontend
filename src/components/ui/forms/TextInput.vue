@@ -123,7 +123,7 @@ function handleBlur(event: FocusEvent) {
   --text-input-font-weight: var(--type-body-compact-02-font-weight);
   --text-input-text-transform: var(--type-body-compact-02-text-transform);
   --text-input-transition-duration: var(--duration-fast);
-  --text-input-transition-easing: var(--easing-standard);
+  --text-input-transition-easing: var(--easing-hover);
   --text-input-cursor: text;
 
   display: flex;
@@ -184,8 +184,10 @@ function handleBlur(event: FocusEvent) {
   text-transform: var(--text-input-text-transform);
 }
 
-.text-input:not(.text-input--disabled):not(.text-input--focused):not(.text-input--error):hover {
-  --text-input-border-color: var(--field-border-hover);
+@media (hover: hover) and (pointer: fine) {
+  .text-input:not(.text-input--disabled):not(.text-input--focused):not(.text-input--error):hover {
+    --text-input-border-color: var(--field-border-hover);
+  }
 }
 
 .text-input:focus-within:not(.text-input--disabled),

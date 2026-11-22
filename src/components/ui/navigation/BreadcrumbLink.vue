@@ -52,7 +52,9 @@ const linkClasses = computed(() => [
   --breadcrumb-link-text-transform: var(--type-body-compact-02-text-transform);
   --breadcrumb-link-shadow-focus: var(--shadow-focus-ring);
   --breadcrumb-link-transition-duration: var(--duration-fast);
-  --breadcrumb-link-transition-easing: var(--easing-standard);
+  --breadcrumb-link-transition-easing: var(--easing-out);
+  --breadcrumb-link-hover-transition-easing: var(--easing-hover);
+  --breadcrumb-link-press-scale: var(--scale-press);
   --breadcrumb-link-cursor: pointer;
 
   display: inline-flex;
@@ -77,13 +79,26 @@ const linkClasses = computed(() => [
   white-space: nowrap;
   cursor: var(--breadcrumb-link-cursor);
   transition:
+    transform var(--breadcrumb-link-transition-duration) var(--breadcrumb-link-transition-easing),
     background-color var(--breadcrumb-link-transition-duration)
-      var(--breadcrumb-link-transition-easing),
-    color var(--breadcrumb-link-transition-duration) var(--breadcrumb-link-transition-easing);
+      var(--breadcrumb-link-hover-transition-easing),
+    color var(--breadcrumb-link-transition-duration) var(--breadcrumb-link-hover-transition-easing);
 }
 
-.breadcrumb-link:not(.breadcrumb-link--current) .breadcrumb-link__control:hover {
-  background-color: var(--breadcrumb-link-bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .breadcrumb-link:not(.breadcrumb-link--current) .breadcrumb-link__control:hover {
+    background-color: var(--breadcrumb-link-bg-hover);
+  }
+}
+
+.breadcrumb-link:not(.breadcrumb-link--current) .breadcrumb-link__control:active {
+  transform: scale(var(--breadcrumb-link-press-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breadcrumb-link {
+    --breadcrumb-link-press-scale: 1;
+  }
 }
 
 .breadcrumb-link__control:focus-visible {

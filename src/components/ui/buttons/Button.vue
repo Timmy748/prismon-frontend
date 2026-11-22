@@ -69,7 +69,9 @@ const buttonClasses = computed(() => [
   --button-font-weight: var(--type-body-compact-02-font-weight);
   --button-text-transform: var(--type-body-compact-02-text-transform);
   --button-transition-duration: var(--duration-fast);
-  --button-transition-easing: var(--easing-standard);
+  --button-transition-easing: var(--easing-out);
+  --button-hover-transition-easing: var(--easing-hover);
+  --button-press-scale: var(--scale-press);
   --button-cursor: pointer;
 
   display: inline-flex;
@@ -94,22 +96,32 @@ const buttonClasses = computed(() => [
   white-space: nowrap;
   cursor: var(--button-cursor);
   transition:
-    background-color var(--button-transition-duration) var(--button-transition-easing),
-    color var(--button-transition-duration) var(--button-transition-easing),
-    border-color var(--button-transition-duration) var(--button-transition-easing),
-    box-shadow var(--button-transition-duration) var(--button-transition-easing);
+    transform var(--button-transition-duration) var(--button-transition-easing),
+    background-color var(--button-transition-duration) var(--button-hover-transition-easing),
+    color var(--button-transition-duration) var(--button-hover-transition-easing),
+    border-color var(--button-transition-duration) var(--button-hover-transition-easing),
+    box-shadow var(--button-transition-duration) var(--button-hover-transition-easing);
 }
 
-.button:hover:not(:disabled):not(.button--disabled) {
-  background-color: var(--button-bg-hover);
-  border-color: var(--button-border-color-hover);
-  box-shadow: var(--button-shadow-hover);
+@media (hover: hover) and (pointer: fine) {
+  .button:hover:not(:disabled):not(.button--disabled) {
+    background-color: var(--button-bg-hover);
+    border-color: var(--button-border-color-hover);
+    box-shadow: var(--button-shadow-hover);
+  }
 }
 
 .button:active:not(:disabled):not(.button--disabled) {
   background-color: var(--button-bg-active);
   border-color: var(--button-border-color-active);
   box-shadow: var(--button-shadow-active);
+  transform: scale(var(--button-press-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    --button-press-scale: 1;
+  }
 }
 
 .button:focus-visible {

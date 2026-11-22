@@ -121,7 +121,7 @@ function handleBlur(event: FocusEvent) {
   --text-area-font-weight: var(--type-body-compact-02-font-weight);
   --text-area-text-transform: var(--type-body-compact-02-text-transform);
   --text-area-transition-duration: var(--duration-fast);
-  --text-area-transition-easing: var(--easing-standard);
+  --text-area-transition-easing: var(--easing-hover);
   --text-area-cursor: text;
 
   display: flex;
@@ -183,8 +183,10 @@ function handleBlur(event: FocusEvent) {
   text-transform: var(--text-area-text-transform);
 }
 
-.text-area:not(.text-area--disabled):not(.text-area--focused):not(.text-area--error):hover {
-  --text-area-border-color: var(--field-border-hover);
+@media (hover: hover) and (pointer: fine) {
+  .text-area:not(.text-area--disabled):not(.text-area--focused):not(.text-area--error):hover {
+    --text-area-border-color: var(--field-border-hover);
+  }
 }
 
 .text-area:focus-within:not(.text-area--disabled),

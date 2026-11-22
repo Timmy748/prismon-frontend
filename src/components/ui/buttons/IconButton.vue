@@ -65,7 +65,9 @@ const buttonClasses = computed(() => [
   --icon-button-padding: var(--spacing-3);
   --icon-button-radius: var(--radius-none);
   --icon-button-transition-duration: var(--duration-fast);
-  --icon-button-transition-easing: var(--easing-standard);
+  --icon-button-transition-easing: var(--easing-out);
+  --icon-button-hover-transition-easing: var(--easing-hover);
+  --icon-button-press-scale: var(--scale-press);
   --icon-button-cursor: pointer;
 
   display: inline-flex;
@@ -83,22 +85,33 @@ const buttonClasses = computed(() => [
   box-shadow: var(--icon-button-shadow);
   cursor: var(--icon-button-cursor);
   transition:
-    background-color var(--icon-button-transition-duration) var(--icon-button-transition-easing),
-    color var(--icon-button-transition-duration) var(--icon-button-transition-easing),
-    border-color var(--icon-button-transition-duration) var(--icon-button-transition-easing),
-    box-shadow var(--icon-button-transition-duration) var(--icon-button-transition-easing);
+    transform var(--icon-button-transition-duration) var(--icon-button-transition-easing),
+    background-color var(--icon-button-transition-duration)
+      var(--icon-button-hover-transition-easing),
+    color var(--icon-button-transition-duration) var(--icon-button-hover-transition-easing),
+    border-color var(--icon-button-transition-duration) var(--icon-button-hover-transition-easing),
+    box-shadow var(--icon-button-transition-duration) var(--icon-button-hover-transition-easing);
 }
 
-.icon-button:hover:not(:disabled):not(.icon-button--disabled) {
-  background-color: var(--icon-button-bg-hover);
-  border-color: var(--icon-button-border-color-hover);
-  box-shadow: var(--icon-button-shadow-hover);
+@media (hover: hover) and (pointer: fine) {
+  .icon-button:hover:not(:disabled):not(.icon-button--disabled) {
+    background-color: var(--icon-button-bg-hover);
+    border-color: var(--icon-button-border-color-hover);
+    box-shadow: var(--icon-button-shadow-hover);
+  }
 }
 
 .icon-button:active:not(:disabled):not(.icon-button--disabled) {
   background-color: var(--icon-button-bg-active);
   border-color: var(--icon-button-border-color-active);
   box-shadow: var(--icon-button-shadow-active);
+  transform: scale(var(--icon-button-press-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-button {
+    --icon-button-press-scale: 1;
+  }
 }
 
 .icon-button:focus-visible {

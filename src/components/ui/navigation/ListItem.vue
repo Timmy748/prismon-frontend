@@ -89,7 +89,9 @@ function handleTrailingClick(event: MouseEvent) {
   --list-item-text-transform: var(--type-body-compact-01-text-transform);
   --list-item-shadow-focus: var(--shadow-focus-ring);
   --list-item-transition-duration: var(--duration-fast);
-  --list-item-transition-easing: var(--easing-standard);
+  --list-item-transition-easing: var(--easing-out);
+  --list-item-hover-transition-easing: var(--easing-hover);
+  --list-item-press-scale: var(--scale-press);
 
   display: flex;
   align-items: center;
@@ -103,12 +105,14 @@ function handleTrailingClick(event: MouseEvent) {
   color: var(--list-item-color);
   border-radius: var(--list-item-radius);
   transition:
-    background-color var(--list-item-transition-duration) var(--list-item-transition-easing),
-    color var(--list-item-transition-duration) var(--list-item-transition-easing);
+    background-color var(--list-item-transition-duration) var(--list-item-hover-transition-easing),
+    color var(--list-item-transition-duration) var(--list-item-hover-transition-easing);
 }
 
-.list-item:hover {
-  background-color: var(--list-item-bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .list-item:hover {
+    background-color: var(--list-item-bg-hover);
+  }
 }
 
 .list-item__trigger {
@@ -160,6 +164,17 @@ function handleTrailingClick(event: MouseEvent) {
   background-color: var(--list-item-control-bg);
   color: inherit;
   cursor: pointer;
+  transition: transform var(--list-item-transition-duration) var(--list-item-transition-easing);
+}
+
+.list-item__trailing:active {
+  transform: scale(var(--list-item-press-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .list-item {
+    --list-item-press-scale: 1;
+  }
 }
 
 .list-item--with-icon {

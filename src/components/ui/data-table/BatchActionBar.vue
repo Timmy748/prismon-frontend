@@ -91,7 +91,9 @@ const resolvedSelectionLabel = computed(
   --batch-action-bar-font-weight: var(--type-body-compact-02-font-weight);
   --batch-action-bar-text-transform: var(--type-body-compact-02-text-transform);
   --batch-action-bar-transition-duration: var(--duration-fast);
-  --batch-action-bar-transition-easing: var(--easing-standard);
+  --batch-action-bar-transition-easing: var(--easing-out);
+  --batch-action-bar-hover-transition-easing: var(--easing-hover);
+  --batch-action-bar-press-scale: var(--scale-press);
   --batch-action-bar-button-cursor: pointer;
 
   display: flex;
@@ -139,12 +141,26 @@ const resolvedSelectionLabel = computed(
   text-transform: var(--batch-action-bar-text-transform);
   white-space: nowrap;
   cursor: var(--batch-action-bar-button-cursor);
-  transition: background-color var(--batch-action-bar-transition-duration)
-    var(--batch-action-bar-transition-easing);
+  transition:
+    transform var(--batch-action-bar-transition-duration) var(--batch-action-bar-transition-easing),
+    background-color var(--batch-action-bar-transition-duration)
+      var(--batch-action-bar-hover-transition-easing);
 }
 
-.batch-action-bar__button:hover {
-  --batch-action-bar-button-bg: var(--batch-action-bar-button-bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .batch-action-bar__button:hover {
+    --batch-action-bar-button-bg: var(--batch-action-bar-button-bg-hover);
+  }
+}
+
+.batch-action-bar__button:active {
+  transform: scale(var(--batch-action-bar-press-scale));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .batch-action-bar {
+    --batch-action-bar-press-scale: 1;
+  }
 }
 
 .batch-action-bar__button:focus-visible {

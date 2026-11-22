@@ -83,8 +83,11 @@ useEscapeKey(() => props.open, handleClose)
   --sheet-title-font-weight: var(--type-heading-03-font-weight);
   --sheet-title-text-transform: var(--type-heading-03-text-transform);
   --sheet-opacity-closed: var(--opacity-hidden);
-  --sheet-transition-duration: var(--duration-normal);
-  --sheet-transition-easing: var(--easing-standard);
+  --sheet-transform-closed: translateX(100%);
+  --sheet-transition-duration: var(--duration-drawer);
+  --sheet-backdrop-transition-duration: var(--duration-modal);
+  --sheet-transition-easing: var(--easing-drawer);
+  --sheet-backdrop-transition-easing: var(--easing-out);
 
   position: fixed;
   inset: var(--spacing-0);
@@ -148,7 +151,8 @@ useEscapeKey(() => props.open, handleClose)
 
 .sheet-enter-active,
 .sheet-leave-active {
-  transition: opacity var(--sheet-transition-duration) var(--sheet-transition-easing);
+  transition: opacity var(--sheet-backdrop-transition-duration)
+    var(--sheet-backdrop-transition-easing);
 }
 
 .sheet-enter-active .sheet__panel,
@@ -163,6 +167,14 @@ useEscapeKey(() => props.open, handleClose)
 
 .sheet-enter-from .sheet__panel,
 .sheet-leave-to .sheet__panel {
-  transform: translateX(100%);
+  transform: var(--sheet-transform-closed);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    --sheet-transform-closed: none;
+    --sheet-transition-duration: var(--duration-normal);
+    --sheet-backdrop-transition-duration: var(--duration-normal);
+  }
 }
 </style>

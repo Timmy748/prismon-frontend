@@ -157,7 +157,7 @@ function handleBlur() {
   --select-font-weight: var(--type-body-compact-02-font-weight);
   --select-text-transform: var(--type-body-compact-02-text-transform);
   --select-transition-duration: var(--duration-fast);
-  --select-transition-easing: var(--easing-standard);
+  --select-transition-easing: var(--easing-hover);
   --select-cursor: pointer;
 
   display: flex;
@@ -252,9 +252,11 @@ function handleBlur() {
   --select-color: var(--text-placeholder);
 }
 
-.select:not(.select--disabled):not(.select--focused):not(.select--error):hover {
-  --select-bg: var(--select-bg-hover);
-  --select-border-color: var(--select-border-hover);
+@media (hover: hover) and (pointer: fine) {
+  .select:not(.select--disabled):not(.select--focused):not(.select--error):hover {
+    --select-bg: var(--select-bg-hover);
+    --select-border-color: var(--select-border-hover);
+  }
 }
 
 .select:focus-within:not(.select--disabled),

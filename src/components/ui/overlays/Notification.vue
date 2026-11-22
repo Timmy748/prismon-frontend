@@ -61,6 +61,9 @@ const role = computed(() => (props.variant === 'danger' ? 'alert' : 'status'))
   --notification-message-line-height: var(--type-body-compact-02-line-height);
   --notification-message-font-weight: var(--type-body-compact-02-font-weight);
   --notification-message-text-transform: var(--type-body-compact-02-text-transform);
+  --notification-enter-duration: var(--duration-toast);
+  --notification-enter-easing: var(--easing-hover);
+  --notification-enter-transform: translateY(var(--spacing-3));
 
   display: flex;
   align-items: flex-start;
@@ -71,6 +74,25 @@ const role = computed(() => (props.variant === 'danger' ? 'alert' : 'status'))
   background-color: var(--notification-bg);
   border: var(--notification-border-width) solid var(--notification-border-color);
   border-radius: var(--notification-radius);
+  opacity: var(--opacity-visible);
+  transform: translateY(0);
+  transition:
+    opacity var(--notification-enter-duration) var(--notification-enter-easing),
+    transform var(--notification-enter-duration) var(--notification-enter-easing);
+}
+
+@starting-style {
+  .notification {
+    opacity: var(--opacity-hidden);
+    transform: var(--notification-enter-transform);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notification {
+    --notification-enter-transform: none;
+    --notification-enter-duration: var(--duration-normal);
+  }
 }
 
 .notification--default {

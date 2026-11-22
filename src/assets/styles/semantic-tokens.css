@@ -126,4 +126,5 @@
     var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
   --shadow-button-disabled: var(--shadow-button-drop);
   --shadow-focus-ring: 0 0 0 2px var(--focus-ring);
+  --shadow-toast: 0 4px 16px rgba(8, 7, 8, 0.08);
 }

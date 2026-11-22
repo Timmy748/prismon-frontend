@@ -23,6 +23,8 @@ import {
   Sheet,
   Drawer,
   Notification,
+  Toaster,
+  toast,
   DataTable,
   Pagination,
   BatchActionBar,
@@ -44,6 +46,8 @@ import {
   type SelectOption,
   type TabOption,
   type BreadcrumbItem,
+  type ToastPosition,
+  type DrawerSnapPoint,
   type DataTableColumn,
   type BatchAction,
   type AiAttachmentItem,
@@ -155,7 +159,82 @@ const confirmPrimaryOpen = ref(false)
 const confirmDangerOpen = ref(false)
 const sheetOpen = ref(false)
 const drawerOpen = ref(false)
+const drawerSnapOpen = ref(false)
+const drawerActiveSnap = ref<DrawerSnapPoint>(0.45)
 const lastOverlayFeedback = ref('Nenhuma ação disparada ainda.')
+
+const toastPosition = ref<ToastPosition>('bottom-right')
+const toastExpand = ref(false)
+const toastRichColors = ref(false)
+const toastInvert = ref(false)
+const toastCloseButton = ref(true)
+
+const TOAST_POSITIONS: ToastPosition[] = [
+  'bottom-right',
+  'bottom-center',
+  'bottom-left',
+  'top-right',
+  'top-center',
+  'top-left',
+]
+
+function cycleToastPosition() {
+  const idx = TOAST_POSITIONS.indexOf(toastPosition.value)
+  toastPosition.value = TOAST_POSITIONS[(idx + 1) % TOAST_POSITIONS.length]!
+}
+
+function triggerDefaultToast() {
+  toast('Documento atualizado', {
+    description: 'As alterações foram salvas no repositório.',
+  })
+}
+
+function triggerSuccessToast() {
+  toast.success('Sincronização concluída', {
+    description: 'Todos os componentes e tokens estão atualizados.',
+  })
+}
+
+function triggerErrorToast() {
+  toast.error('Falha ao processar arquivo', {
+    description: 'Não foi possível indexar o PDF enviado.',
+  })
+}
+
+function triggerWarningToast() {
+  toast.warning('Metadados pendentes', {
+    description: 'Adicione ao menos uma tag antes de publicar.',
+  })
+}
+
+function triggerActionToast() {
+  toast('Documento arquivado', {
+    description: 'Você pode reverter esta ação imediatamente.',
+    action: {
+      label: 'Desfazer',
+      onClick: () => {
+        lastOverlayFeedback.value = 'Ação "Desfazer" executada pelo Toast.'
+      },
+    },
+    cancel: {
+      label: 'Dispensar',
+      onClick: () => {
+        lastOverlayFeedback.value = 'Toast dispensado pelo botão secundário.'
+      },
+    },
+  })
+}
+
+function triggerPromiseToast() {
+  const work = new Promise<string>((resolve) => {
+    window.setTimeout(() => resolve('manual-marca-v2.pdf'), 1200)
+  })
+  void toast.promise(work, {
+    loading: 'Indexando embeddings do documento...',
+    success: (filename) => `Arquivo "${filename}" pronto no contexto`,
+    error: 'Falha ao indexar documento',
+  })
+}
 
 function handleConfirmPrimary() {
   confirmPrimaryOpen.value = false
@@ -577,7 +656,7 @@ function handleTagFormSubmit(payload: TagFormPayload) {
         <div class="preview__section-header">
           <h2 class="type-heading-04 preview__section-title">overlays &amp; feedback</h2>
           <span class="type-body-compact-01 preview__section-meta">
-            `Modal`, `ConfirmDialog`, `Sheet`, `Drawer` e `Notification`
+            `Modal`, `ConfirmDialog`, `Sheet`, `Drawer` (Vaul), `Toaster` (Sonner) e `Notification`
           </span>
         </div>
 
@@ -588,9 +667,47 @@ function handleTagFormSubmit(payload: TagFormPayload) {
             <Button variant="tertiary" @click="confirmPrimaryOpen = true">ConfirmDialog</Button>
             <Button variant="danger" @click="confirmDangerOpen = true">ConfirmDialog Danger</Button>
             <Button variant="tertiary" @click="sheetOpen = true">Abrir Sheet</Button>
-            <Button variant="tertiary" @click="drawerOpen = true">Abrir Drawer</Button>
+            <Button variant="tertiary" @click="drawerOpen = true">Abrir Drawer (Vaul)</Button>
+            <Button variant="tertiary" @click="drawerSnapOpen = true">Drawer Snap Points</Button>
           </div>
           <span class="type-helper-text-01 preview__hint">{{ lastOverlayFeedback }}</span>
+
+          <div class="preview__stack">
+            <span class="type-label-01 preview__card-label">
+              Toasts (Sonner — arraste na direção da borda ou passe o mouse para expandir a pilha)
+            </span>
+            <div class="preview__row">
+              <Button variant="primary" size="sm" @click="triggerDefaultToast">Toast padrão</Button>
+              <Button variant="secondary" size="sm" @click="triggerSuccessToast">
+                Toast success
+              </Button>
+              <Button variant="danger" size="sm" @click="triggerErrorToast">Toast error</Button>
+              <Button variant="tertiary" size="sm" @click="triggerWarningToast">
+                Toast warning
+              </Button>
+              <Button variant="tertiary" size="sm" @click="triggerActionToast">
+                Toast com ação
+              </Button>
+              <Button variant="tertiary" size="sm" @click="triggerPromiseToast">
+                Toast promise
+              </Button>
+              <Button variant="ghost" size="sm" @click="toast.dismiss()">Dispensar todos</Button>
+            </div>
+            <div class="preview__row">
+              <Button variant="tertiary" size="sm" @click="cycleToastPosition">
+                Posição: {{ toastPosition }}
+              </Button>
+              <Button variant="tertiary" size="sm" @click="toastExpand = !toastExpand">
+                Expandir pilha: {{ toastExpand ? 'sim' : 'hover' }}
+              </Button>
+              <Button variant="tertiary" size="sm" @click="toastRichColors = !toastRichColors">
+                Rich colors: {{ toastRichColors ? 'on' : 'off' }}
+              </Button>
+              <Button variant="tertiary" size="sm" @click="toastInvert = !toastInvert">
+                Invert: {{ toastInvert ? 'on' : 'off' }}
+              </Button>
+            </div>
+          </div>
 
           <div class="preview__split">
             <Notification
@@ -915,12 +1032,57 @@ function handleTagFormSubmit(payload: TagFormPayload) {
     </Sheet>
 
     <Drawer v-model:open="drawerOpen" @close="lastOverlayFeedback = 'Drawer fechado.'">
+      <template #header>
+        <h3 class="type-heading-03">gaveta inferior (vaul)</h3>
+      </template>
+
       <div class="preview__stack">
-        <h3 class="type-heading-03">gaveta inferior</h3>
-        <p class="type-body-01">Conteúdo exibido no Drawer com handle central.</p>
-        <Button variant="primary" @click="drawerOpen = false">Fechar drawer</Button>
+        <p class="type-body-01">
+          Arraste pelo handle ou pelo corpo para baixo para dispensar por distância ou velocidade
+          (com rubber-band no topo e handoff de scroll).
+        </p>
+        <ListItem
+          v-for="item in [1, 2, 3, 4, 5, 6]"
+          :key="item"
+          :label="`Ação rápida #${item}`"
+          icon="documents"
+        />
+      </div>
+
+      <template #footer>
+        <Button variant="tertiary" fullWidth @click="drawerOpen = false">Fechar drawer</Button>
+      </template>
+    </Drawer>
+
+    <Drawer
+      v-model:open="drawerSnapOpen"
+      v-model:activeSnapPoint="drawerActiveSnap"
+      :snapPoints="[0.45, 0.9]"
+      ariaLabel="Drawer com pontos de encaixe"
+      @close="lastOverlayFeedback = 'Drawer snap fechado.'"
+    >
+      <template #header>
+        <h3 class="type-heading-03">snap points ({{ drawerActiveSnap }})</h3>
+      </template>
+
+      <div class="preview__stack">
+        <p class="type-body-01">
+          Arraste para cima ou para baixo para alternar entre 45% e 90%, ou puxe rápido para fechar.
+        </p>
+        <div class="preview__row">
+          <Button variant="tertiary" size="sm" @click="drawerActiveSnap = 0.45">Snap 45%</Button>
+          <Button variant="primary" size="sm" @click="drawerActiveSnap = 0.9">Snap 90%</Button>
+        </div>
       </div>
     </Drawer>
+
+    <Toaster
+      :position="toastPosition"
+      :expand="toastExpand"
+      :richColors="toastRichColors"
+      :invert="toastInvert"
+      :closeButton="toastCloseButton"
+    />
   </div>
 </template>
 

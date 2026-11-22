@@ -95,8 +95,9 @@ useEscapeKey(() => props.open, handleCancel)
   --confirm-dialog-description-text-transform: var(--type-body-compact-02-text-transform);
   --confirm-dialog-opacity-closed: var(--opacity-hidden);
   --confirm-dialog-scale-closed: var(--scale-modal-closed);
-  --confirm-dialog-transition-duration: var(--duration-normal);
-  --confirm-dialog-transition-easing: var(--easing-standard);
+  --confirm-dialog-transform-closed: scale(var(--confirm-dialog-scale-closed));
+  --confirm-dialog-transition-duration: var(--duration-modal);
+  --confirm-dialog-transition-easing: var(--easing-out);
 
   position: fixed;
   inset: var(--spacing-0);
@@ -126,6 +127,7 @@ useEscapeKey(() => props.open, handleCancel)
   background-color: var(--confirm-dialog-bg);
   border: var(--confirm-dialog-border-width) solid var(--confirm-dialog-border-color);
   border-radius: var(--confirm-dialog-radius);
+  transform-origin: center;
 }
 
 .confirm-dialog__content {
@@ -182,6 +184,13 @@ useEscapeKey(() => props.open, handleCancel)
 .confirm-dialog-enter-from .confirm-dialog__dialog,
 .confirm-dialog-leave-to .confirm-dialog__dialog {
   opacity: var(--confirm-dialog-opacity-closed);
-  transform: scale(var(--confirm-dialog-scale-closed));
+  transform: var(--confirm-dialog-transform-closed);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirm-dialog {
+    --confirm-dialog-transform-closed: none;
+    --confirm-dialog-transition-duration: var(--duration-normal);
+  }
 }
 </style>
