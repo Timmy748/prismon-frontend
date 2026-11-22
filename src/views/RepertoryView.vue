@@ -1337,6 +1337,50 @@ function executeBatchDeletion() {
       size="md"
       :title="activeItemKind === 'asset' ? 'detalhes do asset' : 'detalhes do documento'"
     >
+      <template #preview>
+        <div
+          v-if="activeItem"
+          :class="[
+            'repertory-view__preview-stage',
+            activeItemKind === 'asset'
+              ? 'repertory-view__preview-stage--asset'
+              : 'repertory-view__preview-stage--document',
+          ]"
+        >
+          <template v-if="activeItemKind === 'asset' && activeAsset">
+            <img
+              :src="activeAsset.thumbnailUrl"
+              :alt="`Pré-visualização de ${activeAsset.title}`"
+              class="repertory-view__preview-image"
+            />
+            <footer class="repertory-view__preview-footer">
+              <div class="repertory-view__preview-footer-left">
+                <Badge :label="activeAsset.format" />
+                <span class="repertory-view__preview-title">{{ activeAsset.title }}</span>
+              </div>
+              <span class="repertory-view__preview-meta">{{ activeAsset.meta }}</span>
+            </footer>
+          </template>
+
+          <template v-else-if="activeDocument">
+            <header class="repertory-view__preview-doc-header">
+              <div class="repertory-view__preview-footer-left">
+                <Icon name="documents" size="md" color="helper" />
+                <span class="repertory-view__preview-title">{{ activeDocument.title }}</span>
+              </div>
+              <div class="repertory-view__preview-doc-badges">
+                <span class="repertory-view__preview-meta">{{ activeDocument.meta }}</span>
+                <Badge :label="activeDocument.format" />
+              </div>
+            </header>
+            <div class="repertory-view__preview-doc-body">
+              <p class="repertory-view__preview-excerpt">{{ activeDocument.excerpt }}</p>
+              <p class="repertory-view__preview-doc-note">{{ activeDocument.description }}</p>
+            </div>
+          </template>
+        </div>
+      </template>
+
       <div v-if="activeItem" class="repertory-view__sheet-content">
         <RepertoryItemDetails
           :title="activeItem.title"
@@ -1345,11 +1389,6 @@ function executeBatchDeletion() {
           :history="activeItem.history"
           :editable-tags="true"
           :show-add-tag="true"
-          :preview-type="activeItemKind === 'asset' ? 'image' : 'document'"
-          :preview-url="activeAsset?.thumbnailUrl"
-          :preview-label="activeItem.format"
-          :preview-meta="activeItem.meta"
-          :preview-excerpt="activeDocument?.excerpt"
           @add-tag="openAddTagToItemModal"
           @remove-tag="(tagId) => handleRemoveItemTag(tagId)"
         >
@@ -1656,6 +1695,119 @@ function executeBatchDeletion() {
   display: flex;
   flex-direction: column;
   gap: var(--repertory-view-sheet-gap);
+}
+
+.repertory-view__preview-stage {
+  --repertory-preview-bg: var(--surface-elevated);
+  --repertory-preview-doc-bg: var(--surface-subtle);
+  --repertory-preview-placeholder-bg: var(--surface-placeholder);
+  --repertory-preview-border-color: var(--border-subtle-1);
+  --repertory-preview-border-width: var(--border-width-thin);
+  --repertory-preview-padding: var(--spacing-5);
+  --repertory-preview-gap: var(--spacing-4);
+  --repertory-preview-title-color: var(--text-primary);
+  --repertory-preview-title-font-family: var(--type-heading-02-font-family);
+  --repertory-preview-title-font-size: var(--type-heading-02-font-size);
+  --repertory-preview-title-line-height: var(--type-heading-02-line-height);
+  --repertory-preview-title-font-weight: var(--type-heading-02-font-weight);
+  --repertory-preview-meta-color: var(--text-helper);
+  --repertory-preview-meta-font-family: var(--type-label-01-font-family);
+  --repertory-preview-meta-font-size: var(--type-label-01-font-size);
+  --repertory-preview-meta-line-height: var(--type-label-01-line-height);
+  --repertory-preview-meta-font-weight: var(--type-label-01-font-weight);
+  --repertory-preview-body-color: var(--text-secondary);
+  --repertory-preview-body-font-family: var(--type-body-02-font-family);
+  --repertory-preview-body-font-size: var(--type-body-02-font-size);
+  --repertory-preview-body-line-height: var(--type-body-02-line-height);
+  --repertory-preview-body-font-weight: var(--type-body-02-font-weight);
+
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background-color: var(--repertory-preview-bg);
+  border: var(--repertory-preview-border-width) solid var(--repertory-preview-border-color);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.repertory-view__preview-image {
+  display: block;
+  width: 100%;
+  max-height: min(62dvh, 480px);
+  object-fit: cover;
+  background-color: var(--repertory-preview-placeholder-bg);
+}
+
+.repertory-view__preview-footer,
+.repertory-view__preview-doc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--repertory-preview-gap);
+  padding: var(--spacing-4) var(--repertory-preview-padding);
+  background-color: var(--repertory-preview-bg);
+}
+
+.repertory-view__preview-footer {
+  border-top: var(--repertory-preview-border-width) solid var(--repertory-preview-border-color);
+}
+
+.repertory-view__preview-doc-header {
+  border-bottom: var(--repertory-preview-border-width) solid var(--repertory-preview-border-color);
+}
+
+.repertory-view__preview-footer-left,
+.repertory-view__preview-doc-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  min-width: var(--spacing-0);
+}
+
+.repertory-view__preview-title {
+  color: var(--repertory-preview-title-color);
+  font-family: var(--repertory-preview-title-font-family);
+  font-size: var(--repertory-preview-title-font-size);
+  line-height: var(--repertory-preview-title-line-height);
+  font-weight: var(--repertory-preview-title-font-weight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repertory-view__preview-meta {
+  color: var(--repertory-preview-meta-color);
+  font-family: var(--repertory-preview-meta-font-family);
+  font-size: var(--repertory-preview-meta-font-size);
+  line-height: var(--repertory-preview-meta-line-height);
+  font-weight: var(--repertory-preview-meta-font-weight);
+}
+
+.repertory-view__preview-doc-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  padding: var(--spacing-6) var(--repertory-preview-padding);
+  min-height: 280px;
+  max-height: min(62dvh, 480px);
+  overflow-y: auto;
+  background-color: var(--repertory-preview-doc-bg);
+}
+
+.repertory-view__preview-excerpt,
+.repertory-view__preview-doc-note {
+  margin: var(--repertory-view-reset-spacing);
+  color: var(--repertory-preview-body-color);
+  font-family: var(--repertory-preview-body-font-family);
+  font-size: var(--repertory-preview-body-font-size);
+  line-height: var(--repertory-preview-body-line-height);
+  font-weight: var(--repertory-preview-body-font-weight);
+  white-space: pre-line;
+}
+
+.repertory-view__preview-doc-note {
+  color: var(--repertory-preview-meta-color);
 }
 
 .repertory-view__tag-modal {

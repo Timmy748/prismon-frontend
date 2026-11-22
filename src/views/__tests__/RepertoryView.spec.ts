@@ -106,10 +106,12 @@ describe('RepertoryView', () => {
     expect(details.exists()).toBe(true)
     expect(details.props('title')).toBe(visibleCards[0]?.props('title'))
     expect(details.props('editableTags')).toBe(true)
-    expect(details.props('previewType')).toBe('document')
-    expect(details.find('.repertory-item-details__preview-excerpt').text().length).toBeGreaterThan(
-      10,
-    )
+
+    // Preview must sit on the left stage of Sheet (#preview), not inside the right details panel
+    const stage = sheet.find('.sheet__stage')
+    expect(stage.exists()).toBe(true)
+    expect(stage.find('.repertory-view__preview-excerpt').text().length).toBeGreaterThan(10)
+    expect(details.find('.repertory-item-details__preview').exists()).toBe(false)
 
     // Footer download button must NOT exist; only header IconButton download exists
     expect(sheet.find('.repertory-view__sheet-actions').exists()).toBe(false)
@@ -218,8 +220,10 @@ describe('RepertoryView', () => {
     expect(sheet.find('.repertory-view__sheet-actions').exists()).toBe(false)
 
     const details = sheet.findComponent(RepertoryItemDetails)
-    expect(details.props('previewType')).toBe('image')
-    const previewImg = details.find('img.repertory-item-details__preview-image')
+    expect(details.exists()).toBe(true)
+    const stage = sheet.find('.sheet__stage')
+    expect(stage.exists()).toBe(true)
+    const previewImg = stage.find('img.repertory-view__preview-image')
     expect(previewImg.exists()).toBe(true)
     expect(previewImg.attributes('src')).toBeTruthy()
 

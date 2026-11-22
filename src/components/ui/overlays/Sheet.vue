@@ -52,6 +52,11 @@ useEscapeKey(() => props.open, handleClose)
     <Transition name="sheet">
       <div v-if="open" :class="sheetClasses">
         <div class="sheet__backdrop" @click.self="handleBackdropClick">
+          <div v-if="$slots.preview" class="sheet__stage" @click.self="handleBackdropClick">
+            <div class="sheet__preview-frame">
+              <slot name="preview" />
+            </div>
+          </div>
           <aside class="sheet__panel" role="dialog" aria-modal="true" :aria-labelledby="titleId">
             <header class="sheet__header">
               <h2 :id="titleId" class="sheet__title">{{ title }}</h2>
@@ -94,6 +99,9 @@ useEscapeKey(() => props.open, handleClose)
   --sheet-title-text-transform: var(--type-heading-03-text-transform);
   --sheet-opacity-closed: var(--opacity-hidden);
   --sheet-transform-closed: translateX(100%);
+  --sheet-stage-padding: var(--spacing-7);
+  --sheet-preview-max-width: 600px;
+  --sheet-preview-scale-closed: var(--scale-modal-closed);
   --sheet-transition-duration: var(--duration-drawer);
   --sheet-backdrop-transition-duration: var(--duration-modal);
   --sheet-transition-easing: var(--easing-drawer);
@@ -120,6 +128,28 @@ useEscapeKey(() => props.open, handleClose)
   justify-content: flex-end;
   align-items: stretch;
   background-color: var(--sheet-backdrop-bg);
+}
+
+.sheet__stage {
+  flex: 1;
+  min-width: var(--spacing-0);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sheet-stage-padding);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.sheet__preview-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: var(--sheet-preview-max-width);
+  max-height: 100%;
+  transform-origin: center;
 }
 
 .sheet__panel {
@@ -170,6 +200,13 @@ useEscapeKey(() => props.open, handleClose)
   transition: transform var(--sheet-transition-duration) var(--sheet-transition-easing);
 }
 
+.sheet-enter-active .sheet__preview-frame,
+.sheet-leave-active .sheet__preview-frame {
+  transition:
+    opacity var(--sheet-backdrop-transition-duration) var(--sheet-backdrop-transition-easing),
+    transform var(--sheet-backdrop-transition-duration) var(--sheet-backdrop-transition-easing);
+}
+
 .sheet-enter-from,
 .sheet-leave-to {
   opacity: var(--sheet-opacity-closed);
@@ -180,9 +217,39 @@ useEscapeKey(() => props.open, handleClose)
   transform: var(--sheet-transform-closed);
 }
 
+.sheet-enter-from .sheet__preview-frame,
+.sheet-leave-to .sheet__preview-frame {
+  opacity: var(--sheet-opacity-closed);
+  transform: scale(var(--sheet-preview-scale-closed));
+}
+
+@media (max-width: 767px) {
+  .sheet__backdrop {
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .sheet__stage {
+    flex: 0 0 auto;
+    height: auto;
+    max-height: 36dvh;
+    padding: var(--spacing-4);
+  }
+
+  .sheet__panel {
+    flex: 1 1 auto;
+    max-width: 100%;
+    height: auto;
+    min-height: var(--spacing-0);
+    border-left: none;
+    border-top: var(--sheet-border-width) solid var(--sheet-border-color);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sheet {
     --sheet-transform-closed: none;
+    --sheet-preview-scale-closed: 1;
     --sheet-transition-duration: var(--duration-normal);
     --sheet-backdrop-transition-duration: var(--duration-normal);
   }

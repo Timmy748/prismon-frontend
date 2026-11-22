@@ -125,4 +125,25 @@ describe('Sheet', () => {
     expect(wrapper.emitted('close')).toHaveLength(1)
     expect(wrapper.emitted('update:open')).toEqual([[false]])
   })
+
+  it('renders left stage #preview slot beside the right panel and closes on stage backdrop click', async () => {
+    wrapper = mount(Sheet, {
+      props: {
+        open: true,
+        title: 'Detalhes',
+      },
+      slots: {
+        preview: '<div data-testid="sheet-left-preview">Preview visual</div>',
+        default: '<div data-testid="sheet-right-details">Metadados</div>',
+      },
+    })
+
+    const stage = wrapper.find('.sheet__stage')
+    expect(stage.exists()).toBe(true)
+    expect(stage.find('[data-testid="sheet-left-preview"]').text()).toBe('Preview visual')
+    expect(wrapper.find('.sheet__panel [data-testid="sheet-right-details"]').exists()).toBe(true)
+
+    await stage.trigger('click')
+    expect(wrapper.emitted('close')).toHaveLength(1)
+  })
 })
