@@ -1,4 +1,5 @@
 :root {
+  /* Superfícies */
   --surface-base: var(--color-gray-200);
   --surface-elevated: var(--color-gray-100);
   --surface-elevated-hover: var(--color-gray-400);
@@ -7,7 +8,17 @@
   --surface-danger-subtle: var(--color-red-100);
   --surface-disabled: var(--color-gray-300);
   --surface-inverse: var(--color-gray-1000);
+  --surface-transparent: transparent;
+  --surface-subtle: var(--color-gray-200);
+  --surface-subtle-hover: var(--color-gray-300);
+  --surface-table-header: var(--color-gray-400);
+  --surface-inverse-subtle: var(--color-gray-900);
+  --surface-backdrop: rgba(255, 255, 255, 0.05);
+  --surface-placeholder: var(--color-gray-400);
+  --surface-media-placeholder: var(--color-gray-900);
+  --surface-handle: var(--color-gray-500);
 
+  /* Textos */
   --text-primary: var(--color-gray-1100);
   --text-secondary: var(--color-gray-900);
   --text-tertiary: var(--color-gray-800);
@@ -15,44 +26,89 @@
   --text-placeholder: var(--color-gray-600);
   --text-disabled: var(--color-gray-600);
   --text-brand: var(--color-pink-600);
+  --text-brand-strong: var(--color-pink-800);
   --text-danger: var(--color-red-600);
   --text-inverse: var(--color-gray-100);
+  --text-on-inverse-subtle: var(--color-gray-100);
   --text-on-brand: var(--color-gray-100);
   --text-on-danger: var(--color-gray-100);
+  --text-on-disabled: var(--color-gray-100);
 
+  /* Ícones */
   --icon-primary: var(--color-gray-1100);
   --icon-secondary: var(--color-gray-900);
   --icon-tertiary: var(--color-gray-800);
   --icon-helper: var(--color-gray-700);
   --icon-disabled: var(--color-gray-600);
   --icon-brand: var(--color-pink-600);
+  --icon-brand-strong: var(--color-pink-800);
   --icon-danger: var(--color-red-600);
   --icon-inverse: var(--color-gray-100);
   --icon-on-brand: var(--color-gray-100);
   --icon-on-danger: var(--color-gray-100);
+  --icon-on-disabled: var(--color-gray-100);
 
+  /* Bordas */
   --border-subtle-1: var(--color-gray-300);
   --border-subtle-2: var(--color-gray-400);
   --border-subtle-hover: var(--color-gray-500);
   --border-brand: var(--color-pink-600);
+  --border-brand-subtle: var(--color-pink-400);
   --border-danger: var(--color-red-600);
+  --border-danger-subtle: var(--color-red-200);
   --border-disabled: var(--color-gray-300);
+  --border-transparent: transparent;
+  --border-strong: var(--color-gray-900);
 
+  /* Campos */
   --field-bg: var(--color-gray-100);
   --field-border: var(--color-gray-300);
   --field-border-hover: var(--color-gray-500);
   --field-bg-focus: var(--color-pink-100);
-  --field-border-focus: var(--color-pink-200);
+  --field-border-focus: var(--color-pink-300);
   --field-bg-danger: var(--color-red-100);
   --field-border-danger: var(--color-red-200);
 
+  /* Interativos */
   --interactive-brand: var(--color-pink-600);
   --interactive-brand-hover: var(--color-pink-700);
   --interactive-brand-active: var(--color-pink-800);
-
+  --interactive-secondary: var(--color-gray-1100);
+  --interactive-secondary-hover: var(--color-gray-1000);
+  --interactive-secondary-active: var(--color-gray-900);
+  --interactive-tertiary: var(--color-gray-100);
+  --interactive-tertiary-hover: var(--color-gray-300);
+  --interactive-tertiary-active: var(--color-gray-400);
+  --interactive-ghost: transparent;
+  --interactive-ghost-hover: var(--color-pink-100);
+  --interactive-ghost-active: var(--color-pink-200);
+  --interactive-ghost-neutral-hover: var(--color-gray-300);
+  --interactive-ghost-neutral-active: var(--color-gray-400);
   --interactive-danger: var(--color-red-600);
   --interactive-danger-hover: var(--color-red-700);
   --interactive-danger-active: var(--color-red-800);
+  --interactive-disabled: var(--color-gray-500);
+  --interactive-disabled-subtle: var(--color-gray-300);
 
+  /* Focus e Sombras / Glow de Botões */
   --focus-ring: var(--color-pink-500);
+  --shadow-none: none;
+  --shadow-button-drop: 1px 1px 1px rgba(0, 0, 0, 0.01);
+  --shadow-button-glow-inner-soft: inset 0 0 5px 2px rgba(255, 255, 255, 0.25);
+  --shadow-button-glow-inner-crisp: inset 0 0 1px 0 rgba(255, 255, 255, 0.4);
+  --shadow-button-glow-dark-inner-soft: inset 0 0 5px 2px rgba(0, 0, 0, 0.04);
+  --shadow-button-glow-dark-inner-crisp: inset 0 0 1px 0 rgba(0, 0, 0, 0.08);
+  --shadow-button-primary: var(--shadow-button-drop), 0 0 0 1px var(--interactive-brand), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-primary-hover: var(--shadow-button-drop), 0 0 0 1px var(--interactive-brand-hover), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-primary-active: var(--shadow-button-drop), 0 0 0 1px var(--interactive-brand-active), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-secondary: var(--shadow-button-drop), 0 0 0 1px var(--interactive-secondary), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-secondary-hover: var(--shadow-button-drop), 0 0 0 1px var(--interactive-secondary-hover), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-secondary-active: var(--shadow-button-drop), 0 0 0 1px var(--interactive-secondary-active), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-tertiary: var(--shadow-button-drop), 0 0 0 1px var(--border-subtle-1), var(--shadow-button-glow-dark-inner-soft), var(--shadow-button-glow-dark-inner-crisp);
+  --shadow-button-tertiary-hover: var(--shadow-button-drop), 0 0 0 1px var(--border-subtle-hover), var(--shadow-button-glow-dark-inner-soft), var(--shadow-button-glow-dark-inner-crisp);
+  --shadow-button-danger: var(--shadow-button-drop), 0 0 0 1px var(--interactive-danger), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-danger-hover: var(--shadow-button-drop), 0 0 0 1px var(--interactive-danger-hover), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-danger-active: var(--shadow-button-drop), 0 0 0 1px var(--interactive-danger-active), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-disabled: var(--shadow-button-drop);
+  --shadow-focus-ring: 0 0 0 2px var(--focus-ring);
 }
