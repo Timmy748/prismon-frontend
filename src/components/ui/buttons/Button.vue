@@ -132,6 +132,11 @@ const buttonClasses = computed(() => [
 .button--sm {
   --button-padding: var(--spacing-2);
   --button-min-height: 28px;
+  --button-font-family: var(--type-body-01-font-family);
+  --button-font-size: var(--type-body-01-font-size);
+  --button-line-height: var(--type-body-01-line-height);
+  --button-font-weight: var(--type-body-01-font-weight);
+  --button-text-transform: var(--type-body-01-text-transform);
 }
 
 .button--md {

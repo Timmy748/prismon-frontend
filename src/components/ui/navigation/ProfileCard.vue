@@ -55,7 +55,7 @@ const initials = computed(() => {
     <IconButton
       v-if="showSettings"
       variant="ghost"
-      size="lg"
+      size="md"
       icon="setting"
       :ariaLabel="settingsLabel"
       @click="emit('settings-click')"

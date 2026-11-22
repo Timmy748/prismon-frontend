@@ -66,6 +66,7 @@ function toggleOpen() {
   --nav-list-border-color: var(--border-transparent);
   --nav-list-padding: var(--spacing-3);
   --nav-list-gap: var(--spacing-3);
+  --nav-list-items-gap: var(--spacing-0);
   --nav-list-items-direction: column;
   --nav-list-title-color: var(--text-primary);
   --nav-list-icon-color: var(--icon-primary);
@@ -143,6 +144,6 @@ function toggleOpen() {
 .nav-list__items {
   display: flex;
   flex-direction: var(--nav-list-items-direction);
-  gap: var(--nav-list-gap);
+  gap: var(--nav-list-items-gap);
 }
 </style>

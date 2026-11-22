@@ -237,7 +237,7 @@ function handleClearSelection() {
   --data-table-header-cell-font-weight: var(--type-body-compact-02-font-weight);
   --data-table-header-cell-text-transform: var(--type-body-compact-02-text-transform);
   --data-table-row-bg: var(--surface-transparent);
-  --data-table-row-bg-hover: var(--surface-subtle-hover);
+  --data-table-row-bg-hover: var(--surface-subtle);
   --data-table-row-bg-selected: var(--surface-table-selected);
   --data-table-row-cursor: default;
   --data-table-row-transition-duration: var(--duration-fast);

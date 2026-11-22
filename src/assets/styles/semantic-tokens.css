@@ -12,7 +12,7 @@
   --surface-subtle: var(--color-gray-200);
   --surface-subtle-hover: var(--color-gray-300);
   --surface-table-header: var(--color-gray-400);
-  --surface-table-selected: var(--color-gray-400);
+  --surface-table-selected: var(--color-gray-300);
   --surface-inverse-subtle: var(--color-gray-900);
   --surface-backdrop: rgba(8, 7, 8, 0.28);
   --surface-placeholder: var(--color-gray-400);

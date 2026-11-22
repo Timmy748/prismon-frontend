@@ -31,7 +31,9 @@ import {
   FileAttachmentCard,
   WorkflowCard,
   WorkflowStepsAccordion,
+  HorizontalScroll,
   DocumentDetails,
+  ModificationEvent,
   DocumentForm,
   TagForm,
   type IconName,
@@ -67,6 +69,7 @@ const SECTIONS: NavSection[] = [
   { id: 'overlays', label: 'Overlays & Feedback', icon: 'setting' },
   { id: 'data-table', label: 'Data Table', icon: 'documents' },
   { id: 'ai', label: 'Chat IA & Workflows', icon: 'chat' },
+  { id: 'layout', label: 'Layout & Scroll', icon: 'folder' },
   { id: 'documents', label: 'Documentos', icon: 'upload' },
 ]
 
@@ -276,17 +279,22 @@ const documentTags = ref<DocumentTagItem[]>([
   { id: 't4', label: 'design system' },
   { id: 't5', label: 'documentação' },
   { id: 't6', label: 'tokens semânticos' },
+  { id: 't7', label: 'arquitetura bem' },
+  { id: 't8', label: 'componentização' },
+  { id: 't9', label: 'repertório visual' },
 ])
 
 const documentHistory: DocumentHistoryEntry[] = [
   {
     id: 'h1',
+    title: 'Alteração de título e descrição',
     summary: 'Modificou título de "Guia antigo" para "Guia de UI Prismon" e atualizou a descrição.',
     author: 'Timmy Chen',
     date: '22/11/2026',
   },
   {
     id: 'h2',
+    title: 'Classificação por tags',
     summary: 'Adicionou tags de classificação do repertório.',
     author: 'Ana Silva',
     date: '20/11/2026',
@@ -709,26 +717,57 @@ function handleTagFormSubmit(payload: TagFormPayload) {
         </div>
       </section>
 
-      <!-- 9. DOCUMENTS -->
+      <!-- 9. LAYOUT -->
+      <section id="layout" class="preview__section">
+        <div class="preview__section-header">
+          <h2 class="type-heading-04 preview__section-title">layout & scroll</h2>
+          <span class="type-body-compact-01 preview__section-meta">`HorizontalScroll`</span>
+        </div>
+
+        <div class="preview__card preview__stack">
+          <div class="preview__scroll-demo">
+            <span class="type-label-01 preview__card-label">
+              HorizontalScroll com máscaras dinâmicas (role horizontalmente ou use a roda do mouse)
+            </span>
+            <HorizontalScroll gap="md" ariaLabel="Exemplo de rolagem horizontal">
+              <Tag v-for="tag in documentTags" :key="tag.id" :label="tag.label" />
+            </HorizontalScroll>
+          </div>
+        </div>
+      </section>
+
+      <!-- 10. DOCUMENTS -->
       <section id="documents" class="preview__section">
         <div class="preview__section-header">
           <h2 class="type-heading-04 preview__section-title">documentos</h2>
           <span class="type-body-compact-01 preview__section-meta">
-            `DocumentDetails`, `DocumentForm` e `TagForm`
+            `DocumentDetails`, `ModificationEvent`, `DocumentForm` e `TagForm`
           </span>
         </div>
 
         <div class="preview__split">
-          <div class="preview__card">
-            <DocumentDetails
-              title="Título do documento"
-              description="Uma imagem que retrata a cena com iluminação natural e foco bem definido, com cores equilibradas e harmonia visual."
-              :tags="documentTags"
-              :history="documentHistory"
-              editableTags
-              @add-tag="handleAddDocTag"
-              @remove-tag="handleRemoveDocTag"
-            />
+          <div class="preview__stack">
+            <div class="preview__card">
+              <DocumentDetails
+                title="Título do documento"
+                description="Uma imagem que retrata a cena com iluminação natural e foco bem definido, com cores equilibradas e harmonia visual."
+                :tags="documentTags"
+                :history="documentHistory"
+                editableTags
+                @add-tag="handleAddDocTag"
+                @remove-tag="handleRemoveDocTag"
+              />
+            </div>
+
+            <div class="preview__card">
+              <span class="type-label-01 preview__card-label">ModificationEvent (isolado)</span>
+              <ModificationEvent
+                title="Revisão de metadados"
+                summary="Padronizou os metadados do documento conforme a ontologia do projeto."
+                author="Lucas Almeida"
+                date="21/11/2026"
+              />
+            </div>
           </div>
 
           <div class="preview__stack">
@@ -923,6 +962,7 @@ function handleTagFormSubmit(payload: TagFormPayload) {
 }
 
 .preview__card {
+  min-width: var(--spacing-0);
   background-color: var(--preview-card-bg);
   border: var(--preview-border-width) solid var(--preview-border-color);
   padding: var(--spacing-6);
@@ -935,9 +975,16 @@ function handleTagFormSubmit(payload: TagFormPayload) {
 }
 
 .preview__stack {
+  min-width: var(--spacing-0);
   display: flex;
   flex-direction: column;
   gap: var(--preview-gap-md);
+}
+
+.preview__scroll-demo {
+  max-width: 420px;
+  width: 100%;
+  min-width: var(--spacing-0);
 }
 
 .preview__row {
@@ -952,6 +999,10 @@ function handleTagFormSubmit(payload: TagFormPayload) {
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: var(--preview-gap-lg);
   align-items: start;
+}
+
+.preview__split > * {
+  min-width: var(--spacing-0);
 }
 
 .preview__form-grid {

@@ -1,6 +1,7 @@
 export * from './icons'
 export * from './buttons'
 export * from './badges'
+export * from './layout'
 export * from './forms'
 export * from './navigation'
 export * from './overlays'

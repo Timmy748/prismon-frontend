@@ -1,9 +1,15 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { DocumentDetails, type DocumentHistoryEntry, type DocumentTagItem } from '../index'
+import {
+  DocumentDetails,
+  ModificationEvent,
+  type DocumentHistoryEntry,
+  type DocumentTagItem,
+} from '../index'
 import { Tag } from '../../badges'
 import { IconButton } from '../../buttons'
 import { Icon } from '../../icons'
+import { HorizontalScroll } from '../../layout'
 
 const sampleTags: DocumentTagItem[] = [
   { id: 't1', label: 'Contrato' },
@@ -13,12 +19,14 @@ const sampleTags: DocumentTagItem[] = [
 const sampleHistory: DocumentHistoryEntry[] = [
   {
     id: 'h1',
+    title: 'Alteração de cláusula',
     summary: 'Atualizou cláusula de vigência',
     author: 'Ana Silva',
     date: '2026-11-20',
   },
   {
     id: 'h2',
+    title: 'Criação do documento',
     summary: 'Criou documento inicial',
     author: 'Carlos Souza',
     date: '2026-11-18',
@@ -96,7 +104,7 @@ describe('DocumentDetails', () => {
     expect(wrapper.findComponent(IconButton).exists()).toBe(false)
   })
 
-  it('renders history entries with summary, author, date and helper icons', () => {
+  it('renders history entries using ModificationEvent with title, summary, author, date and helper icons', () => {
     const wrapper = mount(DocumentDetails, {
       props: {
         title: 'Ata de Reunião',
@@ -107,17 +115,18 @@ describe('DocumentDetails', () => {
 
     expect(wrapper.find('.document-details__history-title').text()).toBe('Alterações recentes')
 
-    const items = wrapper.findAll('.document-details__history-item')
-    expect(items).toHaveLength(2)
+    const events = wrapper.findAllComponents(ModificationEvent)
+    expect(events).toHaveLength(2)
 
-    const firstItem = items[0]!
-    expect(firstItem.find('.document-details__history-summary').text()).toBe(
+    const firstEvent = events[0]!
+    expect(firstEvent.find('.modification-event__title').text()).toBe('Alteração de cláusula')
+    expect(firstEvent.find('.modification-event__summary').text()).toBe(
       'Atualizou cláusula de vigência',
     )
-    expect(firstItem.text()).toContain('Ana Silva')
-    expect(firstItem.text()).toContain('2026-11-20')
+    expect(firstEvent.text()).toContain('Ana Silva')
+    expect(firstEvent.text()).toContain('2026-11-20')
 
-    const icons = firstItem.findAllComponents(Icon)
+    const icons = firstEvent.findAllComponents(Icon)
     expect(icons).toHaveLength(2)
     expect(icons[0]?.props('name')).toBe('people')
     expect(icons[0]?.props('size')).toBe('sm')
@@ -140,7 +149,7 @@ describe('DocumentDetails', () => {
     expect(wrapper.find('.document-details__history-list').exists()).toBe(false)
   })
 
-  it('updates horizontal scroll mask classes on tags container without masking add button', async () => {
+  it('renders tags inside HorizontalScroll without masking the add-tag button', async () => {
     const wrapper = mount(DocumentDetails, {
       props: {
         title: 'Documento com muitas tags',
@@ -149,13 +158,13 @@ describe('DocumentDetails', () => {
       },
     })
 
-    const viewport = wrapper.find('.document-details__tags-viewport')
-    const scroller = wrapper.find('.document-details__tags')
+    const horizontalScroll = wrapper.findComponent(HorizontalScroll)
+    const scroller = horizontalScroll.find('.horizontal-scroll__track')
     const addButton = wrapper.find('.document-details__add-tag')
 
-    expect(viewport.exists()).toBe(true)
+    expect(horizontalScroll.exists()).toBe(true)
     expect(addButton.exists()).toBe(true)
-    expect(viewport.find('.document-details__add-tag').exists()).toBe(false)
+    expect(horizontalScroll.find('.document-details__add-tag').exists()).toBe(false)
 
     const el = scroller.element as HTMLElement
     Object.defineProperty(el, 'scrollWidth', { value: 400, configurable: true })
@@ -163,16 +172,16 @@ describe('DocumentDetails', () => {
     Object.defineProperty(el, 'scrollLeft', { value: 0, writable: true, configurable: true })
 
     await scroller.trigger('scroll')
-    expect(scroller.classes()).toContain('document-details__tags--mask-right')
-    expect(scroller.classes()).not.toContain('document-details__tags--mask-left')
+    expect(scroller.classes()).toContain('horizontal-scroll__track--mask-right')
+    expect(scroller.classes()).not.toContain('horizontal-scroll__track--mask-left')
 
     el.scrollLeft = 80
     await scroller.trigger('scroll')
-    expect(scroller.classes()).toContain('document-details__tags--mask-both')
+    expect(scroller.classes()).toContain('horizontal-scroll__track--mask-both')
 
     el.scrollLeft = 200
     await scroller.trigger('scroll')
-    expect(scroller.classes()).toContain('document-details__tags--mask-left')
-    expect(scroller.classes()).not.toContain('document-details__tags--mask-right')
+    expect(scroller.classes()).toContain('horizontal-scroll__track--mask-left')
+    expect(scroller.classes()).not.toContain('horizontal-scroll__track--mask-right')
   })
 })

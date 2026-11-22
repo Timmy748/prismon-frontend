@@ -1,5 +1,6 @@
 export { default as DocumentDetails } from './DocumentDetails.vue'
 export type { DocumentTagItem, DocumentHistoryEntry } from './DocumentDetails.vue'
+export { default as ModificationEvent } from './ModificationEvent.vue'
 export { default as DocumentForm } from './DocumentForm.vue'
 export type { DocumentFormPayload } from './DocumentForm.vue'
 export { default as TagForm } from './TagForm.vue'
