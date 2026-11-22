@@ -7,12 +7,14 @@ import {
   ConfirmDialog,
   FileAttachmentCard,
   ListItem,
+  Modal,
   Sidebar,
   WorkflowSlideCard,
   WorkflowStepsAccordion,
   toast,
 } from '@/components/ui'
 import WorkflowConfigModal from '@/components/chat/WorkflowConfigModal.vue'
+import { _resetWorkspaceForTesting } from '@/stores/workspaceState'
 import ChatView from '../ChatView.vue'
 
 const DummyRouteView = { template: '<div data-testid="dummy-route" />' }
@@ -38,11 +40,13 @@ let wrapper: VueWrapper | undefined
 
 beforeEach(() => {
   toast._resetForTesting()
+  _resetWorkspaceForTesting()
 })
 
 afterEach(() => {
   wrapper?.unmount()
   wrapper = undefined
+  _resetWorkspaceForTesting()
   vi.useRealTimers()
   vi.restoreAllMocks()
   document.body.style.overflow = ''
@@ -148,7 +152,7 @@ describe('ChatView', () => {
     expect(remainingCards[0]?.props('filename')).toBe('contrato-revisao.docx')
   })
 
-  it('renders conversations integrated inside the primary navigation sidebar (#sidebar-extra) and supports collapsed mode', async () => {
+  it('renders conversations integrated inside the primary navigation sidebar without left icons and supports collapsed mode', async () => {
     const router = await createTestRouter('/chat')
 
     wrapper = mount(ChatView, {
@@ -167,6 +171,14 @@ describe('ChatView', () => {
     expect(sidebarExtra.find('input[aria-label="Buscar conversas"]').exists()).toBe(true)
     expect(sidebarExtra.text()).toContain('hoje')
     expect(sidebarExtra.text()).toContain('últimos 7 dias')
+
+    const expandedChatItems = sidebarExtra.findAllComponents(ListItem)
+    expect(expandedChatItems.length).toBeGreaterThan(0)
+    expect(
+      expandedChatItems.every(
+        (item: VueWrapper) => (item.props() as { icon?: string }).icon === undefined,
+      ),
+    ).toBe(true)
 
     const navToggleButton = wrapper.find('button[aria-label="Alternar menu do projeto"]')
     expect(navToggleButton.exists()).toBe(true)
@@ -287,7 +299,7 @@ describe('ChatView', () => {
     expect(wrapper.find('.chat-view__workflow-chip').exists()).toBe(false)
   })
 
-  it('creates a new conversation in empty state and deletes a conversation via ConfirmDialog', async () => {
+  it('opens Novo Chat from chatbot nav item, renames and deletes a conversation via three-dots dropdown', async () => {
     const router = await createTestRouter('/chat')
 
     wrapper = mount(ChatView, {
@@ -296,28 +308,62 @@ describe('ChatView', () => {
       },
     })
 
-    const newChatButton = wrapper
-      .findAll('.chat-threads button')
-      .find((btn) => btn.text().includes('nova conversa'))
-    expect(newChatButton).toBeDefined()
+    // Click "chatbot" in navigation bar -> resets active thread to Novo Chat empty welcome screen
+    const chatbotNavItem = wrapper
+      .find('.app-shell__primary-nav')
+      .findAllComponents(ListItem)
+      .find((item: VueWrapper) => (item.props() as { label?: string }).label === 'chatbot')
+    expect(chatbotNavItem).toBeDefined()
 
-    await newChatButton!.trigger('click')
+    await chatbotNavItem!.find('.list-item__trigger').trigger('click')
     await flushPromises()
 
     expect(wrapper.find('.chat-view__empty').exists()).toBe(true)
     expect(wrapper.find('.chat-view__empty-title').text()).toBe('como posso ajudar hoje?')
     expect(wrapper.findAll('.chat-view__suggestion-btn')).toHaveLength(3)
 
-    const removeButtons = wrapper.findAll('.chat-threads button[aria-label="Remover conversa"]')
-    const initialThreadCount = removeButtons.length
+    // Open vertical three-dots dropdown on the first conversation and choose "Editar nome"
+    const optionButtons = wrapper.findAll('.chat-threads button[aria-label^="Opções da conversa"]')
+    const initialThreadCount = optionButtons.length
     expect(initialThreadCount).toBeGreaterThan(1)
 
-    await removeButtons[0]!.trigger('click')
+    await optionButtons[0]!.trigger('click')
     await flushPromises()
 
-    const confirmDialog = wrapper.findComponent(ConfirmDialog)
+    const menuItems = wrapper.findAll('[role="menuitem"]')
+    expect(menuItems.map((item) => item.text().trim())).toEqual(['Editar nome', 'Deletar'])
+
+    await menuItems[0]!.trigger('click')
+    await flushPromises()
+
+    const renameModal = wrapper
+      .findAllComponents(Modal)
+      .find((m) => m.props('title') === 'renomear conversa')!
+    expect(renameModal.props('open')).toBe(true)
+    await renameModal.find('input[name="thread-title"]').setValue('revisão contratual revisada')
+    await renameModal.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(renameModal.props('open')).toBe(false)
+    expect(wrapper.find('.chat-threads').text()).toContain('revisão contratual revisada')
+
+    // Re-open dropdown and choose "Deletar"
+    const updatedOptionButtons = wrapper.findAll(
+      '.chat-threads button[aria-label^="Opções da conversa"]',
+    )
+    await updatedOptionButtons[0]!.trigger('click')
+    await flushPromises()
+
+    const deleteItem = wrapper
+      .findAll('[role="menuitem"]')
+      .find((item) => item.text().includes('Deletar'))!
+    await deleteItem.trigger('click')
+    await flushPromises()
+
+    const confirmDialog = wrapper
+      .findAllComponents(ConfirmDialog)
+      .find((dialog) => dialog.props('title') === 'remover conversa')!
     expect(confirmDialog.props('open')).toBe(true)
-    expect(confirmDialog.find('.confirm-dialog__title').text()).toBe('remover conversa')
 
     const confirmRemoveBtn = confirmDialog
       .findAll('button')
@@ -327,10 +373,9 @@ describe('ChatView', () => {
     await flushPromises()
 
     expect(confirmDialog.props('open')).toBe(false)
-    const remainingRemoveButtons = wrapper.findAll(
-      '.chat-threads button[aria-label="Remover conversa"]',
+    expect(wrapper.findAll('.chat-threads button[aria-label^="Opções da conversa"]')).toHaveLength(
+      initialThreadCount - 1,
     )
-    expect(remainingRemoveButtons).toHaveLength(initialThreadCount - 1)
     expect(toast.getToasts().some((item) => item.type === 'info')).toBe(true)
   })
 })

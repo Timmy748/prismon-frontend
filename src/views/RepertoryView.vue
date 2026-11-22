@@ -1824,6 +1824,8 @@ function executeBatchDeletion() {
 
 .repertory-view__tag-modal-tabs {
   display: flex;
+  max-width: 100%;
+  overflow-x: auto;
   border-bottom: var(--repertory-view-tag-modal-border-width) solid
     var(--repertory-view-tag-modal-border-color);
 }
@@ -1854,6 +1856,26 @@ function executeBatchDeletion() {
   .repertory-view__control--search,
   .repertory-view__control--select {
     flex: 1 1 100%;
+  }
+
+  .repertory-view__preview-image {
+    max-height: 200px;
+  }
+
+  .repertory-view__preview-doc-body {
+    min-height: 120px;
+    max-height: 190px;
+    padding: var(--spacing-4);
+  }
+
+  .repertory-view__preview-footer,
+  .repertory-view__preview-doc-header {
+    padding: var(--spacing-3) var(--spacing-4);
+  }
+
+  .repertory-view__tag-modal-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
   }
 }
 </style>

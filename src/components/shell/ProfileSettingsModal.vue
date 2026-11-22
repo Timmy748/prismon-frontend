@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Button, Modal, Select, Tag, TextInput, toast, type SelectOption } from '@/components/ui'
-import { MEMBER_PROJECTS } from './navigationConfig'
+import { useWorkspaceState } from '@/stores/workspaceState'
 
 interface Props {
   open: boolean
@@ -19,12 +19,14 @@ const emit = defineEmits<{
   logout: []
 }>()
 
+const { projects } = useWorkspaceState()
+
 const localUsername = ref(props.username)
 const localEmail = ref(props.email)
 const localWorkspace = ref(props.workspace)
 
 const projectOptions = computed<SelectOption[]>(() => {
-  const base = MEMBER_PROJECTS.map((project) => ({
+  const base = projects.value.map((project) => ({
     label: project.name,
     value: project.name,
   }))

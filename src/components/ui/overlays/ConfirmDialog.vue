@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useId } from 'vue'
 import { Button } from '../buttons'
+import { useIsMobile } from '../composables/useIsMobile'
+import Drawer from './Drawer.vue'
 import { useEscapeKey } from './useEscapeKey'
 import { hasOverlayPortalRoot, useOverlayBackdropBlur } from './useOverlayBackdropBlur'
 
@@ -31,18 +33,50 @@ const uid = useId()
 const titleId = `confirm-dialog-title-${uid}`
 const descriptionId = `confirm-dialog-description-${uid}`
 
+const isMobile = useIsMobile()
+
 function handleCancel() {
   emit('cancel')
   emit('update:open', false)
 }
 
 const canTeleportOverlay = hasOverlayPortalRoot()
-useOverlayBackdropBlur(() => props.open)
-useEscapeKey(() => props.open, handleCancel)
+useOverlayBackdropBlur(() => props.open && !isMobile.value)
+useEscapeKey(() => props.open && !isMobile.value, handleCancel)
 </script>
 
 <template>
-  <Teleport to="#prismon-overlay-root" :disabled="!canTeleportOverlay">
+  <Drawer
+    v-if="isMobile"
+    :open="open"
+    direction="bottom"
+    :aria-label="title"
+    @close="emit('cancel')"
+    @update:open="emit('update:open', $event)"
+  >
+    <template #header>
+      <div class="confirm-dialog__drawer-header">
+        <h2 :id="titleId" class="confirm-dialog__title confirm-dialog__title--drawer">
+          {{ title }}
+        </h2>
+      </div>
+    </template>
+
+    <p :id="descriptionId" class="confirm-dialog__description confirm-dialog__description--drawer">
+      {{ description }}
+    </p>
+
+    <template #footer>
+      <footer class="confirm-dialog__footer confirm-dialog__footer--drawer">
+        <Button :variant="confirmVariant" full-width @click="emit('confirm')">
+          {{ confirmLabel }}
+        </Button>
+        <Button variant="tertiary" full-width @click="handleCancel">{{ cancelLabel }}</Button>
+      </footer>
+    </template>
+  </Drawer>
+
+  <Teleport v-else to="#prismon-overlay-root" :disabled="!canTeleportOverlay">
     <Transition name="confirm-dialog">
       <div v-if="open" class="confirm-dialog">
         <div class="confirm-dialog__backdrop" @click.self="handleCancel">
@@ -166,6 +200,31 @@ useEscapeKey(() => props.open, handleCancel)
   align-items: center;
   justify-content: flex-end;
   gap: var(--confirm-dialog-actions-gap);
+}
+
+.confirm-dialog__title--drawer {
+  --confirm-dialog-title-color: var(--text-primary);
+  --confirm-dialog-title-font-family: var(--type-heading-02-font-family);
+  --confirm-dialog-title-font-size: var(--type-heading-02-font-size);
+  --confirm-dialog-title-line-height: var(--type-heading-02-line-height);
+  --confirm-dialog-title-font-weight: var(--type-heading-02-font-weight);
+  --confirm-dialog-title-text-transform: var(--type-heading-02-text-transform);
+}
+
+.confirm-dialog__description--drawer {
+  --confirm-dialog-description-color: var(--text-primary);
+  --confirm-dialog-description-font-family: var(--type-body-compact-02-font-family);
+  --confirm-dialog-description-font-size: var(--type-body-compact-02-font-size);
+  --confirm-dialog-description-line-height: var(--type-body-compact-02-line-height);
+  --confirm-dialog-description-font-weight: var(--type-body-compact-02-font-weight);
+  --confirm-dialog-description-text-transform: var(--type-body-compact-02-text-transform);
+}
+
+.confirm-dialog__footer--drawer {
+  --confirm-dialog-actions-gap: var(--spacing-3);
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
 }
 
 .confirm-dialog-enter-active,

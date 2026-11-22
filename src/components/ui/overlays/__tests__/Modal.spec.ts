@@ -1,13 +1,32 @@
-import { afterEach, describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
-import { Modal, type ModalSize } from '../index'
+import { Drawer, Modal, type ModalSize } from '../index'
 import { IconButton } from '../../buttons'
+
+function mockMatchMediaMobile(matches: boolean) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: (query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  })
+}
 
 let wrapper: VueWrapper | undefined
 
 afterEach(() => {
   wrapper?.unmount()
   wrapper = undefined
+  vi.restoreAllMocks()
+  mockMatchMediaMobile(false)
 })
 
 describe('Modal', () => {
@@ -163,6 +182,36 @@ describe('Modal', () => {
     await wrapper.setProps({ open: true })
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
 
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    expect(wrapper.emitted('update:open')).toEqual([[false]])
+  })
+
+  it('adapts to a bottom Drawer on mobile viewports (<= 767px)', async () => {
+    mockMatchMediaMobile(true)
+
+    wrapper = mount(Modal, {
+      props: {
+        open: true,
+        size: 'lg',
+        title: 'Novo fluxo',
+        subtitle: 'Adaptação mobile',
+      },
+      slots: {
+        default: '<p data-testid="mobile-body">Campos adaptados</p>',
+        footer: '<button data-testid="mobile-save">Salvar</button>',
+      },
+    })
+
+    const drawer = wrapper.findComponent(Drawer)
+    expect(drawer.exists()).toBe(true)
+    expect(drawer.props('direction')).toBe('bottom')
+    expect(wrapper.find('.modal__dialog').exists()).toBe(false)
+    expect(wrapper.find('.modal__title').text()).toBe('Novo fluxo')
+    expect(wrapper.find('.modal__subtitle').text()).toBe('Adaptação mobile')
+    expect(wrapper.find('[data-testid="mobile-body"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="mobile-save"]').exists()).toBe(true)
+
+    await wrapper.find('.modal__header--drawer button').trigger('click')
     expect(wrapper.emitted('close')).toHaveLength(1)
     expect(wrapper.emitted('update:open')).toEqual([[false]])
   })

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue'
 import { IconButton } from '../buttons'
+import { useIsMobile } from '../composables/useIsMobile'
+import Drawer from './Drawer.vue'
 import { useEscapeKey } from './useEscapeKey'
 import { hasOverlayPortalRoot, useOverlayBackdropBlur } from './useOverlayBackdropBlur'
 
@@ -30,6 +32,7 @@ const uid = useId()
 const titleId = `modal-title-${uid}`
 const subtitleId = `modal-subtitle-${uid}`
 
+const isMobile = useIsMobile()
 const modalClasses = computed(() => ['modal', `modal--${props.size}`])
 
 function handleClose() {
@@ -45,12 +48,42 @@ function handleBackdropClick() {
 }
 
 const canTeleportOverlay = hasOverlayPortalRoot()
-useOverlayBackdropBlur(() => props.open)
-useEscapeKey(() => props.open, handleClose)
+useOverlayBackdropBlur(() => props.open && !isMobile.value)
+useEscapeKey(() => props.open && !isMobile.value, handleClose)
 </script>
 
 <template>
-  <Teleport to="#prismon-overlay-root" :disabled="!canTeleportOverlay">
+  <Drawer
+    v-if="isMobile"
+    :open="open"
+    direction="bottom"
+    :close-on-backdrop="closeOnBackdrop"
+    :aria-label="title"
+    @close="emit('close')"
+    @update:open="emit('update:open', $event)"
+  >
+    <template #header>
+      <header class="modal__header modal__header--drawer">
+        <div class="modal__titles">
+          <h2 :id="titleId" class="modal__title">{{ title }}</h2>
+          <p v-if="subtitle" :id="subtitleId" class="modal__subtitle">{{ subtitle }}</p>
+        </div>
+        <IconButton variant="ghost" icon="close" :ariaLabel="closeLabel" @click="handleClose" />
+      </header>
+    </template>
+
+    <div class="modal__drawer-body">
+      <slot />
+    </div>
+
+    <template v-if="$slots.footer" #footer>
+      <footer class="modal__footer modal__footer--drawer">
+        <slot name="footer" />
+      </footer>
+    </template>
+  </Drawer>
+
+  <Teleport v-else to="#prismon-overlay-root" :disabled="!canTeleportOverlay">
     <Transition name="modal">
       <div v-if="open" :class="modalClasses">
         <div class="modal__backdrop" @click.self="handleBackdropClick">
@@ -221,6 +254,42 @@ useEscapeKey(() => props.open, handleClose)
   justify-content: flex-end;
   gap: var(--modal-footer-gap);
   flex-shrink: 0;
+}
+
+.modal__header--drawer {
+  --modal-header-gap: var(--spacing-4);
+  --modal-title-gap: var(--spacing-1);
+  --modal-title-color: var(--text-primary);
+  --modal-title-font-family: var(--type-heading-03-font-family);
+  --modal-title-font-size: var(--type-heading-03-font-size);
+  --modal-title-line-height: var(--type-heading-03-line-height);
+  --modal-title-font-weight: var(--type-heading-03-font-weight);
+  --modal-title-text-transform: var(--type-heading-03-text-transform);
+  --modal-subtitle-color: var(--text-secondary);
+  --modal-subtitle-font-family: var(--type-label-01-font-family);
+  --modal-subtitle-font-size: var(--type-label-01-font-size);
+  --modal-subtitle-line-height: var(--type-label-01-line-height);
+  --modal-subtitle-font-weight: var(--type-label-01-font-weight);
+  --modal-subtitle-text-transform: var(--type-label-01-text-transform);
+}
+
+.modal__drawer-body {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: var(--spacing-0);
+}
+
+.modal__footer--drawer {
+  --modal-footer-gap: var(--spacing-3);
+  width: 100%;
+  flex-wrap: wrap;
+  justify-content: stretch;
+}
+
+.modal__footer--drawer :deep(> button),
+.modal__footer--drawer :deep(> .button) {
+  flex: 1 1 auto;
 }
 
 @media (max-width: 767px) {

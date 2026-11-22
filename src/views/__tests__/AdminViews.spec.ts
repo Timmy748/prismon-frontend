@@ -10,6 +10,7 @@ import {
   Notification,
   toast,
 } from '@/components/ui'
+import { _resetWorkspaceForTesting } from '@/stores/workspaceState'
 import MembersView from '../MembersView.vue'
 import ApiKeysView from '../ApiKeysView.vue'
 
@@ -38,11 +39,13 @@ let wrapper: VueWrapper | undefined
 
 beforeEach(() => {
   toast._resetForTesting()
+  _resetWorkspaceForTesting()
 })
 
 afterEach(() => {
   wrapper?.unmount()
   wrapper = undefined
+  _resetWorkspaceForTesting()
   document.body.style.overflow = ''
   vi.restoreAllMocks()
 })
@@ -63,7 +66,7 @@ describe('MembersView', () => {
     expect(wrapper.text()).toContain('Ana Paula Ribeiro')
     expect(wrapper.text()).toContain('Lucas Ferreira')
 
-    const searchInput = wrapper.find('input[type="search"]')
+    const searchInput = wrapper.find('.members-view input[type="search"]')
     await searchInput.setValue('camila@prismon.ai')
     await flushPromises()
 
@@ -186,7 +189,9 @@ describe('MembersView', () => {
     await removeBtn!.trigger('click')
     await flushPromises()
 
-    const confirmDialog = wrapper.findComponent(ConfirmDialog)
+    const confirmDialog = wrapper
+      .findAllComponents(ConfirmDialog)
+      .find((dialog) => dialog.props('title') === 'remover membros')!
     expect(confirmDialog.props('open')).toBe(true)
 
     const confirmRemoveBtn = confirmDialog
@@ -272,7 +277,9 @@ describe('ApiKeysView', () => {
     await projectTable!.find('.data-table__toolbar-right button').trigger('click')
     await flushPromises()
 
-    const createModal = wrapper.findComponent(Modal)
+    const createModal = wrapper
+      .findAllComponents(Modal)
+      .find((modal) => modal.props('title') === 'nova chave de api')!
     expect(createModal.props('open')).toBe(true)
     expect(createModal.props('size')).toBe('lg')
     expect(createModal.props('title')).toBe('nova chave de api')
@@ -350,7 +357,9 @@ describe('ApiKeysView', () => {
     })
 
     const [projectTable, memberTable] = wrapper.findAllComponents(DataTable)
-    const confirmDialog = wrapper.findComponent(ConfirmDialog)
+    const confirmDialog = wrapper
+      .findAllComponents(ConfirmDialog)
+      .find((dialog) => dialog.props('title') === 'revogar chaves selecionadas')!
 
     const projectRows = projectTable!.findAll('tbody .data-table__row')
     await projectRows[0]!.trigger('click')

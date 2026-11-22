@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, useId } from 'vue'
 import { IconButton } from '../buttons'
+import { useIsMobile } from '../composables/useIsMobile'
+import Drawer from './Drawer.vue'
 import { useEscapeKey } from './useEscapeKey'
 import { hasOverlayPortalRoot, useOverlayBackdropBlur } from './useOverlayBackdropBlur'
 
@@ -28,6 +30,7 @@ const emit = defineEmits<{
 const uid = useId()
 const titleId = `sheet-title-${uid}`
 
+const isMobile = useIsMobile()
 const sheetClasses = computed(() => ['sheet', `sheet--${props.size}`])
 
 function handleClose() {
@@ -43,12 +46,38 @@ function handleBackdropClick() {
 }
 
 const canTeleportOverlay = hasOverlayPortalRoot()
-useOverlayBackdropBlur(() => props.open)
-useEscapeKey(() => props.open, handleClose)
+useOverlayBackdropBlur(() => props.open && !isMobile.value)
+useEscapeKey(() => props.open && !isMobile.value, handleClose)
 </script>
 
 <template>
-  <Teleport to="#prismon-overlay-root" :disabled="!canTeleportOverlay">
+  <Drawer
+    v-if="isMobile"
+    :open="open"
+    direction="bottom"
+    :close-on-backdrop="closeOnBackdrop"
+    :aria-label="title"
+    @close="emit('close')"
+    @update:open="emit('update:open', $event)"
+  >
+    <template #header>
+      <header class="sheet__header sheet__header--drawer">
+        <h2 :id="titleId" class="sheet__title">{{ title }}</h2>
+        <IconButton variant="ghost" icon="close" :ariaLabel="closeLabel" @click="handleClose" />
+      </header>
+    </template>
+
+    <div class="sheet__drawer-content">
+      <div v-if="$slots.preview" class="sheet__drawer-preview">
+        <slot name="preview" />
+      </div>
+      <div class="sheet__drawer-body">
+        <slot />
+      </div>
+    </div>
+  </Drawer>
+
+  <Teleport v-else to="#prismon-overlay-root" :disabled="!canTeleportOverlay">
     <Transition name="sheet">
       <div v-if="open" :class="sheetClasses">
         <div class="sheet__backdrop" @click.self="handleBackdropClick">
@@ -187,6 +216,38 @@ useEscapeKey(() => props.open, handleClose)
   flex: 1;
   min-height: var(--spacing-0);
   overflow-y: auto;
+}
+
+.sheet__header--drawer {
+  --sheet-header-gap: var(--spacing-4);
+  --sheet-title-color: var(--text-primary);
+  --sheet-title-font-family: var(--type-heading-03-font-family);
+  --sheet-title-font-size: var(--type-heading-03-font-size);
+  --sheet-title-line-height: var(--type-heading-03-line-height);
+  --sheet-title-font-weight: var(--type-heading-03-font-weight);
+  --sheet-title-text-transform: var(--type-heading-03-text-transform);
+}
+
+.sheet__drawer-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-5);
+  width: 100%;
+  min-width: var(--spacing-0);
+}
+
+.sheet__drawer-preview {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: var(--spacing-0);
+}
+
+.sheet__drawer-body {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: var(--spacing-0);
 }
 
 .sheet-enter-active,

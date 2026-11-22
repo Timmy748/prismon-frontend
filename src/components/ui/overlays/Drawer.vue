@@ -748,6 +748,19 @@ onBeforeUnmount(() => {
   --drawer-transform-closed: translate3d(100%, 0, 0);
 }
 
+@media (max-width: 767px) {
+  .drawer--left,
+  .drawer--right {
+    --drawer-max-width: 100%;
+  }
+
+  .drawer--bottom .drawer__panel {
+    padding-bottom: calc(
+      var(--drawer-padding-bottom) + env(safe-area-inset-bottom, var(--spacing-0))
+    );
+  }
+}
+
 .drawer__backdrop {
   position: fixed;
   inset: var(--spacing-0);

@@ -1,16 +1,23 @@
 <script setup lang="ts">
 import { computed, ref, useSlots, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Drawer, IconButton, ListItem, NavList, ProfileCard, Sidebar, toast } from '@/components/ui'
-import ProfileSettingsModal from './ProfileSettingsModal.vue'
 import {
-  DEFAULT_USER_PROFILE,
-  MEMBER_PROJECTS,
-  PRIMARY_NAV_ITEMS,
-  type AppNavItem,
-  type ProjectItem,
-  type UserProfile,
-} from './navigationConfig'
+  Button,
+  Drawer,
+  Icon,
+  IconButton,
+  ListItem,
+  NavList,
+  ProfileCard,
+  Sidebar,
+  toast,
+} from '@/components/ui'
+import { useWorkspaceState, type ProjectDetailsItem } from '@/stores/workspaceState'
+import ChatThreadsPanel from './ChatThreadsPanel.vue'
+import CreateProjectModal from './CreateProjectModal.vue'
+import ProfileSettingsModal from './ProfileSettingsModal.vue'
+import ProjectInfoModal from './ProjectInfoModal.vue'
+import { PRIMARY_NAV_ITEMS, type AppNavItem, type ProjectItem } from './navigationConfig'
 
 interface Props {
   title?: string
@@ -35,39 +42,49 @@ const slots = useSlots()
 const route = useRoute()
 const router = useRouter()
 
+const {
+  projects,
+  activeProjectId: storeActiveProjectId,
+  activeProject,
+  profile,
+  selectProject: storeSelectProject,
+  createProject: storeCreateProject,
+  startNewChat,
+  updateProfile,
+} = useWorkspaceState()
+
 const isProjectsCollapsed = ref(true)
 const isNavCollapsed = ref(props.defaultCollapsed ?? false)
 const isMobileNavOpen = ref(false)
+const mobileDrawerView = ref<'project' | 'projects'>('project')
 const isSettingsOpen = ref(false)
-
-const internalProjectId = ref(props.activeProjectId ?? MEMBER_PROJECTS[0]?.id ?? '')
+const isCreateProjectOpen = ref(false)
+const isProjectInfoOpen = ref(false)
+const infoTargetProject = ref<ProjectDetailsItem | null>(null)
 
 watch(
   () => props.activeProjectId,
   (nextId) => {
     if (nextId) {
-      internalProjectId.value = nextId
+      storeSelectProject(nextId)
     }
   },
+  { immediate: true },
 )
 
-const activeProject = computed<ProjectItem>(() => {
-  const targetId = props.activeProjectId ?? internalProjectId.value
-  return (
-    MEMBER_PROJECTS.find((project) => project.id === targetId) ??
-    MEMBER_PROJECTS[0] ?? {
-      id: 'prismon-core',
-      name: 'Prismon Core',
-      role: 'Administradora',
-      icon: 'folder',
-    }
-  )
+watch(isMobileNavOpen, (isOpen) => {
+  if (isOpen) {
+    mobileDrawerView.value = 'project'
+  }
 })
 
-const profile = ref<UserProfile>({
-  ...DEFAULT_USER_PROFILE,
-  role: activeProject.value.role,
-  workspace: activeProject.value.name,
+const currentActiveProject = computed<ProjectDetailsItem>(() => {
+  if (props.activeProjectId) {
+    return (
+      projects.value.find((project) => project.id === props.activeProjectId) ?? activeProject.value
+    )
+  }
+  return activeProject.value
 })
 
 const shouldShowTopbar = computed(() => {
@@ -100,20 +117,21 @@ function isItemActive(item: AppNavItem): boolean {
   return currentPath === item.to || currentPath.startsWith(`${item.to}/`)
 }
 
-function selectProject(project: ProjectItem) {
-  internalProjectId.value = project.id
-  profile.value = {
-    ...profile.value,
-    role: project.role,
-    workspace: project.name,
-  }
+function selectProject(project: ProjectDetailsItem) {
+  storeSelectProject(project.id)
   emit('project-change', project)
+  if (mobileDrawerView.value === 'projects') {
+    mobileDrawerView.value = 'project'
+  }
 }
 
-async function navigateTo(to: string) {
+async function handleNavClick(item: AppNavItem) {
   isMobileNavOpen.value = false
-  if (route?.path !== to) {
-    await router.push(to)
+  if (item.id === 'chat') {
+    startNewChat()
+  }
+  if (route?.path !== item.to) {
+    await router.push(item.to)
   }
 }
 
@@ -122,18 +140,24 @@ function openSettings() {
   isSettingsOpen.value = true
 }
 
+function openCreateProjectModal() {
+  isMobileNavOpen.value = false
+  isCreateProjectOpen.value = true
+}
+
+function openProjectInfo(project: ProjectDetailsItem) {
+  infoTargetProject.value = project
+  isMobileNavOpen.value = false
+  isProjectInfoOpen.value = true
+}
+
+function handleCreateProject(payload: { name: string; description: string; role: string }) {
+  const created = storeCreateProject(payload)
+  emit('project-change', created)
+}
+
 function handleSaveProfile(payload: { username: string; email: string; workspace: string }) {
-  const matchedProject = MEMBER_PROJECTS.find((project) => project.name === payload.workspace)
-  if (matchedProject && !props.activeProjectId) {
-    internalProjectId.value = matchedProject.id
-  }
-  profile.value = {
-    ...profile.value,
-    username: payload.username,
-    email: payload.email,
-    workspace: payload.workspace,
-    role: matchedProject ? matchedProject.role : profile.value.role,
-  }
+  updateProfile(payload)
 }
 
 function handleLogout() {
@@ -157,26 +181,66 @@ function handleLogout() {
       >
         <NavList :title="isProjectsCollapsed ? undefined : 'seus projetos'">
           <ListItem
-            v-for="project in MEMBER_PROJECTS"
+            v-for="project in projects"
             :key="project.id"
             :label="project.name"
             :icon="project.icon"
             :collapsed="isProjectsCollapsed"
-            :active="project.id === activeProject.id"
+            :active="project.id === currentActiveProject.id"
             @click="selectProject(project)"
-          />
+          >
+            <template v-if="!isProjectsCollapsed" #trailing>
+              <IconButton
+                variant="ghost"
+                size="sm"
+                icon="exclamation"
+                :ariaLabel="`Informações do projeto ${project.name}`"
+                @click.stop="openProjectInfo(project)"
+              />
+            </template>
+          </ListItem>
         </NavList>
+
+        <template #footer>
+          <div v-if="!isProjectsCollapsed" class="app-shell__projects-footer">
+            <Button
+              variant="tertiary"
+              size="sm"
+              icon="plus"
+              :full-width="true"
+              @click="openCreateProjectModal"
+            >
+              criar projeto
+            </Button>
+          </div>
+          <div v-else class="app-shell__collapsed-actions">
+            <IconButton
+              variant="ghost"
+              size="md"
+              icon="exclamation"
+              :ariaLabel="`Informações do projeto ${currentActiveProject.name}`"
+              @click="openProjectInfo(currentActiveProject)"
+            />
+            <IconButton
+              variant="ghost"
+              size="md"
+              icon="plus"
+              ariaLabel="Criar novo projeto"
+              @click="openCreateProjectModal"
+            />
+          </div>
+        </template>
       </Sidebar>
     </div>
 
     <div :class="navSidebarClasses">
       <Sidebar
         v-model:collapsed="isNavCollapsed"
-        :title="activeProject.name"
+        :title="currentActiveProject.name"
         toggle-label="Alternar menu do projeto"
       >
         <div class="app-shell__nav-groups">
-          <NavList :title="isNavCollapsed ? undefined : 'navegação'">
+          <NavList :title="isNavCollapsed ? undefined : 'navegação'" class="app-shell__primary-nav">
             <ListItem
               v-for="item in PRIMARY_NAV_ITEMS"
               :key="item.id"
@@ -184,16 +248,18 @@ function handleLogout() {
               :icon="item.icon"
               :collapsed="isNavCollapsed"
               :active="isItemActive(item)"
-              @click="navigateTo(item.to)"
+              @click="handleNavClick(item)"
             />
           </NavList>
 
-          <div v-if="$slots['sidebar-extra']" class="app-shell__sidebar-extra">
+          <div class="app-shell__sidebar-extra">
             <slot
               name="sidebar-extra"
               :collapsed="isNavCollapsed"
-              :active-project="activeProject"
-            />
+              :active-project="currentActiveProject"
+            >
+              <ChatThreadsPanel :collapsed="isNavCollapsed" />
+            </slot>
           </div>
         </div>
 
@@ -226,8 +292,16 @@ function handleLogout() {
           ariaLabel="Abrir navegação"
           @click="isMobileNavOpen = true"
         />
-        <span class="app-shell__mobile-title">{{ title || activeProject.name }}</span>
-        <div class="app-shell__mobile-actions" aria-hidden="true" />
+        <span class="app-shell__mobile-title">{{ title || currentActiveProject.name }}</span>
+        <div class="app-shell__mobile-actions">
+          <IconButton
+            variant="ghost"
+            size="md"
+            icon="exclamation"
+            :ariaLabel="`Informações do projeto ${currentActiveProject.name}`"
+            @click="openProjectInfo(currentActiveProject)"
+          />
+        </div>
       </header>
 
       <header v-if="shouldShowTopbar" class="app-shell__topbar">
@@ -243,14 +317,39 @@ function handleLogout() {
       </div>
 
       <main class="app-shell__main app-shell__content">
-        <slot :active-project="activeProject" />
+        <slot :active-project="currentActiveProject" />
       </main>
     </div>
 
-    <Drawer v-model:open="isMobileNavOpen" direction="left" ariaLabel="Menu de navegação">
+    <Drawer v-model:open="isMobileNavOpen" direction="bottom" ariaLabel="Menu de navegação">
       <template #header>
         <div class="app-shell__mobile-drawer-header">
-          <span class="app-shell__brand">{{ activeProject.name }}</span>
+          <div v-if="mobileDrawerView === 'project'" class="app-shell__mobile-drawer-title-group">
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Voltar para lista de projetos"
+              @click="mobileDrawerView = 'projects'"
+            >
+              <span class="app-shell__back-btn-content">
+                <Icon name="arrow-left" size="sm" />
+                <span>Projetos</span>
+              </span>
+            </Button>
+            <span class="app-shell__brand">{{ currentActiveProject.name }}</span>
+            <IconButton
+              variant="ghost"
+              size="sm"
+              icon="exclamation"
+              :ariaLabel="`Informações do projeto ${currentActiveProject.name}`"
+              @click="openProjectInfo(currentActiveProject)"
+            />
+          </div>
+
+          <div v-else class="app-shell__mobile-drawer-title-group">
+            <span class="app-shell__brand">seus projetos</span>
+          </div>
+
           <IconButton
             variant="ghost"
             size="md"
@@ -261,40 +360,68 @@ function handleLogout() {
         </div>
       </template>
 
-      <div class="app-shell__nav-groups">
-        <NavList title="seus projetos">
+      <div v-if="mobileDrawerView === 'project'" class="app-shell__mobile-project-body">
+        <div class="app-shell__mobile-horizontal-nav" data-drawer-no-drag>
+          <NavList title="navegação" orientation="horizontal">
+            <ListItem
+              v-for="item in PRIMARY_NAV_ITEMS"
+              :key="item.id"
+              :label="item.label"
+              :icon="item.icon"
+              :active="isItemActive(item)"
+              @click="handleNavClick(item)"
+            />
+          </NavList>
+        </div>
+
+        <div class="app-shell__mobile-threads">
+          <slot name="sidebar-extra" :collapsed="false" :active-project="currentActiveProject">
+            <ChatThreadsPanel :in-drawer="true" @thread-selected="isMobileNavOpen = false" />
+          </slot>
+        </div>
+      </div>
+
+      <div v-else class="app-shell__mobile-projects-body">
+        <NavList title="projetos que você participa" orientation="vertical">
           <ListItem
-            v-for="project in MEMBER_PROJECTS"
+            v-for="project in projects"
             :key="project.id"
             :label="project.name"
             :icon="project.icon"
-            :active="project.id === activeProject.id"
+            :active="project.id === currentActiveProject.id"
             @click="selectProject(project)"
-          />
+          >
+            <template #trailing>
+              <IconButton
+                variant="ghost"
+                size="sm"
+                icon="exclamation"
+                :ariaLabel="`Informações do projeto ${project.name}`"
+                @click.stop="openProjectInfo(project)"
+              />
+            </template>
+          </ListItem>
         </NavList>
-
-        <NavList title="navegação">
-          <ListItem
-            v-for="item in PRIMARY_NAV_ITEMS"
-            :key="item.id"
-            :label="item.label"
-            :icon="item.icon"
-            :active="isItemActive(item)"
-            @click="navigateTo(item.to)"
-          />
-        </NavList>
-
-        <div v-if="$slots['sidebar-extra']" class="app-shell__sidebar-extra">
-          <slot name="sidebar-extra" :collapsed="false" :active-project="activeProject" />
-        </div>
       </div>
 
       <template #footer>
         <ProfileCard
+          v-if="mobileDrawerView === 'project'"
           :username="profile.username"
           :role="profile.role"
           @settings-click="openSettings"
         />
+        <div v-else class="app-shell__mobile-projects-footer">
+          <Button
+            variant="primary"
+            size="md"
+            icon="plus"
+            :full-width="true"
+            @click="openCreateProjectModal"
+          >
+            criar projeto
+          </Button>
+        </div>
       </template>
     </Drawer>
 
@@ -306,6 +433,15 @@ function handleLogout() {
       :workspace="profile.workspace"
       @save="handleSaveProfile"
       @logout="handleLogout"
+    />
+
+    <CreateProjectModal v-model:open="isCreateProjectOpen" @create="handleCreateProject" />
+
+    <ProjectInfoModal
+      v-model:open="isProjectInfoOpen"
+      :project="infoTargetProject"
+      :is-active-project="infoTargetProject?.id === storeActiveProjectId"
+      @select="selectProject"
     />
   </div>
 </template>
@@ -358,6 +494,10 @@ function handleLogout() {
   --sidebar-title-line-height: var(--type-heading-03-line-height);
 }
 
+.app-shell__nav-sidebar :deep(.sidebar__body) {
+  overflow: hidden;
+}
+
 .app-shell__sidebar--collapsed :deep(.nav-list) {
   --nav-list-padding: var(--spacing-2) var(--spacing-0);
 }
@@ -365,19 +505,37 @@ function handleLogout() {
 .app-shell__nav-groups {
   display: flex;
   flex-direction: column;
+  flex: 1 1 0;
+  min-height: var(--spacing-0);
   gap: var(--app-shell-nav-gap);
+  overflow: hidden;
+}
+
+.app-shell__primary-nav {
+  flex-shrink: 0;
 }
 
 .app-shell__sidebar-extra {
   display: flex;
   flex-direction: column;
+  flex: 1 1 0;
   min-height: var(--spacing-0);
+  overflow: hidden;
 }
 
+.app-shell__projects-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.app-shell__collapsed-actions,
 .app-shell__collapsed-footer {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--spacing-2);
 }
 
 .app-shell__workspace {
@@ -482,18 +640,76 @@ function handleLogout() {
   align-items: center;
   justify-content: space-between;
   gap: var(--app-shell-mobile-bar-gap);
+  width: 100%;
+}
+
+.app-shell__mobile-drawer-title-group {
+  display: flex;
+  align-items: center;
+  min-width: var(--spacing-0);
+  gap: var(--spacing-2);
+}
+
+.app-shell__back-btn-content {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
 }
 
 .app-shell__brand {
   color: var(--app-shell-brand-color);
   font-family: var(--app-shell-brand-font-family);
-  font-size: var(--app-shell-brand-font-size);
-  line-height: var(--app-shell-brand-line-height);
-  font-weight: var(--app-shell-brand-font-weight);
-  text-transform: var(--app-shell-brand-text-transform);
+  font-size: var(--type-heading-03-font-size);
+  line-height: var(--type-heading-03-line-height);
+  font-weight: var(--type-heading-03-font-weight);
+  text-transform: var(--type-heading-03-text-transform);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.app-shell__mobile-project-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.app-shell__mobile-horizontal-nav :deep(.nav-list) {
+  padding: var(--spacing-0);
+  --nav-list-items-gap: var(--spacing-2);
+}
+
+.app-shell__mobile-horizontal-nav :deep(.list-item) {
+  white-space: nowrap;
+  flex-shrink: 0;
+  --list-item-padding: var(--spacing-2) var(--spacing-3);
+  border: var(--app-shell-border-width) solid var(--app-shell-border-color);
+}
+
+.app-shell__mobile-horizontal-nav :deep(.list-item--active) {
+  border-color: var(--border-brand);
+}
+
+.app-shell__mobile-threads {
+  display: flex;
+  flex-direction: column;
+  border-top: var(--app-shell-border-width) solid var(--app-shell-border-color);
+  padding-top: var(--spacing-3);
+}
+
+.app-shell__mobile-projects-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell__mobile-projects-body :deep(.nav-list) {
+  padding: var(--spacing-0);
+}
+
+.app-shell__mobile-projects-footer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
 @media (max-width: 767px) {

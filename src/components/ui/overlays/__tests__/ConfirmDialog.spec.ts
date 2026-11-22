@@ -1,13 +1,32 @@
-import { afterEach, describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
-import { ConfirmDialog, type ConfirmDialogVariant } from '../index'
+import { ConfirmDialog, Drawer, type ConfirmDialogVariant } from '../index'
 import { Button } from '../../buttons'
+
+function mockMatchMediaMobile(matches: boolean) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: (query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  })
+}
 
 let wrapper: VueWrapper | undefined
 
 afterEach(() => {
   wrapper?.unmount()
   wrapper = undefined
+  vi.restoreAllMocks()
+  mockMatchMediaMobile(false)
 })
 
 describe('ConfirmDialog', () => {
@@ -122,5 +141,34 @@ describe('ConfirmDialog', () => {
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     expect(wrapper.emitted('cancel')).toBeUndefined()
+  })
+
+  it('adapts to a bottom Drawer on mobile viewports (<= 767px)', async () => {
+    mockMatchMediaMobile(true)
+
+    wrapper = mount(ConfirmDialog, {
+      props: {
+        open: true,
+        title: 'Excluir registro',
+        description: 'Confirmar exclusão no drawer mobile?',
+        confirmLabel: 'Excluir',
+        confirmVariant: 'danger',
+      },
+    })
+
+    const drawer = wrapper.findComponent(Drawer)
+    expect(drawer.exists()).toBe(true)
+    expect(drawer.props('direction')).toBe('bottom')
+    expect(wrapper.find('.confirm-dialog__dialog').exists()).toBe(false)
+    expect(wrapper.find('.confirm-dialog__title--drawer').text()).toBe('Excluir registro')
+    expect(wrapper.find('.confirm-dialog__description--drawer').text()).toContain(
+      'Confirmar exclusão no drawer mobile?',
+    )
+
+    const buttons = wrapper.findAllComponents(Button)
+    expect(buttons[0]?.text()).toBe('Excluir')
+    expect(buttons[0]?.props('variant')).toBe('danger')
+    await buttons[0]?.trigger('click')
+    expect(wrapper.emitted('confirm')).toHaveLength(1)
   })
 })

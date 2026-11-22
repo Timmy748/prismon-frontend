@@ -17,6 +17,7 @@ import {
   toast,
   useToasts,
 } from '@/components/ui'
+import { _resetWorkspaceForTesting } from '@/stores/workspaceState'
 
 const DummyRouteView = defineComponent({
   template: '<div />',
@@ -43,12 +44,14 @@ let wrapper: VueWrapper | undefined
 
 beforeEach(() => {
   toast._resetForTesting()
+  _resetWorkspaceForTesting()
 })
 
 afterEach(() => {
   wrapper?.unmount()
   wrapper = undefined
   toast._resetForTesting()
+  _resetWorkspaceForTesting()
   document.body.style.overflow = ''
 })
 
@@ -356,7 +359,9 @@ describe('RepertoryView', () => {
     await deleteBatchBtn?.trigger('click')
     await flushPromises()
 
-    const confirmDialog = wrapper.findComponent(ConfirmDialog)
+    const confirmDialog = wrapper
+      .findAllComponents(ConfirmDialog)
+      .find((dialog) => dialog.props('title') === 'remover tags selecionadas')!
     expect(confirmDialog.props('open')).toBe(true)
 
     const confirmBtn = confirmDialog

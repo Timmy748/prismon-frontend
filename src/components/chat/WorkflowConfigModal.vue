@@ -562,6 +562,7 @@ function handleApply() {
             'workflow-modal__carousel-stage',
             isDragging ? 'workflow-modal__carousel-stage--dragging' : undefined,
           ]"
+          data-drawer-no-drag
           tabindex="0"
           role="region"
           aria-roledescription="carrossel"
@@ -594,8 +595,11 @@ function handleApply() {
         </div>
 
         <div class="workflow-modal__slide-controls">
-          <Button variant="tertiary" size="sm" icon="arrow-left" @click="goPreviousSlide">
-            Anterior
+          <Button variant="tertiary" size="sm" @click="goPreviousSlide">
+            <span class="workflow-modal__nav-btn-content">
+              <Icon name="arrow-left" size="sm" />
+              <span>Anterior</span>
+            </span>
           </Button>
 
           <div class="workflow-modal__slide-indicators" aria-label="Indicadores do slide">
@@ -617,8 +621,10 @@ function handleApply() {
           </div>
 
           <Button variant="tertiary" size="sm" @click="goNextSlide">
-            <span>Próximo</span>
-            <Icon name="arrow-right" size="sm" />
+            <span class="workflow-modal__nav-btn-content">
+              <span>Próximo</span>
+              <Icon name="arrow-right" size="sm" />
+            </span>
           </Button>
         </div>
       </div>
@@ -632,7 +638,12 @@ function handleApply() {
           <Badge :label="selectedWorkflow.badge" />
         </div>
 
-        <div class="workflow-modal__graph" role="group" aria-label="Grafo de etapas do workflow">
+        <div
+          class="workflow-modal__graph"
+          data-drawer-no-drag
+          role="group"
+          aria-label="Grafo de etapas do workflow"
+        >
           <template v-for="(node, index) in orderedNodes" :key="node.nodeId">
             <button
               type="button"
@@ -905,6 +916,12 @@ function handleApply() {
   gap: var(--spacing-4);
 }
 
+.workflow-modal__nav-btn-content {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-3);
+}
+
 .workflow-modal__slide-indicators {
   display: inline-flex;
   align-items: center;
@@ -1115,10 +1132,10 @@ function handleApply() {
 
 @media (max-width: 767px) {
   .workflow-modal {
-    --workflow-modal-stage-height: 360px;
-    --workflow-modal-stage-mask-size: var(--spacing-6);
-    --workflow-modal-card-width: min(300px, calc(100vw - var(--spacing-8)));
-    --workflow-modal-card-height: 344px;
+    --workflow-modal-stage-height: 316px;
+    --workflow-modal-stage-mask-size: var(--spacing-5);
+    --workflow-modal-card-width: min(296px, calc(100vw - var(--spacing-7)));
+    --workflow-modal-card-height: 304px;
   }
 
   .workflow-modal__slide-slot--left,
@@ -1129,16 +1146,28 @@ function handleApply() {
     pointer-events: none;
   }
 
+  .workflow-modal__slide-controls {
+    gap: var(--spacing-2);
+  }
+
   .workflow-modal__node-fields {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .workflow-modal__graph {
     flex-direction: column;
+    padding: var(--spacing-3);
+    gap: var(--spacing-2);
+  }
+
+  .workflow-modal__graph-node {
+    min-width: var(--spacing-0);
+    width: 100%;
   }
 
   .workflow-modal__graph-connector {
     transform: rotate(90deg);
+    align-self: center;
   }
 }
 

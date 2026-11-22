@@ -21,8 +21,8 @@ const SEMANTIC_COLORS: Exclude<IconColor, 'inherit'>[] = [
 ]
 
 describe('Icon', () => {
-  it('registers all 24 Figma icons with viewBox and paths', () => {
-    expect(ALL_ICON_NAMES).toHaveLength(24)
+  it('registers all 28 UI icons with viewBox and paths', () => {
+    expect(ALL_ICON_NAMES).toHaveLength(28)
 
     for (const name of ALL_ICON_NAMES) {
       const entry = ICON_PATHS[name]

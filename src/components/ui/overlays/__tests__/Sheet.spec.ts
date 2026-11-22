@@ -1,13 +1,32 @@
-import { afterEach, describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
-import { Sheet, type SheetSize } from '../index'
+import { Drawer, Sheet, type SheetSize } from '../index'
 import { IconButton } from '../../buttons'
+
+function mockMatchMediaMobile(matches: boolean) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: (query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  })
+}
 
 let wrapper: VueWrapper | undefined
 
 afterEach(() => {
   wrapper?.unmount()
   wrapper = undefined
+  vi.restoreAllMocks()
+  mockMatchMediaMobile(false)
 })
 
 describe('Sheet', () => {
@@ -145,5 +164,35 @@ describe('Sheet', () => {
 
     await stage.trigger('click')
     expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+
+  it('renders a bottom Drawer on mobile viewports stacking #preview above the body', async () => {
+    mockMatchMediaMobile(true)
+
+    wrapper = mount(Sheet, {
+      props: {
+        open: true,
+        title: 'Detalhes do asset',
+      },
+      slots: {
+        preview: '<div data-testid="sheet-mobile-preview">Preview mobile</div>',
+        default: '<div data-testid="sheet-mobile-body">Detalhes mobile</div>',
+      },
+    })
+
+    const drawer = wrapper.findComponent(Drawer)
+    expect(drawer.exists()).toBe(true)
+    expect(drawer.props('direction')).toBe('bottom')
+    expect(wrapper.find('.sheet__panel').exists()).toBe(false)
+    expect(
+      wrapper.find('.sheet__drawer-preview [data-testid="sheet-mobile-preview"]').exists(),
+    ).toBe(true)
+    expect(wrapper.find('.sheet__drawer-body [data-testid="sheet-mobile-body"]').exists()).toBe(
+      true,
+    )
+
+    await wrapper.find('.sheet__header--drawer button').trigger('click')
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    expect(wrapper.emitted('update:open')).toEqual([[false]])
   })
 })

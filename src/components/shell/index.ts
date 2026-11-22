@@ -1,4 +1,7 @@
 export { default as AppShell } from './AppShell.vue'
+export { default as ChatThreadsPanel } from './ChatThreadsPanel.vue'
+export { default as CreateProjectModal } from './CreateProjectModal.vue'
 export { default as ProfileSettingsModal } from './ProfileSettingsModal.vue'
+export { default as ProjectInfoModal } from './ProjectInfoModal.vue'
 export * from './navigationConfig'
 export * as navigationConfig from './navigationConfig'

@@ -1,60 +1,29 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import {
   AiPromptInput,
   Badge,
-  Button,
   ChatMessage,
-  ConfirmDialog,
   FileAttachmentCard,
   Icon,
   IconButton,
-  ListItem,
-  NavList,
   ScrollContainer,
-  SearchInput,
   Tag,
   WorkflowStepsAccordion,
   toast,
   type AiAttachmentItem,
-  type ChatMessageRole,
-  type WorkflowStep,
 } from '@/components/ui'
 import { AppShell } from '@/components/shell'
 import WorkflowConfigModal, {
   type WorkflowConfigApplyPayload,
-  type WorkflowGraphNodeConfig,
 } from '@/components/chat/WorkflowConfigModal.vue'
-
-interface ChatWorkflowStep extends WorkflowStep {
-  summary: string
-}
-
-interface ChatThreadMessage {
-  id: string
-  role: ChatMessageRole
-  content: string
-  attachments?: AiAttachmentItem[]
-  steps?: ChatWorkflowStep[]
-}
-
-interface ChatThread {
-  id: string
-  title: string
-  group: 'today' | 'week'
-  workflowId: string | null
-  workflowName: string | null
-  workflowEffort: string | null
-  messages: ChatThreadMessage[]
-}
-
-interface SelectedWorkflow {
-  id: string
-  name: string
-  effort: string
-  iterations?: string
-  nodesConfig?: Record<string, WorkflowGraphNodeConfig>
-}
+import {
+  nextWorkspaceId,
+  useWorkspaceState,
+  type ChatThreadMessage,
+  type ChatWorkflowStep,
+  type SelectedWorkflow,
+} from '@/stores/workspaceState'
 
 interface PromptSuggestion {
   id: string
@@ -86,247 +55,23 @@ const PROMPT_SUGGESTIONS: PromptSuggestion[] = [
   },
 ]
 
-const INITIAL_THREADS: ChatThread[] = [
-  {
-    id: 'thread-1',
-    title: 'revisão de contrato q4',
-    group: 'today',
-    workflowId: 'wf-analise-critica',
-    workflowName: 'análise crítica',
-    workflowEffort: 'Médio',
-    messages: [
-      {
-        id: 'msg-1',
-        role: 'human',
-        content: 'Analise as cláusulas de rescisão e SLA do contrato anexo para o Q4.',
-        attachments: [
-          {
-            id: 'att-init-1',
-            filename: 'contrato-fornecedor-q4.pdf',
-            fileSize: '248 KB',
-          },
-        ],
-      },
-      {
-        id: 'msg-2',
-        role: 'ai',
-        steps: [
-          {
-            id: 'step-init-1',
-            title: 'Analisando contexto',
-            summary: 'Identificadas 3 cláusulas de SLA e prazo de aviso prévio de 30 dias.',
-          },
-          {
-            id: 'step-init-2',
-            title: 'Consultando repertório',
-            summary: 'Comparado com a política padrão de compras corporativas v2.4.',
-          },
-          {
-            id: 'step-init-3',
-            title: 'Gerando resposta estruturada',
-            summary: 'Recomendações priorizadas por impacto financeiro e operacional.',
-          },
-        ],
-        content:
-          'Foram encontrados dois pontos de atenção na seção 4.2: a multa por indisponibilidade está abaixo do mínimo institucional (2% vs. 5%) e não há previsão de transição assistida ao término da vigência.',
-      },
-    ],
-  },
-  {
-    id: 'thread-2',
-    title: 'arquitetura de autenticação',
-    group: 'today',
-    workflowId: 'wf-revisao-tecnica',
-    workflowName: 'revisão técnica',
-    workflowEffort: 'Alto',
-    messages: [
-      {
-        id: 'msg-3',
-        role: 'human',
-        content: 'Quais cuidados devo adotar na rotação de tokens em múltiplas abas?',
-      },
-      {
-        id: 'msg-4',
-        role: 'ai',
-        steps: [
-          {
-            id: 'step-auth-1',
-            title: 'Analisando contexto',
-            summary: 'Mapeado fluxo de concorrência entre abas e expiração de sessão.',
-          },
-          {
-            id: 'step-auth-2',
-            title: 'Consultando repertório',
-            summary: 'Verificadas referências de segurança e boas práticas de sessão.',
-          },
-          {
-            id: 'step-auth-3',
-            title: 'Gerando resposta estruturada',
-            summary: 'Checklist de mitigação consolidado.',
-          },
-        ],
-        content:
-          'Recomenda-se coordenar a renovação via lock compartilhado (Web Locks API ou BroadcastChannel) e manter janela de tolerância curta para evitar invalidação prematura em requisições paralelas.',
-      },
-    ],
-  },
-  {
-    id: 'thread-3',
-    title: 'sumário executivo diretoria',
-    group: 'week',
-    workflowId: 'wf-sintese-executiva',
-    workflowName: 'síntese executiva',
-    workflowEffort: 'Baixo',
-    messages: [
-      {
-        id: 'msg-5',
-        role: 'human',
-        content: 'Resuma os principais marcos operacionais do último trimestre.',
-      },
-      {
-        id: 'msg-6',
-        role: 'ai',
-        content:
-          'O trimestre encerrou com redução de 18% no tempo médio de revisão documental, adoção de 4 workflows padronizados e ampliação do repertório compartilhado entre as equipes.',
-      },
-    ],
-  },
-  {
-    id: 'thread-4',
-    title: 'políticas de retenção de logs',
-    group: 'week',
-    workflowId: null,
-    workflowName: null,
-    workflowEffort: null,
-    messages: [
-      {
-        id: 'msg-7',
-        role: 'human',
-        content: 'Qual o prazo padrão de retenção de trilhas de auditoria?',
-      },
-      {
-        id: 'msg-8',
-        role: 'ai',
-        content:
-          'De acordo com as diretrizes vigentes, eventos críticos de acesso e alteração documental devem permanecer retidos por no mínimo 24 meses em armazenamento auditável.',
-      },
-    ],
-  },
-]
-
-const threads = ref<ChatThread[]>(INITIAL_THREADS)
-const activeThreadId = ref<string | null>('thread-1')
-const threadSearch = ref('')
+const { activeThread, selectedWorkflow, ensureActiveThread } = useWorkspaceState()
 
 const draftMessage = ref('')
 const pendingAttachments = ref<AiAttachmentItem[]>([])
 const mockAttachCursor = ref(0)
 
 const isWorkflowModalOpen = ref(false)
-const isDeleteConfirmOpen = ref(false)
-const pendingDeleteThreadId = ref<string | null>(null)
 const isGenerating = ref(false)
 
-const selectedWorkflow = ref<SelectedWorkflow | null>({
-  id: 'wf-analise-critica',
-  name: 'análise crítica',
-  effort: 'Médio',
-})
-
 const pendingTimers = new Set<ReturnType<typeof setTimeout>>()
-let idSequence = 100
-
-function nextId(prefix: string): string {
-  idSequence += 1
-  return `${prefix}-${idSequence}`
-}
-
-const activeThread = computed(
-  () => threads.value.find((thread) => thread.id === activeThreadId.value) ?? null,
-)
-
-const filteredThreads = computed(() => {
-  const query = threadSearch.value.trim().toLowerCase()
-  if (!query) {
-    return threads.value
-  }
-  return threads.value.filter((thread) => thread.title.toLowerCase().includes(query))
-})
-
-const todayThreads = computed(() =>
-  filteredThreads.value.filter((thread) => thread.group === 'today'),
-)
-
-const weekThreads = computed(() =>
-  filteredThreads.value.filter((thread) => thread.group === 'week'),
-)
-
-function syncWorkflowFromThread(thread: ChatThread | null) {
-  if (thread?.workflowId && thread.workflowName) {
-    selectedWorkflow.value = {
-      id: thread.workflowId,
-      name: thread.workflowName,
-      effort: thread.workflowEffort ?? 'Médio',
-    }
-    return
-  }
-  selectedWorkflow.value = null
-}
-
-function selectThread(threadId: string) {
-  activeThreadId.value = threadId
-  const found = threads.value.find((thread) => thread.id === threadId) ?? null
-  syncWorkflowFromThread(found)
-}
-
-function createNewThread() {
-  const newThread: ChatThread = {
-    id: nextId('thread'),
-    title: 'nova conversa',
-    group: 'today',
-    workflowId: null,
-    workflowName: null,
-    workflowEffort: null,
-    messages: [],
-  }
-  threads.value = [newThread, ...threads.value]
-  activeThreadId.value = newThread.id
-  selectedWorkflow.value = null
-  draftMessage.value = ''
-  pendingAttachments.value = []
-}
-
-function askDeleteThread(threadId: string) {
-  pendingDeleteThreadId.value = threadId
-  isDeleteConfirmOpen.value = true
-}
-
-function confirmDeleteThread() {
-  const targetId = pendingDeleteThreadId.value
-  isDeleteConfirmOpen.value = false
-  pendingDeleteThreadId.value = null
-
-  if (!targetId) {
-    return
-  }
-
-  threads.value = threads.value.filter((thread) => thread.id !== targetId)
-
-  if (activeThreadId.value === targetId) {
-    const nextThread = threads.value[0] ?? null
-    activeThreadId.value = nextThread?.id ?? null
-    syncWorkflowFromThread(nextThread)
-  }
-
-  toast.info('Conversa removida da lista local.')
-}
 
 function handleAttachMockFile() {
   const sample = MOCK_ATTACHMENTS[mockAttachCursor.value % MOCK_ATTACHMENTS.length]!
   mockAttachCursor.value += 1
 
   const attachment: AiAttachmentItem = {
-    id: nextId('att'),
+    id: nextWorkspaceId('att'),
     filename: sample.filename,
     fileSize: sample.fileSize,
   }
@@ -374,24 +119,6 @@ function buildThreadTitle(prompt: string): string {
   return `${normalized.slice(0, 36).trim()}...`
 }
 
-function ensureActiveThread(): ChatThread {
-  if (activeThread.value) {
-    return activeThread.value
-  }
-  const newThread: ChatThread = {
-    id: nextId('thread'),
-    title: 'nova conversa',
-    group: 'today',
-    workflowId: selectedWorkflow.value?.id ?? null,
-    workflowName: selectedWorkflow.value?.name ?? null,
-    workflowEffort: selectedWorkflow.value?.effort ?? null,
-    messages: [],
-  }
-  threads.value = [newThread, ...threads.value]
-  activeThreadId.value = newThread.id
-  return newThread
-}
-
 function buildSimulatedAiResponse(
   prompt: string,
   workflow: SelectedWorkflow | null,
@@ -409,21 +136,21 @@ function buildSimulatedAiResponse(
     : ''
 
   return {
-    id: nextId('msg'),
+    id: nextWorkspaceId('msg'),
     role: 'ai',
     steps: [
       {
-        id: nextId('step'),
+        id: nextWorkspaceId('step'),
         title: 'Analisando contexto',
         summary: `Solicitação interpretada com foco em: "${prompt.slice(0, 60)}${prompt.length > 60 ? '...' : ''}".`,
       },
       {
-        id: nextId('step'),
+        id: nextWorkspaceId('step'),
         title: 'Consultando repertório',
         summary: `Referências cruzadas no repertório utilizando ${workflowLabel}${pipelineNote}${attachmentNote}.`,
       },
       {
-        id: nextId('step'),
+        id: nextWorkspaceId('step'),
         title: 'Gerando resposta estruturada',
         summary: 'Síntese final validada e formatada para leitura rápida.',
       },
@@ -447,7 +174,7 @@ function handleSendMessage(value: string) {
   }
 
   targetThread.messages.push({
-    id: nextId('msg'),
+    id: nextWorkspaceId('msg'),
     role: 'human',
     content: trimmed,
     attachments: attachmentsSnapshot.length > 0 ? attachmentsSnapshot : undefined,
@@ -486,97 +213,10 @@ onBeforeUnmount(() => {
 
 <template>
   <AppShell active-nav="chat" :show-topbar="false" title="chatbot">
-    <template #sidebar-extra="{ collapsed }">
-      <div class="chat-threads">
-        <div class="chat-threads__divider" aria-hidden="true" />
-
-        <div v-if="!collapsed" class="chat-threads__content">
-          <div class="chat-threads__header">
-            <h2 class="chat-threads__title">conversas</h2>
-          </div>
-
-          <div class="chat-threads__controls">
-            <Button
-              variant="primary"
-              size="sm"
-              icon="chat"
-              :full-width="true"
-              @click="createNewThread"
-            >
-              nova conversa
-            </Button>
-            <SearchInput
-              v-model="threadSearch"
-              placeholder="buscar conversas"
-              ariaLabel="Buscar conversas"
-            />
-          </div>
-
-          <div class="chat-threads__lists">
-            <NavList v-if="todayThreads.length > 0" title="hoje" :collapsible="true">
-              <ListItem
-                v-for="thread in todayThreads"
-                :key="thread.id"
-                :label="thread.title"
-                icon="chat"
-                :active="thread.id === activeThreadId"
-                :has-trailing-action="true"
-                trailing-label="Remover conversa"
-                @click="selectThread(thread.id)"
-                @trailing-click="askDeleteThread(thread.id)"
-              />
-            </NavList>
-
-            <NavList v-if="weekThreads.length > 0" title="últimos 7 dias" :collapsible="true">
-              <ListItem
-                v-for="thread in weekThreads"
-                :key="thread.id"
-                :label="thread.title"
-                icon="chat"
-                :active="thread.id === activeThreadId"
-                :has-trailing-action="true"
-                trailing-label="Remover conversa"
-                @click="selectThread(thread.id)"
-                @trailing-click="askDeleteThread(thread.id)"
-              />
-            </NavList>
-
-            <p
-              v-if="todayThreads.length === 0 && weekThreads.length === 0"
-              class="chat-threads__empty"
-            >
-              Nenhuma conversa encontrada.
-            </p>
-          </div>
-        </div>
-
-        <div v-else class="chat-threads__collapsed">
-          <IconButton
-            variant="primary"
-            size="sm"
-            icon="chat"
-            ariaLabel="Nova conversa"
-            @click="createNewThread"
-          />
-          <NavList>
-            <ListItem
-              v-for="thread in filteredThreads"
-              :key="thread.id"
-              :label="thread.title"
-              icon="chat"
-              :collapsed="true"
-              :active="thread.id === activeThreadId"
-              @click="selectThread(thread.id)"
-            />
-          </NavList>
-        </div>
-      </div>
-    </template>
-
     <section class="chat-view" aria-label="Área de conversa">
       <header class="chat-view__header">
         <div class="chat-view__header-main">
-          <h1 class="chat-view__title">{{ activeThread?.title ?? 'nova conversa' }}</h1>
+          <h1 class="chat-view__title">{{ activeThread?.title ?? 'novo chat' }}</h1>
           <Badge v-if="activeThread?.workflowName" :label="activeThread.workflowName" />
         </div>
         <IconButton
@@ -680,98 +320,10 @@ onBeforeUnmount(() => {
       :selected-workflow-id="selectedWorkflow?.id ?? null"
       @apply="handleApplyWorkflow"
     />
-
-    <ConfirmDialog
-      v-model:open="isDeleteConfirmOpen"
-      title="remover conversa"
-      description="Esta conversa simulada será removida da lista local."
-      confirm-label="Remover"
-      confirm-variant="danger"
-      @confirm="confirmDeleteThread"
-    />
   </AppShell>
 </template>
 
 <style scoped>
-.chat-threads {
-  --chat-threads-gap: var(--spacing-3);
-  --chat-threads-divider-color: var(--border-subtle-1);
-  --chat-threads-divider-height: var(--border-width-thin);
-  --chat-threads-title-color: var(--text-primary);
-  --chat-threads-title-font-family: var(--type-heading-03-font-family);
-  --chat-threads-title-font-size: var(--type-heading-03-font-size);
-  --chat-threads-title-line-height: var(--type-heading-03-line-height);
-  --chat-threads-title-font-weight: var(--type-heading-03-font-weight);
-  --chat-threads-title-text-transform: var(--type-heading-03-text-transform);
-  --chat-threads-empty-color: var(--text-helper);
-  --chat-threads-empty-font-family: var(--type-body-compact-01-font-family);
-  --chat-threads-empty-font-size: var(--type-body-compact-01-font-size);
-  --chat-threads-empty-line-height: var(--type-body-compact-01-line-height);
-  --chat-threads-empty-font-weight: var(--type-body-compact-01-font-weight);
-
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  gap: var(--chat-threads-gap);
-}
-
-.chat-threads__divider {
-  width: 100%;
-  height: var(--chat-threads-divider-height);
-  background-color: var(--chat-threads-divider-color);
-  flex-shrink: 0;
-}
-
-.chat-threads__content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--chat-threads-gap);
-}
-
-.chat-threads__header {
-  padding: var(--spacing-0) var(--spacing-3);
-}
-
-.chat-threads__title {
-  margin: var(--spacing-0);
-  color: var(--chat-threads-title-color);
-  font-family: var(--chat-threads-title-font-family);
-  font-size: var(--chat-threads-title-font-size);
-  line-height: var(--chat-threads-title-line-height);
-  font-weight: var(--chat-threads-title-font-weight);
-  text-transform: var(--chat-threads-title-text-transform);
-}
-
-.chat-threads__controls {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-3);
-}
-
-.chat-threads__lists {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-2);
-}
-
-.chat-threads__empty {
-  margin: var(--spacing-0);
-  padding: var(--spacing-3);
-  color: var(--chat-threads-empty-color);
-  font-family: var(--chat-threads-empty-font-family);
-  font-size: var(--chat-threads-empty-font-size);
-  line-height: var(--chat-threads-empty-line-height);
-  font-weight: var(--chat-threads-empty-font-weight);
-}
-
-.chat-threads__collapsed {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-3);
-  width: 100%;
-}
-
 .chat-view {
   --chat-view-bg: var(--surface-base);
   --chat-view-header-bg: var(--surface-elevated);
