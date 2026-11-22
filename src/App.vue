@@ -1,9 +1,15 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
+import { computed } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
+import { Toaster } from '@/components/ui'
+
+const route = useRoute()
+const showGlobalToaster = computed(() => route?.name !== 'ui-kit-preview')
 </script>
 
 <template>
   <RouterView />
+  <Toaster v-if="showGlobalToaster" position="bottom-right" :rich-colors="true" />
 </template>
 
 <style>
