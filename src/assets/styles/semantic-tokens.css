@@ -98,17 +98,39 @@
   --shadow-button-glow-inner-crisp: inset 0 0 1px 0 rgba(255, 255, 255, 0.4);
   --shadow-button-glow-dark-inner-soft: inset 0 0 5px 2px rgba(0, 0, 0, 0.04);
   --shadow-button-glow-dark-inner-crisp: inset 0 0 1px 0 rgba(0, 0, 0, 0.08);
-  --shadow-button-primary: var(--shadow-button-drop), 0 0 0 1px var(--interactive-brand), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
-  --shadow-button-primary-hover: var(--shadow-button-drop), 0 0 0 1px var(--interactive-brand-hover), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
-  --shadow-button-primary-active: var(--shadow-button-drop), 0 0 0 1px var(--interactive-brand-active), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
-  --shadow-button-secondary: var(--shadow-button-drop), 0 0 0 1px var(--interactive-secondary), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
-  --shadow-button-secondary-hover: var(--shadow-button-drop), 0 0 0 1px var(--interactive-secondary-hover), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
-  --shadow-button-secondary-active: var(--shadow-button-drop), 0 0 0 1px var(--interactive-secondary-active), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
-  --shadow-button-tertiary: var(--shadow-button-drop), 0 0 0 1px var(--border-subtle-1), var(--shadow-button-glow-dark-inner-soft), var(--shadow-button-glow-dark-inner-crisp);
-  --shadow-button-tertiary-hover: var(--shadow-button-drop), 0 0 0 1px var(--border-subtle-hover), var(--shadow-button-glow-dark-inner-soft), var(--shadow-button-glow-dark-inner-crisp);
-  --shadow-button-danger: var(--shadow-button-drop), 0 0 0 1px var(--interactive-danger), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
-  --shadow-button-danger-hover: var(--shadow-button-drop), 0 0 0 1px var(--interactive-danger-hover), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
-  --shadow-button-danger-active: var(--shadow-button-drop), 0 0 0 1px var(--interactive-danger-active), var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-primary:
+    var(--shadow-button-drop), 0 0 0 1px var(--interactive-brand),
+    var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-primary-hover:
+    var(--shadow-button-drop), 0 0 0 1px var(--interactive-brand-hover),
+    var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-primary-active:
+    var(--shadow-button-drop), 0 0 0 1px var(--interactive-brand-active),
+    var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-secondary:
+    var(--shadow-button-drop), 0 0 0 1px var(--interactive-secondary),
+    var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-secondary-hover:
+    var(--shadow-button-drop), 0 0 0 1px var(--interactive-secondary-hover),
+    var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-secondary-active:
+    var(--shadow-button-drop), 0 0 0 1px var(--interactive-secondary-active),
+    var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-tertiary:
+    var(--shadow-button-drop), 0 0 0 1px var(--border-subtle-1),
+    var(--shadow-button-glow-dark-inner-soft), var(--shadow-button-glow-dark-inner-crisp);
+  --shadow-button-tertiary-hover:
+    var(--shadow-button-drop), 0 0 0 1px var(--border-subtle-hover),
+    var(--shadow-button-glow-dark-inner-soft), var(--shadow-button-glow-dark-inner-crisp);
+  --shadow-button-danger:
+    var(--shadow-button-drop), 0 0 0 1px var(--interactive-danger),
+    var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-danger-hover:
+    var(--shadow-button-drop), 0 0 0 1px var(--interactive-danger-hover),
+    var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
+  --shadow-button-danger-active:
+    var(--shadow-button-drop), 0 0 0 1px var(--interactive-danger-active),
+    var(--shadow-button-glow-inner-soft), var(--shadow-button-glow-inner-crisp);
   --shadow-button-disabled: var(--shadow-button-drop);
   --shadow-focus-ring: 0 0 0 2px var(--focus-ring);
 }
