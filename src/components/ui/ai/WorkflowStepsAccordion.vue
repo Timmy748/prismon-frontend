@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { AppIcon } from '../icons'
+import { Icon } from '../icons'
 
 export interface WorkflowStep {
   id: string
@@ -57,7 +57,7 @@ function toggleStep(stepId: string) {
       >
         <span class="workflow-steps-accordion__title">{{ step.title }}</span>
         <span class="workflow-steps-accordion__icon">
-          <AppIcon name="arrow-down" size="lg" />
+          <Icon name="arrow-down" size="lg" />
         </span>
       </button>
 

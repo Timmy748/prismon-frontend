@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { DocumentDetails, type DocumentHistoryEntry, type DocumentTagItem } from '../index'
-import { AppTag } from '../../badges'
-import { AppIconButton } from '../../buttons'
-import { AppIcon } from '../../icons'
+import { Tag } from '../../badges'
+import { IconButton } from '../../buttons'
+import { Icon } from '../../icons'
 
 const sampleTags: DocumentTagItem[] = [
   { id: 't1', label: 'Contrato' },
@@ -59,13 +59,13 @@ describe('DocumentDetails', () => {
       },
     })
 
-    const tagComponents = wrapper.findAllComponents(AppTag)
+    const tagComponents = wrapper.findAllComponents(Tag)
     expect(tagComponents).toHaveLength(2)
     expect(tagComponents[0]?.props('label')).toBe('Contrato')
     expect(tagComponents[0]?.props('dismissible')).toBe(true)
     expect(tagComponents[1]?.props('label')).toBe('Financeiro')
 
-    const addButton = wrapper.findComponent(AppIconButton)
+    const addButton = wrapper.findComponent(IconButton)
     expect(addButton.exists()).toBe(true)
     expect(addButton.props('variant')).toBe('ghost')
     expect(addButton.props('icon')).toBe('tag')
@@ -75,7 +75,7 @@ describe('DocumentDetails', () => {
     await addButton.trigger('click')
     expect(wrapper.emitted('add-tag')).toEqual([[]])
 
-    await tagComponents[1]!.find('.app-tag__dismiss').trigger('click')
+    await tagComponents[1]!.find('.tag__dismiss').trigger('click')
     expect(wrapper.emitted('remove-tag')).toEqual([['t2']])
   })
 
@@ -89,11 +89,11 @@ describe('DocumentDetails', () => {
       },
     })
 
-    const tagComponents = wrapper.findAllComponents(AppTag)
+    const tagComponents = wrapper.findAllComponents(Tag)
     expect(tagComponents).toHaveLength(2)
     expect(tagComponents[0]?.props('dismissible')).toBe(false)
-    expect(wrapper.find('.app-tag__dismiss').exists()).toBe(false)
-    expect(wrapper.findComponent(AppIconButton).exists()).toBe(false)
+    expect(wrapper.find('.tag__dismiss').exists()).toBe(false)
+    expect(wrapper.findComponent(IconButton).exists()).toBe(false)
   })
 
   it('renders history entries with summary, author, date and helper icons', () => {
@@ -117,7 +117,7 @@ describe('DocumentDetails', () => {
     expect(firstItem.text()).toContain('Ana Silva')
     expect(firstItem.text()).toContain('2026-11-20')
 
-    const icons = firstItem.findAllComponents(AppIcon)
+    const icons = firstItem.findAllComponents(Icon)
     expect(icons).toHaveLength(2)
     expect(icons[0]?.props('name')).toBe('people')
     expect(icons[0]?.props('size')).toBe('sm')

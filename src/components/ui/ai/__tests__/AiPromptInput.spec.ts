@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { AiPromptInput } from '../index'
-import { AppIconButton } from '../../buttons'
+import { IconButton } from '../../buttons'
 
 describe('AiPromptInput', () => {
   it('renders textarea with default placeholder and action buttons', () => {
@@ -13,7 +13,7 @@ describe('AiPromptInput', () => {
     expect(wrapper.classes()).toContain('ai-prompt-input')
     expect(wrapper.classes()).not.toContain('ai-prompt-input--disabled')
 
-    const buttons = wrapper.findAllComponents(AppIconButton)
+    const buttons = wrapper.findAllComponents(IconButton)
     expect(buttons).toHaveLength(3)
     expect(buttons[0]?.props('icon')).toBe('attachment')
     expect(buttons[0]?.props('variant')).toBe('ghost')
@@ -41,7 +41,7 @@ describe('AiPromptInput', () => {
 
     expect(wrapper.find('textarea').attributes('placeholder')).toBe('Escreva um comando')
 
-    const buttons = wrapper.findAllComponents(AppIconButton)
+    const buttons = wrapper.findAllComponents(IconButton)
     expect(buttons[0]?.props('ariaLabel')).toBe('Incluir anexo')
     expect(buttons[1]?.props('ariaLabel')).toBe('Escolher fluxo')
     expect(buttons[2]?.props('ariaLabel')).toBe('Disparar')
@@ -72,13 +72,13 @@ describe('AiPromptInput', () => {
     const whitespaceWrapper = mount(AiPromptInput, {
       props: { modelValue: '   \n  ' },
     })
-    const sendButtonWhitespace = whitespaceWrapper.findAllComponents(AppIconButton)[2]
+    const sendButtonWhitespace = whitespaceWrapper.findAllComponents(IconButton)[2]
     expect(sendButtonWhitespace?.props('disabled')).toBe(true)
 
     const validWrapper = mount(AiPromptInput, {
       props: { modelValue: 'Analisar contrato' },
     })
-    const sendButtonValid = validWrapper.findAllComponents(AppIconButton)[2]
+    const sendButtonValid = validWrapper.findAllComponents(IconButton)[2]
     expect(sendButtonValid?.props('disabled')).toBe(false)
   })
 
@@ -87,7 +87,7 @@ describe('AiPromptInput', () => {
       props: { modelValue: 'Gerar relatório' },
     })
 
-    const sendButton = wrapper.findAllComponents(AppIconButton)[2]
+    const sendButton = wrapper.findAllComponents(IconButton)[2]
     await sendButton?.trigger('click')
 
     const emitted = wrapper.emitted('submit')
@@ -111,7 +111,7 @@ describe('AiPromptInput', () => {
 
   it('emits attach and select-workflow when left action buttons are clicked', async () => {
     const wrapper = mount(AiPromptInput)
-    const buttons = wrapper.findAllComponents(AppIconButton)
+    const buttons = wrapper.findAllComponents(IconButton)
 
     await buttons[0]?.trigger('click')
     await buttons[1]?.trigger('click')
@@ -131,7 +131,7 @@ describe('AiPromptInput', () => {
     expect(wrapper.classes()).toContain('ai-prompt-input--disabled')
     expect(wrapper.find('textarea').attributes('disabled')).toBeDefined()
 
-    const buttons = wrapper.findAllComponents(AppIconButton)
+    const buttons = wrapper.findAllComponents(IconButton)
     for (const button of buttons) {
       expect(button.props('disabled')).toBe(true)
     }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { AppIcon } from '../icons'
-import { AppIconButton } from '../buttons'
-import { AppTag } from '../badges'
+import { Icon } from '../icons'
+import { IconButton } from '../buttons'
+import { Tag } from '../badges'
 
 export interface DocumentTagItem {
   id: string
@@ -58,7 +58,7 @@ const emit = defineEmits<{
 
       <div v-if="tags.length > 0 || showAddTag" class="document-details__tags-row">
         <div class="document-details__tags">
-          <AppTag
+          <Tag
             v-for="tag in tags"
             :key="tag.id"
             :label="tag.label"
@@ -66,7 +66,7 @@ const emit = defineEmits<{
             @dismiss="emit('remove-tag', tag.id)"
           />
         </div>
-        <AppIconButton
+        <IconButton
           v-if="showAddTag"
           variant="ghost"
           icon="tag"
@@ -84,11 +84,11 @@ const emit = defineEmits<{
           <p class="document-details__history-summary">{{ entry.summary }}</p>
           <div class="document-details__history-meta">
             <span class="document-details__history-meta-item">
-              <AppIcon name="people" size="sm" color="helper" />
+              <Icon name="people" size="sm" color="helper" />
               <span>{{ entry.author }}</span>
             </span>
             <span class="document-details__history-meta-item">
-              <AppIcon name="calendar" size="sm" color="helper" />
+              <Icon name="calendar" size="sm" color="helper" />
               <span>{{ entry.date }}</span>
             </span>
           </div>

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { WorkflowStepsAccordion, type WorkflowStep } from '../index'
-import { AppIcon } from '../../icons'
+import { Icon } from '../../icons'
 
 const STEPS: WorkflowStep[] = [
   { id: 'step-1', title: '1. Extração de Dados' },
@@ -31,7 +31,7 @@ describe('WorkflowStepsAccordion', () => {
       '2. Validação Semântica',
     )
 
-    const icons = wrapper.findAllComponents(AppIcon)
+    const icons = wrapper.findAllComponents(Icon)
     expect(icons).toHaveLength(2)
     for (const icon of icons) {
       expect(icon.props('name')).toBe('arrow-down')

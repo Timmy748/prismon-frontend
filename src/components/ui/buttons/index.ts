@@ -1,4 +1,4 @@
-export { default as AppButton } from './AppButton.vue'
-export type { ButtonVariant, ButtonSize } from './AppButton.vue'
-export { default as AppIconButton } from './AppIconButton.vue'
-export type { IconButtonVariant } from './AppIconButton.vue'
+export { default as Button } from './Button.vue'
+export type { ButtonVariant, ButtonSize } from './Button.vue'
+export { default as IconButton } from './IconButton.vue'
+export type { IconButtonVariant } from './IconButton.vue'

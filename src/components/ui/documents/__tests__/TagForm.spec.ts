@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { TagForm } from '../index'
-import { AppButton } from '../../buttons'
-import { AppTextArea, AppTextInput } from '../../forms'
+import { Button } from '../../buttons'
+import { TextArea, TextInput } from '../../forms'
 
 describe('TagForm', () => {
   it('renders name and description fields and footer action buttons with defaults', () => {
     const wrapper = mount(TagForm)
 
-    const textInput = wrapper.findComponent(AppTextInput)
-    const textArea = wrapper.findComponent(AppTextArea)
-    const buttons = wrapper.findAllComponents(AppButton)
+    const textInput = wrapper.findComponent(TextInput)
+    const textArea = wrapper.findComponent(TextArea)
+    const buttons = wrapper.findAllComponents(Button)
 
     expect(textInput.exists()).toBe(true)
     expect(textInput.props('label')).toBe('Nome')
@@ -45,19 +45,19 @@ describe('TagForm', () => {
       },
     })
 
-    const textInput = wrapper.findComponent(AppTextInput)
+    const textInput = wrapper.findComponent(TextInput)
     expect(textInput.props('modelValue')).toBe('Urgente')
     expect(textInput.props('placeholder')).toBe('Digite o nome da tag')
     expect(textInput.props('helpText')).toBe('Nome curto')
     expect(textInput.props('error')).toBe('Nome obrigatório')
 
-    const textArea = wrapper.findComponent(AppTextArea)
+    const textArea = wrapper.findComponent(TextArea)
     expect(textArea.props('modelValue')).toBe('Documentos com prazo curto')
     expect(textArea.props('placeholder')).toBe('Digite a descrição da tag')
     expect(textArea.props('helpText')).toBe('Quando usar esta tag')
     expect(textArea.props('error')).toBe('Descrição inválida')
 
-    const buttons = wrapper.findAllComponents(AppButton)
+    const buttons = wrapper.findAllComponents(Button)
     expect(buttons[0]?.text()).toBe('Fechar')
     expect(buttons[1]?.text()).toBe('Criar tag')
   })
@@ -101,7 +101,7 @@ describe('TagForm', () => {
     )
     expect((wrapper.find('textarea').element as HTMLTextAreaElement).value).toBe('Desc atualizada')
 
-    const cancelButton = wrapper.findAllComponents(AppButton)[0]!
+    const cancelButton = wrapper.findAllComponents(Button)[0]!
     await cancelButton.trigger('click')
     expect(wrapper.emitted('cancel')).toEqual([[]])
   })
@@ -113,10 +113,10 @@ describe('TagForm', () => {
       },
     })
 
-    expect(disabledWrapper.findComponent(AppTextInput).props('disabled')).toBe(true)
-    expect(disabledWrapper.findComponent(AppTextArea).props('disabled')).toBe(true)
+    expect(disabledWrapper.findComponent(TextInput).props('disabled')).toBe(true)
+    expect(disabledWrapper.findComponent(TextArea).props('disabled')).toBe(true)
 
-    const disabledButtons = disabledWrapper.findAllComponents(AppButton)
+    const disabledButtons = disabledWrapper.findAllComponents(Button)
     expect(disabledButtons[0]?.props('disabled')).toBe(true)
     expect(disabledButtons[1]?.props('disabled')).toBe(true)
 
@@ -129,7 +129,7 @@ describe('TagForm', () => {
       },
     })
 
-    const submitDisabledButtons = submitDisabledWrapper.findAllComponents(AppButton)
+    const submitDisabledButtons = submitDisabledWrapper.findAllComponents(Button)
     expect(submitDisabledButtons[0]?.props('disabled')).toBe(false)
     expect(submitDisabledButtons[1]?.props('disabled')).toBe(true)
 

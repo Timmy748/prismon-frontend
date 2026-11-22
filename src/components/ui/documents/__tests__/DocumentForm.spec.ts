@@ -1,17 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { DocumentForm } from '../index'
-import { AppButton } from '../../buttons'
-import { AppFileUpload, AppTextArea, AppTextInput } from '../../forms'
+import { Button } from '../../buttons'
+import { FileUpload, TextArea, TextInput } from '../../forms'
 
 describe('DocumentForm', () => {
   it('renders upload, title, description fields and footer action buttons with defaults', () => {
     const wrapper = mount(DocumentForm)
 
-    const upload = wrapper.findComponent(AppFileUpload)
-    const textInput = wrapper.findComponent(AppTextInput)
-    const textArea = wrapper.findComponent(AppTextArea)
-    const buttons = wrapper.findAllComponents(AppButton)
+    const upload = wrapper.findComponent(FileUpload)
+    const textInput = wrapper.findComponent(TextInput)
+    const textArea = wrapper.findComponent(TextArea)
+    const buttons = wrapper.findAllComponents(Button)
 
     expect(upload.exists()).toBe(true)
     expect(upload.props('label')).toBe('Suba seu arquivo')
@@ -52,24 +52,24 @@ describe('DocumentForm', () => {
       },
     })
 
-    const upload = wrapper.findComponent(AppFileUpload)
+    const upload = wrapper.findComponent(FileUpload)
     expect(upload.props('accept')).toBe('.pdf')
     expect(upload.props('hint')).toBe('Apenas PDF até 5MB')
     expect(upload.props('error')).toBe('Arquivo obrigatório')
 
-    const textInput = wrapper.findComponent(AppTextInput)
+    const textInput = wrapper.findComponent(TextInput)
     expect(textInput.props('modelValue')).toBe('Contrato')
     expect(textInput.props('placeholder')).toBe('Digite o título')
     expect(textInput.props('helpText')).toBe('Máximo 120 caracteres')
     expect(textInput.props('error')).toBe('Título inválido')
 
-    const textArea = wrapper.findComponent(AppTextArea)
+    const textArea = wrapper.findComponent(TextArea)
     expect(textArea.props('modelValue')).toBe('Descrição inicial')
     expect(textArea.props('placeholder')).toBe('Digite a descrição')
     expect(textArea.props('helpText')).toBe('Resumo do documento')
     expect(textArea.props('error')).toBe('Descrição obrigatória')
 
-    const buttons = wrapper.findAllComponents(AppButton)
+    const buttons = wrapper.findAllComponents(Button)
     expect(buttons[0]?.text()).toBe('Voltar')
     expect(buttons[1]?.text()).toBe('Enviar')
   })
@@ -123,7 +123,7 @@ describe('DocumentForm', () => {
     )
     expect((wrapper.find('textarea').element as HTMLTextAreaElement).value).toBe('Desc atualizada')
 
-    const cancelButton = wrapper.findAllComponents(AppButton)[0]!
+    const cancelButton = wrapper.findAllComponents(Button)[0]!
     await cancelButton.trigger('click')
     expect(wrapper.emitted('cancel')).toEqual([[]])
   })
@@ -135,11 +135,11 @@ describe('DocumentForm', () => {
       },
     })
 
-    expect(disabledWrapper.findComponent(AppFileUpload).props('disabled')).toBe(true)
-    expect(disabledWrapper.findComponent(AppTextInput).props('disabled')).toBe(true)
-    expect(disabledWrapper.findComponent(AppTextArea).props('disabled')).toBe(true)
+    expect(disabledWrapper.findComponent(FileUpload).props('disabled')).toBe(true)
+    expect(disabledWrapper.findComponent(TextInput).props('disabled')).toBe(true)
+    expect(disabledWrapper.findComponent(TextArea).props('disabled')).toBe(true)
 
-    const disabledButtons = disabledWrapper.findAllComponents(AppButton)
+    const disabledButtons = disabledWrapper.findAllComponents(Button)
     expect(disabledButtons[0]?.props('disabled')).toBe(true)
     expect(disabledButtons[1]?.props('disabled')).toBe(true)
 
@@ -152,7 +152,7 @@ describe('DocumentForm', () => {
       },
     })
 
-    const submitDisabledButtons = submitDisabledWrapper.findAllComponents(AppButton)
+    const submitDisabledButtons = submitDisabledWrapper.findAllComponents(Button)
     expect(submitDisabledButtons[0]?.props('disabled')).toBe(false)
     expect(submitDisabledButtons[1]?.props('disabled')).toBe(true)
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { AppButton } from '../buttons'
-import { AppTextArea, AppTextInput } from '../forms'
+import { Button } from '../buttons'
+import { TextArea, TextInput } from '../forms'
 
 export interface TagFormPayload {
   name: string
@@ -84,7 +84,7 @@ function handleSubmit() {
 <template>
   <form class="tag-form" @submit.prevent="handleSubmit">
     <div class="tag-form__fields">
-      <AppTextInput
+      <TextInput
         :model-value="localName"
         :label="nameLabel"
         :placeholder="namePlaceholder"
@@ -93,7 +93,7 @@ function handleSubmit() {
         :disabled="disabled"
         @update:model-value="handleNameUpdate"
       />
-      <AppTextArea
+      <TextArea
         :model-value="localDescription"
         :label="descriptionLabel"
         :placeholder="descriptionPlaceholder"
@@ -105,12 +105,12 @@ function handleSubmit() {
     </div>
 
     <div class="tag-form__actions">
-      <AppButton variant="ghost" full-width :disabled="disabled" @click="emit('cancel')">
+      <Button variant="ghost" full-width :disabled="disabled" @click="emit('cancel')">
         {{ cancelLabel }}
-      </AppButton>
-      <AppButton type="submit" variant="primary" full-width :disabled="disabled || submitDisabled">
+      </Button>
+      <Button type="submit" variant="primary" full-width :disabled="disabled || submitDisabled">
         {{ submitLabel }}
-      </AppButton>
+      </Button>
     </div>
   </form>
 </template>

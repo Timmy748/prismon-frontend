@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { AppButton } from '../buttons'
-import { AppFileUpload, AppTextArea, AppTextInput } from '../forms'
+import { Button } from '../buttons'
+import { FileUpload, TextArea, TextInput } from '../forms'
 
 export interface DocumentFormPayload {
   title: string
@@ -98,7 +98,7 @@ function handleSubmit() {
 <template>
   <form class="document-form" @submit.prevent="handleSubmit">
     <div class="document-form__fields">
-      <AppFileUpload
+      <FileUpload
         :label="fileLabel"
         :accept="accept"
         :hint="fileHint"
@@ -106,7 +106,7 @@ function handleSubmit() {
         :disabled="disabled"
         @select="handleFilesSelect"
       />
-      <AppTextInput
+      <TextInput
         :model-value="localTitle"
         :label="titleLabel"
         :placeholder="titlePlaceholder"
@@ -115,7 +115,7 @@ function handleSubmit() {
         :disabled="disabled"
         @update:model-value="handleTitleUpdate"
       />
-      <AppTextArea
+      <TextArea
         :model-value="localDescription"
         :label="descriptionLabel"
         :placeholder="descriptionPlaceholder"
@@ -127,12 +127,12 @@ function handleSubmit() {
     </div>
 
     <div class="document-form__actions">
-      <AppButton variant="ghost" full-width :disabled="disabled" @click="emit('cancel')">
+      <Button variant="ghost" full-width :disabled="disabled" @click="emit('cancel')">
         {{ cancelLabel }}
-      </AppButton>
-      <AppButton type="submit" variant="primary" full-width :disabled="disabled || submitDisabled">
+      </Button>
+      <Button type="submit" variant="primary" full-width :disabled="disabled || submitDisabled">
         {{ submitLabel }}
-      </AppButton>
+      </Button>
     </div>
   </form>
 </template>

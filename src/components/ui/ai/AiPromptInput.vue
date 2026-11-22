@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { AppIconButton } from '../buttons'
+import { IconButton } from '../buttons'
 
 interface Props {
   modelValue?: string
@@ -68,14 +68,14 @@ function handleKeydown(event: KeyboardEvent) {
     />
     <div class="ai-prompt-input__footer">
       <div class="ai-prompt-input__actions-left">
-        <AppIconButton
+        <IconButton
           variant="ghost"
           icon="attachment"
           :ariaLabel="attachLabel"
           :disabled="disabled"
           @click="emit('attach')"
         />
-        <AppIconButton
+        <IconButton
           variant="ghost"
           icon="robot"
           :ariaLabel="workflowLabel"
@@ -84,7 +84,7 @@ function handleKeydown(event: KeyboardEvent) {
         />
         <slot name="actions-left" />
       </div>
-      <AppIconButton
+      <IconButton
         variant="primary"
         icon="send"
         :ariaLabel="sendLabel"

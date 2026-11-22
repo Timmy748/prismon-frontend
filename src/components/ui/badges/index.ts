@@ -1,2 +1,2 @@
-export { default as AppBadge } from './AppBadge.vue'
-export { default as AppTag } from './AppTag.vue'
+export { default as Badge } from './Badge.vue'
+export { default as Tag } from './Tag.vue'
