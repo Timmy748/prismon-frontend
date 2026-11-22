@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { ICON_PATHS, type IconName } from './iconRegistry'
 
-export type IconSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl'
+export type IconSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl'
 
 export type IconColor =
   | 'inherit'
@@ -57,7 +57,7 @@ const iconClasses = computed(() => [
 
 <style scoped>
 .icon {
-  --icon-size: var(--icon-size-xl);
+  --icon-size: 24px;
   --icon-color: currentColor;
 
   width: var(--icon-size);
@@ -68,23 +68,27 @@ const iconClasses = computed(() => [
 }
 
 .icon--sm {
-  --icon-size: var(--icon-size-sm);
+  --icon-size: 16px;
 }
 
 .icon--md {
-  --icon-size: var(--icon-size-md);
+  --icon-size: 18px;
 }
 
 .icon--lg {
-  --icon-size: var(--icon-size-lg);
+  --icon-size: 20px;
 }
 
 .icon--xl {
-  --icon-size: var(--icon-size-xl);
+  --icon-size: 24px;
 }
 
 .icon--2xl {
-  --icon-size: var(--icon-size-2xl);
+  --icon-size: 32px;
+}
+
+.icon--3xl {
+  --icon-size: 48px;
 }
 
 .icon--primary {

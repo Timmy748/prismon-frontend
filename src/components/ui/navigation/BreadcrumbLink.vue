@@ -13,32 +13,21 @@ const props = withDefaults(defineProps<Props>(), {
   showSeparator: false,
 })
 
-const emit = defineEmits<{
-  click: [event: MouseEvent]
-}>()
-
 const linkClasses = computed(() => [
   'breadcrumb-link',
   props.current ? 'breadcrumb-link--current' : undefined,
 ])
-
-function handleClick(event: MouseEvent) {
-  if (props.current) {
-    return
-  }
-  emit('click', event)
-}
 </script>
 
 <template>
   <li :class="linkClasses">
-    <a v-if="href && !current" :href="href" class="breadcrumb-link__control" @click="handleClick">
+    <a v-if="href && !current" :href="href" class="breadcrumb-link__control">
       <slot>{{ label }}</slot>
     </a>
     <span v-else-if="current" class="breadcrumb-link__control" aria-current="page">
       <slot>{{ label }}</slot>
     </span>
-    <button v-else type="button" class="breadcrumb-link__control" @click="handleClick">
+    <button v-else type="button" class="breadcrumb-link__control">
       <slot>{{ label }}</slot>
     </button>
     <span v-if="showSeparator" class="breadcrumb-link__separator" aria-hidden="true"> &gt; </span>

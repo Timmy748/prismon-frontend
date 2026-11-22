@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { IconButton, type IconButtonVariant } from '../index'
+import { IconButton, type IconButtonSize, type IconButtonVariant } from '../index'
 import { Icon } from '../../icons'
 
 const VARIANTS: IconButtonVariant[] = ['primary', 'secondary', 'tertiary', 'ghost', 'danger']
+const SIZES: Array<{ size: IconButtonSize; expectedIconSize: 'sm' | 'lg' | '2xl' }> = [
+  { size: 'sm', expectedIconSize: 'sm' },
+  { size: 'md', expectedIconSize: 'lg' },
+  { size: 'lg', expectedIconSize: '2xl' },
+]
 
 describe('IconButton', () => {
   it('renders button with required aria-label and default props', () => {
@@ -49,22 +54,29 @@ describe('IconButton', () => {
     expect(wrapper.attributes('type')).toBe(type)
   })
 
-  it('renders Icon with size "sm" when icon prop is provided', () => {
-    const wrapper = mount(IconButton, {
-      props: {
-        icon: 'download',
-        ariaLabel: 'Baixar arquivo',
-      },
-    })
+  it.each(SIZES)(
+    'applies size BEM modifier icon-button--$size and renders Icon with size "$expectedIconSize"',
+    ({ size, expectedIconSize }) => {
+      const wrapper = mount(IconButton, {
+        props: {
+          icon: 'download',
+          ariaLabel: 'Baixar arquivo',
+          size,
+        },
+      })
 
-    const iconContainer = wrapper.find('.icon-button__icon')
-    expect(iconContainer.exists()).toBe(true)
+      expect(wrapper.classes()).toContain('icon-button')
+      expect(wrapper.classes()).toContain(`icon-button--${size}`)
 
-    const appIcon = wrapper.findComponent(Icon)
-    expect(appIcon.exists()).toBe(true)
-    expect(appIcon.props('name')).toBe('download')
-    expect(appIcon.props('size')).toBe('sm')
-  })
+      const iconContainer = wrapper.find('.icon-button__icon')
+      expect(iconContainer.exists()).toBe(true)
+
+      const appIcon = wrapper.findComponent(Icon)
+      expect(appIcon.exists()).toBe(true)
+      expect(appIcon.props('name')).toBe('download')
+      expect(appIcon.props('size')).toBe(expectedIconSize)
+    },
+  )
 
   it('renders default slot content instead of icon prop fallback when provided', () => {
     const wrapper = mount(IconButton, {

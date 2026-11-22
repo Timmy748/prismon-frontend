@@ -21,6 +21,7 @@ describe('ProfileCard', () => {
     const settingsBtn = wrapper.findComponent(IconButton)
     expect(settingsBtn.exists()).toBe(true)
     expect(settingsBtn.props('variant')).toBe('ghost')
+    expect(settingsBtn.props('size')).toBe('lg')
     expect(settingsBtn.props('icon')).toBe('setting')
     expect(settingsBtn.props('ariaLabel')).toBe('Configurações do perfil')
   })

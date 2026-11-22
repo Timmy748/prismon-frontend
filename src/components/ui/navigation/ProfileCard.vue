@@ -55,6 +55,7 @@ const initials = computed(() => {
     <IconButton
       v-if="showSettings"
       variant="ghost"
+      size="lg"
       icon="setting"
       :ariaLabel="settingsLabel"
       @click="emit('settings-click')"
@@ -68,7 +69,7 @@ const initials = computed(() => {
   --profile-card-padding: var(--spacing-3);
   --profile-card-gap: var(--spacing-3);
   --profile-card-info-gap: var(--spacing-2);
-  --profile-card-avatar-size: var(--size-avatar-md);
+  --profile-card-avatar-size: 44px;
   --profile-card-avatar-radius: var(--radius-full);
   --profile-card-avatar-bg: var(--surface-placeholder);
   --profile-card-avatar-color: var(--text-primary);

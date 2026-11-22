@@ -113,7 +113,7 @@ function handleBlur(event: FocusEvent) {
   --text-input-placeholder-color: var(--text-placeholder);
   --text-input-label-color: var(--text-primary);
   --text-input-help-color: var(--text-helper);
-  --text-input-min-height: var(--size-control-input);
+  --text-input-min-height: 38px;
   --text-input-padding: var(--spacing-3);
   --text-input-label-gap: var(--spacing-3);
   --text-input-help-gap: var(--spacing-2);

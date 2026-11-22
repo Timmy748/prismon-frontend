@@ -142,11 +142,12 @@ function handleBlur() {
   --select-color: var(--text-primary);
   --select-label-color: var(--text-primary);
   --select-help-color: var(--text-helper);
-  --select-min-height: var(--size-control-input);
+  --select-min-height: 38px;
   --select-width: 100%;
   --select-padding-y: var(--spacing-3);
   --select-padding-left: var(--spacing-3);
-  --select-padding-right: calc(var(--icon-size-lg) + var(--spacing-5));
+  --select-icon-size: 20px;
+  --select-padding-right: calc(var(--select-icon-size) + var(--spacing-5));
   --select-icon-offset: var(--spacing-3);
   --select-label-gap: var(--spacing-3);
   --select-help-gap: var(--spacing-2);
@@ -230,7 +231,7 @@ function handleBlur() {
 }
 
 .select--default {
-  --select-min-height: var(--size-control-input);
+  --select-min-height: 38px;
   --select-bg: var(--field-bg);
   --select-bg-hover: var(--field-bg);
   --select-border-color: var(--field-border);
@@ -239,7 +240,7 @@ function handleBlur() {
 }
 
 .select--inline {
-  --select-min-height: var(--size-control-md);
+  --select-min-height: 36px;
   --select-bg: var(--surface-transparent);
   --select-bg-hover: var(--surface-subtle-hover);
   --select-border-color: var(--border-transparent);

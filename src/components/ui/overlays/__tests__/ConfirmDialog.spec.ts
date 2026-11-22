@@ -45,7 +45,7 @@ describe('ConfirmDialog', () => {
 
     const buttons = wrapper.findAllComponents(Button)
     expect(buttons).toHaveLength(2)
-    expect(buttons[0]?.props('variant')).toBe('ghost')
+    expect(buttons[0]?.props('variant')).toBe('tertiary')
     expect(buttons[0]?.text()).toBe('Cancelar')
     expect(buttons[1]?.props('variant')).toBe('primary')
     expect(buttons[1]?.text()).toBe('Confirmar')

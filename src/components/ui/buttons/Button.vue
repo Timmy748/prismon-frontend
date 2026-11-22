@@ -22,10 +22,6 @@ const props = withDefaults(defineProps<Props>(), {
   fullWidth: false,
 })
 
-const emit = defineEmits<{
-  click: [event: MouseEvent]
-}>()
-
 const buttonClasses = computed(() => [
   'button',
   `button--${props.variant}`,
@@ -33,17 +29,10 @@ const buttonClasses = computed(() => [
   props.disabled ? 'button--disabled' : undefined,
   props.fullWidth ? 'button--full-width' : undefined,
 ])
-
-function handleClick(event: MouseEvent) {
-  if (props.disabled) {
-    return
-  }
-  emit('click', event)
-}
 </script>
 
 <template>
-  <button :type="type" :class="buttonClasses" :disabled="disabled" @click="handleClick">
+  <button :type="type" :class="buttonClasses" :disabled="disabled">
     <span v-if="$slots.default" class="button__label">
       <slot />
     </span>
@@ -62,13 +51,15 @@ function handleClick(event: MouseEvent) {
   --button-bg-active: var(--interactive-brand-active);
   --button-color: var(--text-on-brand);
   --button-border-color: var(--border-transparent);
+  --button-border-color-hover: var(--button-border-color);
+  --button-border-color-active: var(--button-border-color);
   --button-border-width: var(--border-width-thin);
   --button-shadow: var(--shadow-button-primary);
   --button-shadow-hover: var(--shadow-button-primary-hover);
   --button-shadow-active: var(--shadow-button-primary-active);
   --button-shadow-focus: var(--shadow-focus-ring);
   --button-padding: var(--spacing-3);
-  --button-min-height: var(--size-control-md);
+  --button-min-height: 36px;
   --button-gap: var(--spacing-4);
   --button-radius: var(--radius-none);
   --button-width: auto;
@@ -111,11 +102,13 @@ function handleClick(event: MouseEvent) {
 
 .button:hover:not(:disabled):not(.button--disabled) {
   background-color: var(--button-bg-hover);
+  border-color: var(--button-border-color-hover);
   box-shadow: var(--button-shadow-hover);
 }
 
 .button:active:not(:disabled):not(.button--disabled) {
   background-color: var(--button-bg-active);
+  border-color: var(--button-border-color-active);
   box-shadow: var(--button-shadow-active);
 }
 
@@ -138,17 +131,17 @@ function handleClick(event: MouseEvent) {
 
 .button--sm {
   --button-padding: var(--spacing-2);
-  --button-min-height: var(--size-control-sm);
+  --button-min-height: 28px;
 }
 
 .button--md {
   --button-padding: var(--spacing-3);
-  --button-min-height: var(--size-control-md);
+  --button-min-height: 36px;
 }
 
 .button--lg {
   --button-padding: var(--spacing-4);
-  --button-min-height: var(--size-control-lg);
+  --button-min-height: 44px;
 }
 
 .button--full-width {
@@ -183,9 +176,11 @@ function handleClick(event: MouseEvent) {
   --button-bg-active: var(--interactive-tertiary-active);
   --button-color: var(--text-primary);
   --button-border-color: var(--border-subtle-1);
-  --button-shadow: var(--shadow-button-tertiary);
-  --button-shadow-hover: var(--shadow-button-tertiary-hover);
-  --button-shadow-active: var(--shadow-button-tertiary-hover);
+  --button-border-color-hover: var(--border-subtle-hover);
+  --button-border-color-active: var(--border-subtle-hover);
+  --button-shadow: var(--shadow-none);
+  --button-shadow-hover: var(--shadow-none);
+  --button-shadow-active: var(--shadow-none);
 }
 
 .button--ghost {

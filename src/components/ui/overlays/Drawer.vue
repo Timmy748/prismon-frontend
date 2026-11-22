@@ -51,8 +51,7 @@ useEscapeKey(() => props.open, handleClose)
 .drawer {
   --drawer-z-index: var(--z-drawer);
   --drawer-backdrop-bg: var(--surface-backdrop);
-  --drawer-backdrop-blur: var(--blur-backdrop);
-  --drawer-max-width: var(--size-drawer-max-width);
+  --drawer-max-width: 484px;
   --drawer-bg: var(--surface-elevated);
   --drawer-border-color: var(--border-subtle-1);
   --drawer-border-width: var(--border-width-thin);
@@ -61,8 +60,8 @@ useEscapeKey(() => props.open, handleClose)
   --drawer-padding-x: var(--spacing-3);
   --drawer-padding-bottom: var(--spacing-6);
   --drawer-gap: var(--spacing-5);
-  --drawer-handle-width: var(--size-handle-width);
-  --drawer-handle-height: var(--size-handle-height);
+  --drawer-handle-width: 48px;
+  --drawer-handle-height: 8px;
   --drawer-handle-radius: var(--radius-sm);
   --drawer-handle-bg: var(--surface-handle);
   --drawer-opacity-closed: var(--opacity-hidden);
@@ -82,7 +81,6 @@ useEscapeKey(() => props.open, handleClose)
   align-items: flex-end;
   justify-content: center;
   background-color: var(--drawer-backdrop-bg);
-  backdrop-filter: blur(var(--drawer-backdrop-blur));
 }
 
 .drawer__panel {

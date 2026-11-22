@@ -89,7 +89,7 @@ function handleSearch(event: Event) {
   --search-input-radius: var(--radius-none);
   --search-input-color: var(--text-primary);
   --search-input-placeholder-color: var(--text-placeholder);
-  --search-input-min-height: var(--size-control-input);
+  --search-input-min-height: 38px;
   --search-input-padding: var(--spacing-3);
   --search-input-gap: var(--spacing-3);
   --search-input-font-family: var(--type-body-compact-02-font-family);

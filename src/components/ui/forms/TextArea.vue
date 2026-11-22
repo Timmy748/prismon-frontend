@@ -110,7 +110,7 @@ function handleBlur(event: FocusEvent) {
   --text-area-placeholder-color: var(--text-placeholder);
   --text-area-label-color: var(--text-primary);
   --text-area-help-color: var(--text-helper);
-  --text-area-min-height: var(--size-textarea-min-height);
+  --text-area-min-height: 160px;
   --text-area-padding: var(--spacing-3);
   --text-area-label-gap: var(--spacing-3);
   --text-area-help-gap: var(--spacing-2);

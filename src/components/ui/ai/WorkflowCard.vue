@@ -37,7 +37,6 @@ const cardClasses = computed(() => [
 
 <style scoped>
 .workflow-card {
-  --workflow-card-max-width: var(--size-workflow-card-width);
   --workflow-card-padding-top: var(--spacing-5);
   --workflow-card-padding-right: var(--spacing-5);
   --workflow-card-padding-bottom: var(--spacing-7);
@@ -75,7 +74,6 @@ const cardClasses = computed(() => [
   flex-direction: column;
   align-items: stretch;
   width: 100%;
-  max-width: var(--workflow-card-max-width);
   padding: var(--workflow-card-padding-top) var(--workflow-card-padding-right)
     var(--workflow-card-padding-bottom) var(--workflow-card-padding-left);
   gap: var(--workflow-card-gap);

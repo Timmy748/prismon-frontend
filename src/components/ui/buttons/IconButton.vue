@@ -1,52 +1,47 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Icon, type IconName } from '../icons'
+import { Icon, type IconName, type IconSize } from '../icons'
 
 export type IconButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'ghost' | 'danger'
+export type IconButtonSize = 'sm' | 'md' | 'lg'
 
 interface Props {
   icon?: IconName
   ariaLabel: string
   variant?: IconButtonVariant
+  size?: IconButtonSize
   type?: 'button' | 'submit' | 'reset'
   disabled?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   variant: 'primary',
+  size: 'sm',
   type: 'button',
   disabled: false,
 })
 
-const emit = defineEmits<{
-  click: [event: MouseEvent]
-}>()
+const ICON_SIZE_MAP: Record<IconButtonSize, IconSize> = {
+  sm: 'sm',
+  md: 'lg',
+  lg: '2xl',
+}
+
+const iconSize = computed(() => ICON_SIZE_MAP[props.size])
 
 const buttonClasses = computed(() => [
   'icon-button',
   `icon-button--${props.variant}`,
+  `icon-button--${props.size}`,
   props.disabled ? 'icon-button--disabled' : undefined,
 ])
-
-function handleClick(event: MouseEvent) {
-  if (props.disabled) {
-    return
-  }
-  emit('click', event)
-}
 </script>
 
 <template>
-  <button
-    :type="type"
-    :class="buttonClasses"
-    :disabled="disabled"
-    :aria-label="ariaLabel"
-    @click="handleClick"
-  >
+  <button :type="type" :class="buttonClasses" :disabled="disabled" :aria-label="ariaLabel">
     <span class="icon-button__icon">
       <slot>
-        <Icon v-if="icon" :name="icon" size="sm" />
+        <Icon v-if="icon" :name="icon" :size="iconSize" />
       </slot>
     </span>
   </button>
@@ -59,12 +54,14 @@ function handleClick(event: MouseEvent) {
   --icon-button-bg-active: var(--interactive-brand-active);
   --icon-button-color: var(--icon-on-brand);
   --icon-button-border-color: var(--border-transparent);
+  --icon-button-border-color-hover: var(--icon-button-border-color);
+  --icon-button-border-color-active: var(--icon-button-border-color);
   --icon-button-border-width: var(--border-width-thin);
   --icon-button-shadow: var(--shadow-button-primary);
   --icon-button-shadow-hover: var(--shadow-button-primary-hover);
   --icon-button-shadow-active: var(--shadow-button-primary-active);
   --icon-button-shadow-focus: var(--shadow-focus-ring);
-  --icon-button-size: var(--size-control-icon);
+  --icon-button-size: 32px;
   --icon-button-padding: var(--spacing-3);
   --icon-button-radius: var(--radius-none);
   --icon-button-transition-duration: var(--duration-fast);
@@ -94,11 +91,13 @@ function handleClick(event: MouseEvent) {
 
 .icon-button:hover:not(:disabled):not(.icon-button--disabled) {
   background-color: var(--icon-button-bg-hover);
+  border-color: var(--icon-button-border-color-hover);
   box-shadow: var(--icon-button-shadow-hover);
 }
 
 .icon-button:active:not(:disabled):not(.icon-button--disabled) {
   background-color: var(--icon-button-bg-active);
+  border-color: var(--icon-button-border-color-active);
   box-shadow: var(--icon-button-shadow-active);
 }
 
@@ -112,6 +111,18 @@ function handleClick(event: MouseEvent) {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.icon-button--sm {
+  --icon-button-size: 32px;
+}
+
+.icon-button--md {
+  --icon-button-size: 36px;
+}
+
+.icon-button--lg {
+  --icon-button-size: 48px;
 }
 
 .icon-button--primary {
@@ -142,9 +153,11 @@ function handleClick(event: MouseEvent) {
   --icon-button-bg-active: var(--interactive-tertiary-active);
   --icon-button-color: var(--icon-primary);
   --icon-button-border-color: var(--border-subtle-1);
-  --icon-button-shadow: var(--shadow-button-tertiary);
-  --icon-button-shadow-hover: var(--shadow-button-tertiary-hover);
-  --icon-button-shadow-active: var(--shadow-button-tertiary-hover);
+  --icon-button-border-color-hover: var(--border-subtle-hover);
+  --icon-button-border-color-active: var(--border-subtle-hover);
+  --icon-button-shadow: var(--shadow-none);
+  --icon-button-shadow-hover: var(--shadow-none);
+  --icon-button-shadow-active: var(--shadow-none);
 }
 
 .icon-button--ghost {

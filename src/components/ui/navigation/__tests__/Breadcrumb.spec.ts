@@ -29,7 +29,7 @@ describe('BreadcrumbLink', () => {
     expect(wrapper.emitted('click')).toHaveLength(1)
   })
 
-  it('renders current item with aria-current="page" and does not emit click', async () => {
+  it('renders current item as non-interactive span with aria-current="page"', () => {
     const wrapper = mount(BreadcrumbLink, {
       props: {
         label: 'Atual',
@@ -40,17 +40,16 @@ describe('BreadcrumbLink', () => {
 
     expect(wrapper.classes()).toContain('breadcrumb-link--current')
     expect(wrapper.find('a').exists()).toBe(false)
-    const control = wrapper.find('.breadcrumb-link__control')
+    expect(wrapper.find('button').exists()).toBe(false)
+    const control = wrapper.find('span.breadcrumb-link__control')
+    expect(control.exists()).toBe(true)
     expect(control.attributes('aria-current')).toBe('page')
     expect(wrapper.find('.breadcrumb-link__separator').exists()).toBe(false)
-
-    await control.trigger('click')
-    expect(wrapper.emitted('click')).toBeUndefined()
   })
 })
 
 describe('Breadcrumb', () => {
-  it('renders nav with ordered list from items and emits navigate', async () => {
+  it('renders nav with ordered list from items and emits navigate only for non-current items', async () => {
     const wrapper = mount(Breadcrumb, {
       props: { items: ITEMS },
     })
@@ -66,6 +65,9 @@ describe('Breadcrumb', () => {
     expect(links[1]?.props('showSeparator')).toBe(true)
     expect(links[2]?.props('showSeparator')).toBe(false)
     expect(links[2]?.props('current')).toBe(true)
+
+    await links[2]?.find('.breadcrumb-link__control').trigger('click')
+    expect(wrapper.emitted('navigate')).toBeUndefined()
 
     await links[1]?.find('.breadcrumb-link__control').trigger('click')
     const emitted = wrapper.emitted('navigate')

@@ -11,7 +11,7 @@ interface Props {
   items?: BreadcrumbItem[]
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   items: () => [],
 })
 
@@ -20,6 +20,9 @@ const emit = defineEmits<{
 }>()
 
 function handleItemClick(item: BreadcrumbItem, index: number, event: MouseEvent) {
+  if (index === props.items.length - 1) {
+    return
+  }
   emit('navigate', item, index, event)
 }
 </script>

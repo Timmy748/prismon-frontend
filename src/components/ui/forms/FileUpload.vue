@@ -137,7 +137,7 @@ function handleDrop(event: DragEvent) {
       >
         <Icon
           name="upload"
-          size="2xl"
+          size="3xl"
           :color="disabled ? 'disabled' : 'secondary'"
           class="file-upload__icon"
         />
@@ -174,7 +174,7 @@ function handleDrop(event: DragEvent) {
   --file-upload-hint-color: var(--text-tertiary);
   --file-upload-error-color: var(--text-danger);
   --file-upload-shadow-focus: var(--shadow-focus-ring);
-  --file-upload-min-height: var(--size-upload-min-height);
+  --file-upload-min-height: 240px;
   --file-upload-padding: var(--spacing-5);
   --file-upload-gap: var(--spacing-3);
   --file-upload-label-gap: var(--spacing-3);

@@ -1,23 +1,35 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { IconButton } from '../buttons'
+import FileAttachmentCard from './FileAttachmentCard.vue'
+
+export interface AiAttachmentItem {
+  id: string
+  filename: string
+  fileSize: string
+  thumbnailUrl?: string
+}
 
 interface Props {
   modelValue?: string
   placeholder?: string
   disabled?: boolean
+  attachments?: AiAttachmentItem[]
   attachLabel?: string
   workflowLabel?: string
   sendLabel?: string
+  removeAttachmentLabel?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
   placeholder: 'Digite sua mensagem',
   disabled: false,
+  attachments: () => [],
   attachLabel: 'Anexar arquivo',
   workflowLabel: 'Selecionar workflow',
   sendLabel: 'Enviar mensagem',
+  removeAttachmentLabel: 'Remover anexo',
 })
 
 const emit = defineEmits<{
@@ -25,6 +37,7 @@ const emit = defineEmits<{
   submit: [value: string]
   attach: []
   'select-workflow': []
+  'remove-attachment': [attachmentId: string]
 }>()
 
 const containerClasses = computed(() => [
@@ -57,6 +70,20 @@ function handleKeydown(event: KeyboardEvent) {
 
 <template>
   <div :class="containerClasses">
+    <div v-if="attachments.length > 0 || $slots.attachments" class="ai-prompt-input__attachments">
+      <slot name="attachments">
+        <FileAttachmentCard
+          v-for="item in attachments"
+          :key="item.id"
+          :filename="item.filename"
+          :file-size="item.fileSize"
+          :thumbnail-url="item.thumbnailUrl"
+          :removable="!disabled"
+          :remove-label="removeAttachmentLabel"
+          @remove="emit('remove-attachment', item.id)"
+        />
+      </slot>
+    </div>
     <textarea
       class="ai-prompt-input__textarea"
       :value="modelValue"
@@ -97,9 +124,9 @@ function handleKeydown(event: KeyboardEvent) {
 
 <style scoped>
 .ai-prompt-input {
-  --ai-prompt-input-max-width: var(--size-ai-input-max-width);
   --ai-prompt-input-padding: var(--spacing-3);
   --ai-prompt-input-gap: var(--spacing-5);
+  --ai-prompt-input-attachments-gap: var(--spacing-3);
   --ai-prompt-input-actions-gap: var(--spacing-3);
   --ai-prompt-input-bg: var(--field-bg);
   --ai-prompt-input-border-color: var(--field-border);
@@ -121,7 +148,6 @@ function handleKeydown(event: KeyboardEvent) {
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: var(--ai-prompt-input-max-width);
   padding: var(--ai-prompt-input-padding);
   gap: var(--ai-prompt-input-gap);
   box-sizing: border-box;
@@ -140,6 +166,12 @@ function handleKeydown(event: KeyboardEvent) {
   --ai-prompt-input-bg: var(--surface-disabled);
   --ai-prompt-input-border-color: var(--border-disabled);
   --ai-prompt-input-text-color: var(--text-disabled);
+}
+
+.ai-prompt-input__attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ai-prompt-input-attachments-gap);
 }
 
 .ai-prompt-input__textarea {

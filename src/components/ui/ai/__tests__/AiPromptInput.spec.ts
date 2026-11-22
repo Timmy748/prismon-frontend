@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { AiPromptInput } from '../index'
+import { AiPromptInput, FileAttachmentCard } from '../index'
 import { IconButton } from '../../buttons'
 
 describe('AiPromptInput', () => {
@@ -138,5 +138,23 @@ describe('AiPromptInput', () => {
 
     await wrapper.find('textarea').trigger('keydown', { key: 'Enter', shiftKey: false })
     expect(wrapper.emitted('submit')).toBeUndefined()
+  })
+
+  it('renders attachments and emits remove-attachment when remove button is clicked', async () => {
+    const wrapper = mount(AiPromptInput, {
+      props: {
+        attachments: [
+          { id: 'att-1', filename: 'manual.pdf', fileSize: '66 KB' },
+          { id: 'att-2', filename: 'foto.png', fileSize: '120 KB' },
+        ],
+      },
+    })
+
+    const cards = wrapper.findAllComponents(FileAttachmentCard)
+    expect(cards).toHaveLength(2)
+    expect(cards[0]?.props('removable')).toBe(true)
+
+    await cards[1]!.find('.file-attachment-card__remove').trigger('click')
+    expect(wrapper.emitted('remove-attachment')).toEqual([['att-2']])
   })
 })

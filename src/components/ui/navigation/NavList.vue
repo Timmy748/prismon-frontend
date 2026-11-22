@@ -60,7 +60,7 @@ function toggleOpen() {
 
 <style scoped>
 .nav-list {
-  --nav-list-bg: var(--surface-base);
+  --nav-list-bg: var(--surface-elevated);
   --nav-list-toggle-bg: var(--surface-transparent);
   --nav-list-border-width: var(--border-width-none);
   --nav-list-border-color: var(--border-transparent);

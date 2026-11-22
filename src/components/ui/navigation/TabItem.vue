@@ -12,22 +12,11 @@ const props = withDefaults(defineProps<Props>(), {
   disabled: false,
 })
 
-const emit = defineEmits<{
-  click: [event: MouseEvent]
-}>()
-
 const tabItemClasses = computed(() => [
   'tab-item',
   props.active ? 'tab-item--active' : undefined,
   props.disabled ? 'tab-item--disabled' : undefined,
 ])
-
-function handleClick(event: MouseEvent) {
-  if (props.disabled) {
-    return
-  }
-  emit('click', event)
-}
 </script>
 
 <template>
@@ -37,7 +26,6 @@ function handleClick(event: MouseEvent) {
     :class="tabItemClasses"
     :aria-selected="active"
     :disabled="disabled"
-    @click="handleClick"
   >
     <span class="tab-item__label">
       <slot>{{ label }}</slot>

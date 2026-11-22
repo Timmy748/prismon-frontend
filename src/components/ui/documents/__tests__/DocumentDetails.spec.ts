@@ -139,4 +139,40 @@ describe('DocumentDetails', () => {
     expect(wrapper.find('.document-details__tags-row').exists()).toBe(false)
     expect(wrapper.find('.document-details__history-list').exists()).toBe(false)
   })
+
+  it('updates horizontal scroll mask classes on tags container without masking add button', async () => {
+    const wrapper = mount(DocumentDetails, {
+      props: {
+        title: 'Documento com muitas tags',
+        tags: sampleTags,
+        showAddTag: true,
+      },
+    })
+
+    const viewport = wrapper.find('.document-details__tags-viewport')
+    const scroller = wrapper.find('.document-details__tags')
+    const addButton = wrapper.find('.document-details__add-tag')
+
+    expect(viewport.exists()).toBe(true)
+    expect(addButton.exists()).toBe(true)
+    expect(viewport.find('.document-details__add-tag').exists()).toBe(false)
+
+    const el = scroller.element as HTMLElement
+    Object.defineProperty(el, 'scrollWidth', { value: 400, configurable: true })
+    Object.defineProperty(el, 'clientWidth', { value: 200, configurable: true })
+    Object.defineProperty(el, 'scrollLeft', { value: 0, writable: true, configurable: true })
+
+    await scroller.trigger('scroll')
+    expect(scroller.classes()).toContain('document-details__tags--mask-right')
+    expect(scroller.classes()).not.toContain('document-details__tags--mask-left')
+
+    el.scrollLeft = 80
+    await scroller.trigger('scroll')
+    expect(scroller.classes()).toContain('document-details__tags--mask-both')
+
+    el.scrollLeft = 200
+    await scroller.trigger('scroll')
+    expect(scroller.classes()).toContain('document-details__tags--mask-left')
+    expect(scroller.classes()).not.toContain('document-details__tags--mask-right')
+  })
 })

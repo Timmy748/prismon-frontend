@@ -72,10 +72,10 @@ const resolvedSelectionLabel = computed(
 .batch-action-bar {
   --batch-action-bar-bg: var(--surface-inverse-subtle);
   --batch-action-bar-color: var(--text-on-inverse-subtle);
-  --batch-action-bar-min-height: var(--size-control-lg);
+  --batch-action-bar-min-height: 44px;
   --batch-action-bar-count-padding: var(--spacing-3);
   --batch-action-bar-actions-gap: var(--spacing-0);
-  --batch-action-bar-button-min-height: var(--size-control-lg);
+  --batch-action-bar-button-min-height: 44px;
   --batch-action-bar-button-padding: var(--spacing-4);
   --batch-action-bar-button-gap: var(--spacing-4);
   --batch-action-bar-button-bg: var(--surface-inverse-subtle);

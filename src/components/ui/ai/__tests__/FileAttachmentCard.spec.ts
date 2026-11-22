@@ -47,5 +47,24 @@ describe('FileAttachmentCard', () => {
 
     expect(wrapper.find('[data-testid="custom-thumb"]').text()).toBe('XLS')
     expect(wrapper.find('img').exists()).toBe(false)
+    expect(wrapper.find('.file-attachment-card__remove').exists()).toBe(false)
+  })
+
+  it('renders remove button when removable is true and emits remove on click', async () => {
+    const wrapper = mount(FileAttachmentCard, {
+      props: {
+        filename: 'briefing.pdf',
+        fileSize: '320 KB',
+        removable: true,
+        removeLabel: 'Excluir anexo',
+      },
+    })
+
+    const removeBtn = wrapper.find('.file-attachment-card__remove')
+    expect(removeBtn.exists()).toBe(true)
+    expect(removeBtn.attributes('aria-label')).toBe('Excluir anexo')
+
+    await removeBtn.trigger('click')
+    expect(wrapper.emitted('remove')).toHaveLength(1)
   })
 })

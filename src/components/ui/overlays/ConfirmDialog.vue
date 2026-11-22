@@ -55,7 +55,7 @@ useEscapeKey(() => props.open, handleCancel)
           </div>
 
           <footer class="confirm-dialog__footer">
-            <Button variant="ghost" @click="handleCancel">{{ cancelLabel }}</Button>
+            <Button variant="tertiary" @click="handleCancel">{{ cancelLabel }}</Button>
             <Button :variant="confirmVariant" @click="emit('confirm')">
               {{ confirmLabel }}
             </Button>
@@ -70,9 +70,8 @@ useEscapeKey(() => props.open, handleCancel)
 .confirm-dialog {
   --confirm-dialog-z-index: var(--z-modal);
   --confirm-dialog-backdrop-bg: var(--surface-backdrop);
-  --confirm-dialog-backdrop-blur: var(--blur-backdrop);
   --confirm-dialog-viewport-padding: var(--spacing-5);
-  --confirm-dialog-width: var(--size-modal-sm);
+  --confirm-dialog-width: 360px;
   --confirm-dialog-bg: var(--surface-elevated);
   --confirm-dialog-border-color: var(--border-subtle-1);
   --confirm-dialog-border-width: var(--border-width-thin);
@@ -114,7 +113,6 @@ useEscapeKey(() => props.open, handleCancel)
   padding: var(--confirm-dialog-viewport-padding);
   box-sizing: border-box;
   background-color: var(--confirm-dialog-backdrop-bg);
-  backdrop-filter: blur(var(--confirm-dialog-backdrop-blur));
 }
 
 .confirm-dialog__dialog {

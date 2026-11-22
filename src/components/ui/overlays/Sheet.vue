@@ -67,8 +67,7 @@ useEscapeKey(() => props.open, handleClose)
 .sheet {
   --sheet-z-index: var(--z-sheet);
   --sheet-backdrop-bg: var(--surface-backdrop);
-  --sheet-backdrop-blur: var(--blur-backdrop);
-  --sheet-width: var(--size-sheet-width);
+  --sheet-width: 443px;
   --sheet-bg: var(--surface-elevated);
   --sheet-border-color: var(--border-subtle-1);
   --sheet-border-width: var(--border-width-thin);
@@ -93,11 +92,11 @@ useEscapeKey(() => props.open, handleClose)
 }
 
 .sheet--md {
-  --sheet-width: var(--size-sheet-width);
+  --sheet-width: 443px;
 }
 
 .sheet--lg {
-  --sheet-width: var(--size-sheet-width-lg);
+  --sheet-width: 632px;
 }
 
 .sheet__backdrop {
@@ -108,7 +107,6 @@ useEscapeKey(() => props.open, handleClose)
   justify-content: flex-end;
   align-items: stretch;
   background-color: var(--sheet-backdrop-bg);
-  backdrop-filter: blur(var(--sheet-backdrop-blur));
 }
 
 .sheet__panel {

@@ -50,7 +50,7 @@ const tagClasses = computed(() => ['tag', props.dismissible ? 'tag--dismissible'
   --tag-padding-bottom: var(--spacing-2);
   --tag-padding-left: var(--spacing-4);
   --tag-gap: var(--spacing-3);
-  --tag-dot-size: var(--size-dot-sm);
+  --tag-dot-size: 4px;
   --tag-dot-radius: var(--radius-full);
   --tag-dot-bg: var(--icon-brand);
   --tag-font-family: var(--type-body-compact-01-font-family);

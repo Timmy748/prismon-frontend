@@ -19,7 +19,7 @@ describe('TagForm', () => {
     expect(textArea.props('label')).toBe('Descrição')
 
     expect(buttons).toHaveLength(2)
-    expect(buttons[0]?.props('variant')).toBe('ghost')
+    expect(buttons[0]?.props('variant')).toBe('tertiary')
     expect(buttons[0]?.props('fullWidth')).toBe(true)
     expect(buttons[0]?.text()).toBe('Cancelar')
 

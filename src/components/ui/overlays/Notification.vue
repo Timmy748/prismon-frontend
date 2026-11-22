@@ -39,7 +39,6 @@ const role = computed(() => (props.variant === 'danger' ? 'alert' : 'status'))
 
 <style scoped>
 .notification {
-  --notification-max-width: var(--size-notification-width);
   --notification-padding: var(--spacing-5);
   --notification-gap: var(--spacing-4);
   --notification-content-gap: var(--spacing-4);
@@ -47,7 +46,7 @@ const role = computed(() => (props.variant === 'danger' ? 'alert' : 'status'))
   --notification-border-color: var(--border-subtle-1);
   --notification-border-width: var(--border-width-thin);
   --notification-radius: var(--radius-none);
-  --notification-icon-size: var(--size-notification-icon);
+  --notification-icon-size: 32px;
   --notification-icon-bg: var(--surface-placeholder);
   --notification-icon-color: var(--icon-primary);
   --notification-title-color: var(--text-primary);
@@ -67,7 +66,6 @@ const role = computed(() => (props.variant === 'danger' ? 'alert' : 'status'))
   align-items: flex-start;
   gap: var(--notification-gap);
   width: 100%;
-  max-width: var(--notification-max-width);
   padding: var(--notification-padding);
   box-sizing: border-box;
   background-color: var(--notification-bg);

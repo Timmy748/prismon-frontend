@@ -19,7 +19,6 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-  click: [event: MouseEvent]
   'trailing-click': [event: MouseEvent]
 }>()
 
@@ -30,17 +29,13 @@ const listItemClasses = computed(() => [
   props.active ? 'list-item--active' : undefined,
 ])
 
-function handleClick(event: MouseEvent) {
-  emit('click', event)
-}
-
 function handleTrailingClick(event: MouseEvent) {
   emit('trailing-click', event)
 }
 </script>
 
 <template>
-  <div :class="listItemClasses" @click="handleClick">
+  <div :class="listItemClasses">
     <button
       type="button"
       class="list-item__trigger"
@@ -75,13 +70,13 @@ function handleTrailingClick(event: MouseEvent) {
 
 <style scoped>
 .list-item {
-  --list-item-bg: var(--surface-base);
+  --list-item-bg: var(--surface-elevated);
   --list-item-bg-hover: var(--surface-subtle-hover);
   --list-item-control-bg: var(--surface-transparent);
   --list-item-border-width: var(--border-width-none);
   --list-item-border-color: var(--border-transparent);
   --list-item-color: var(--text-secondary);
-  --list-item-height: var(--size-list-item);
+  --list-item-height: 34px;
   --list-item-width: 100%;
   --list-item-padding: var(--spacing-3);
   --list-item-gap: var(--spacing-4);
@@ -172,7 +167,7 @@ function handleTrailingClick(event: MouseEvent) {
 }
 
 .list-item--closed {
-  --list-item-width: var(--size-list-item);
+  --list-item-width: 34px;
   --list-item-gap: var(--spacing-0);
   --list-item-justify: center;
 }

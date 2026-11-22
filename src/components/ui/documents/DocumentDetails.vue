@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Icon } from '../icons'
 import { IconButton } from '../buttons'
 import { Tag } from '../badges'
@@ -26,7 +27,7 @@ interface Props {
   addTagLabel?: string
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   tags: () => [],
   history: () => [],
   historyTitle: 'Histórico de modificações',
@@ -39,6 +40,55 @@ const emit = defineEmits<{
   'add-tag': []
   'remove-tag': [tagId: string]
 }>()
+
+const tagsScrollRef = ref<HTMLDivElement | null>(null)
+const canScrollLeft = ref(false)
+const canScrollRight = ref(false)
+let resizeObserver: ResizeObserver | null = null
+
+const tagsScrollClasses = computed(() => {
+  const classes = ['document-details__tags']
+  if (canScrollLeft.value && canScrollRight.value) {
+    classes.push('document-details__tags--mask-both')
+  } else if (canScrollLeft.value) {
+    classes.push('document-details__tags--mask-left')
+  } else if (canScrollRight.value) {
+    classes.push('document-details__tags--mask-right')
+  }
+  return classes
+})
+
+function updateTagScrollState() {
+  const el = tagsScrollRef.value
+  if (!el) {
+    canScrollLeft.value = false
+    canScrollRight.value = false
+    return
+  }
+  const { scrollLeft, scrollWidth, clientWidth } = el
+  canScrollLeft.value = scrollLeft > 1
+  canScrollRight.value = scrollLeft + clientWidth < scrollWidth - 1
+}
+
+onMounted(() => {
+  updateTagScrollState()
+  if (typeof ResizeObserver !== 'undefined' && tagsScrollRef.value) {
+    resizeObserver = new ResizeObserver(updateTagScrollState)
+    resizeObserver.observe(tagsScrollRef.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+})
+
+watch(
+  () => props.tags,
+  () => {
+    void nextTick(updateTagScrollState)
+  },
+  { deep: true },
+)
 </script>
 
 <template>
@@ -57,14 +107,16 @@ const emit = defineEmits<{
       </div>
 
       <div v-if="tags.length > 0 || showAddTag" class="document-details__tags-row">
-        <div class="document-details__tags">
-          <Tag
-            v-for="tag in tags"
-            :key="tag.id"
-            :label="tag.label"
-            :dismissible="editableTags"
-            @dismiss="emit('remove-tag', tag.id)"
-          />
+        <div class="document-details__tags-viewport">
+          <div ref="tagsScrollRef" :class="tagsScrollClasses" @scroll="updateTagScrollState">
+            <Tag
+              v-for="tag in tags"
+              :key="tag.id"
+              :label="tag.label"
+              :dismissible="editableTags"
+              @dismiss="emit('remove-tag', tag.id)"
+            />
+          </div>
         </div>
         <IconButton
           v-if="showAddTag"
@@ -107,6 +159,10 @@ const emit = defineEmits<{
   --document-details-header-actions-gap: var(--spacing-3);
   --document-details-tags-row-gap: var(--spacing-6);
   --document-details-tags-gap: var(--spacing-4);
+  --document-details-tags-mask-size: var(--spacing-6);
+  --document-details-tags-mask-opaque: var(--text-primary);
+  --document-details-tags-mask-transparent: var(--surface-transparent);
+  --document-details-tags-mask: none;
   --document-details-history-list-gap: var(--spacing-6);
   --document-details-history-item-gap: var(--spacing-4);
   --document-details-history-meta-gap: var(--spacing-5);
@@ -192,13 +248,61 @@ const emit = defineEmits<{
   align-items: center;
   justify-content: space-between;
   gap: var(--document-details-tags-row-gap);
+  min-width: var(--document-details-reset-spacing);
+}
+
+.document-details__tags-viewport {
+  flex: 1;
+  min-width: var(--document-details-reset-spacing);
+  overflow: hidden;
 }
 
 .document-details__tags {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--document-details-tags-gap);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-mask-image: var(--document-details-tags-mask);
+  mask-image: var(--document-details-tags-mask);
+}
+
+.document-details__tags::-webkit-scrollbar {
+  display: none;
+}
+
+.document-details__tags > * {
+  flex-shrink: 0;
+}
+
+.document-details__tags--mask-left {
+  --document-details-tags-mask: linear-gradient(
+    to right,
+    var(--document-details-tags-mask-transparent) 0,
+    var(--document-details-tags-mask-opaque) var(--document-details-tags-mask-size),
+    var(--document-details-tags-mask-opaque) 100%
+  );
+}
+
+.document-details__tags--mask-right {
+  --document-details-tags-mask: linear-gradient(
+    to right,
+    var(--document-details-tags-mask-opaque) 0,
+    var(--document-details-tags-mask-opaque) calc(100% - var(--document-details-tags-mask-size)),
+    var(--document-details-tags-mask-transparent) 100%
+  );
+}
+
+.document-details__tags--mask-both {
+  --document-details-tags-mask: linear-gradient(
+    to right,
+    var(--document-details-tags-mask-transparent) 0,
+    var(--document-details-tags-mask-opaque) var(--document-details-tags-mask-size),
+    var(--document-details-tags-mask-opaque) calc(100% - var(--document-details-tags-mask-size)),
+    var(--document-details-tags-mask-transparent) 100%
+  );
 }
 
 .document-details__add-tag {
@@ -250,6 +354,8 @@ const emit = defineEmits<{
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
+  width: 100%;
   gap: var(--document-details-history-meta-gap);
   color: var(--document-details-history-text-color);
   font-family: var(--document-details-history-font-family);

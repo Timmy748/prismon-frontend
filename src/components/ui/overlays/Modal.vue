@@ -82,9 +82,8 @@ useEscapeKey(() => props.open, handleClose)
 .modal {
   --modal-z-index: var(--z-modal);
   --modal-backdrop-bg: var(--surface-backdrop);
-  --modal-backdrop-blur: var(--blur-backdrop);
   --modal-viewport-padding: var(--spacing-5);
-  --modal-width: var(--size-modal-sm);
+  --modal-width: 360px;
   --modal-bg: var(--surface-elevated);
   --modal-border-color: var(--border-subtle-1);
   --modal-border-width: var(--border-width-thin);
@@ -95,7 +94,7 @@ useEscapeKey(() => props.open, handleClose)
   --modal-gap: var(--spacing-5);
   --modal-header-gap: var(--spacing-4);
   --modal-title-gap: var(--spacing-2);
-  --modal-body-max-height: var(--size-modal-body-max-height);
+  --modal-body-max-height: 320px;
   --modal-footer-gap: var(--spacing-3);
   --modal-title-color: var(--text-primary);
   --modal-title-font-family: var(--type-heading-03-font-family);
@@ -120,11 +119,11 @@ useEscapeKey(() => props.open, handleClose)
 }
 
 .modal--sm {
-  --modal-width: var(--size-modal-sm);
+  --modal-width: 360px;
 }
 
 .modal--lg {
-  --modal-width: var(--size-modal-lg);
+  --modal-width: 713px;
 }
 
 .modal__backdrop {
@@ -137,7 +136,6 @@ useEscapeKey(() => props.open, handleClose)
   padding: var(--modal-viewport-padding);
   box-sizing: border-box;
   background-color: var(--modal-backdrop-bg);
-  backdrop-filter: blur(var(--modal-backdrop-blur));
 }
 
 .modal__dialog {

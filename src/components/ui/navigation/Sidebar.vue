@@ -50,7 +50,7 @@ function handleToggle() {
 
 <style scoped>
 .sidebar {
-  --sidebar-width: var(--size-sidebar-open);
+  --sidebar-width: 240px;
   --sidebar-height: 100%;
   --sidebar-bg: var(--surface-elevated);
   --sidebar-border-color: var(--border-subtle-1);
@@ -83,7 +83,7 @@ function handleToggle() {
 }
 
 .sidebar--closed {
-  --sidebar-width: var(--size-sidebar-closed);
+  --sidebar-width: 66px;
   --sidebar-header-justify: center;
 }
 

@@ -105,7 +105,7 @@ function handleSubmit() {
     </div>
 
     <div class="tag-form__actions">
-      <Button variant="ghost" full-width :disabled="disabled" @click="emit('cancel')">
+      <Button variant="tertiary" full-width :disabled="disabled" @click="emit('cancel')">
         {{ cancelLabel }}
       </Button>
       <Button type="submit" variant="primary" full-width :disabled="disabled || submitDisabled">
@@ -118,7 +118,6 @@ function handleSubmit() {
 <style scoped>
 .tag-form {
   --tag-form-width: 100%;
-  --tag-form-max-width: var(--size-form-width);
   --tag-form-gap: var(--spacing-6);
   --tag-form-fields-gap: var(--spacing-5);
   --tag-form-actions-gap: var(--spacing-0);
@@ -127,7 +126,6 @@ function handleSubmit() {
   flex-direction: column;
   gap: var(--tag-form-gap);
   width: var(--tag-form-width);
-  max-width: var(--tag-form-max-width);
   box-sizing: border-box;
 }
 

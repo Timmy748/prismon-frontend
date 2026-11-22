@@ -4,7 +4,7 @@ import { Icon, ICON_PATHS, type IconColor, type IconName, type IconSize } from '
 
 const ALL_ICON_NAMES = Object.keys(ICON_PATHS) as IconName[]
 
-const SIZES: IconSize[] = ['sm', 'md', 'lg', 'xl', '2xl']
+const SIZES: IconSize[] = ['sm', 'md', 'lg', 'xl', '2xl', '3xl']
 
 const SEMANTIC_COLORS: Exclude<IconColor, 'inherit'>[] = [
   'primary',

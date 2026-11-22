@@ -37,12 +37,14 @@ import {
   type IconName,
   type ButtonVariant,
   type ButtonSize,
+  type IconButtonSize,
   type IconButtonVariant,
   type SelectOption,
   type TabOption,
   type BreadcrumbItem,
   type DataTableColumn,
   type BatchAction,
+  type AiAttachmentItem,
   type WorkflowStep,
   type DocumentTagItem,
   type DocumentHistoryEntry,
@@ -83,6 +85,7 @@ const allIconNames = Object.keys(ICON_PATHS) as IconName[]
 // Buttons
 const buttonVariants: ButtonVariant[] = ['primary', 'secondary', 'tertiary', 'ghost', 'danger']
 const buttonSizes: ButtonSize[] = ['sm', 'md', 'lg']
+const iconButtonSizes: IconButtonSize[] = ['sm', 'md', 'lg']
 const iconButtonVariants: IconButtonVariant[] = [
   'primary',
   'secondary',
@@ -208,6 +211,14 @@ const chatMessages = ref<Array<{ id: number; role: 'human' | 'ai'; content: stri
 ])
 
 const aiPrompt = ref('')
+const aiAttachments = ref<AiAttachmentItem[]>([
+  { id: 'att-1', filename: 'manual-marca.pdf', fileSize: '66 KB' },
+  { id: 'att-2', filename: 'referencias-ui.png', fileSize: '1.4 MB' },
+])
+
+function handleRemoveAiAttachment(attachmentId: string) {
+  aiAttachments.value = aiAttachments.value.filter((item) => item.id !== attachmentId)
+}
 
 function handleAiSubmit(message: string) {
   chatMessages.value.push({
@@ -262,6 +273,9 @@ const documentTags = ref<DocumentTagItem[]>([
   { id: 't1', label: 'identidade' },
   { id: 't2', label: 'ui kit' },
   { id: 't3', label: 'tcc' },
+  { id: 't4', label: 'design system' },
+  { id: 't5', label: 'documentação' },
+  { id: 't6', label: 'tokens semânticos' },
 ])
 
 const documentHistory: DocumentHistoryEntry[] = [
@@ -386,17 +400,24 @@ function handleTagFormSubmit(payload: TagFormPayload) {
             </div>
           </div>
 
-          <div class="preview__card">
-            <span class="type-label-01 preview__card-label">IconButton (32x32)</span>
+          <div v-for="iconSize in iconButtonSizes" :key="iconSize" class="preview__card">
+            <span class="type-label-01 preview__card-label">IconButton ({{ iconSize }})</span>
             <div class="preview__row">
               <IconButton
                 v-for="variant in iconButtonVariants"
                 :key="variant"
                 :variant="variant"
+                :size="iconSize"
                 icon="send"
-                :ariaLabel="`Botão de ícone ${variant}`"
+                :ariaLabel="`Botão de ícone ${variant} ${iconSize}`"
               />
-              <IconButton variant="primary" icon="delete" ariaLabel="Botão desabilitado" disabled />
+              <IconButton
+                variant="primary"
+                :size="iconSize"
+                icon="delete"
+                :ariaLabel="`Botão desabilitado ${iconSize}`"
+                disabled
+              />
             </div>
           </div>
         </div>
@@ -644,9 +665,11 @@ function handleTagFormSubmit(payload: TagFormPayload) {
 
           <AiPromptInput
             v-model="aiPrompt"
+            :attachments="aiAttachments"
             @submit="handleAiSubmit"
             @attach="lastOverlayFeedback = 'Ação anexar arquivo clicada no AiPromptInput.'"
             @select-workflow="modalLgOpen = true"
+            @remove-attachment="handleRemoveAiAttachment"
           />
 
           <div class="preview__split">
@@ -926,14 +949,14 @@ function handleTagFormSubmit(payload: TagFormPayload) {
 
 .preview__split {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(var(--size-modal-sm), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: var(--preview-gap-lg);
   align-items: start;
 }
 
 .preview__form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(var(--size-input-default-width), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--preview-gap-md);
   align-items: start;
 }
