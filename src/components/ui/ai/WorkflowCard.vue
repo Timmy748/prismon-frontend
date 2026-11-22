@@ -44,8 +44,6 @@ const cardClasses = computed(() => [
   --workflow-card-gap: var(--spacing-4);
   --workflow-card-header-gap: var(--spacing-3);
   --workflow-card-bg: var(--surface-elevated);
-  --workflow-card-border-width: var(--border-width-thin);
-  --workflow-card-border-color: var(--border-subtle-1);
   --workflow-card-radius: var(--radius-none);
   --workflow-card-shadow-focus: var(--shadow-focus-ring);
   --workflow-card-cursor: pointer;
@@ -82,19 +80,19 @@ const cardClasses = computed(() => [
   box-sizing: border-box;
   text-align: left;
   background-color: var(--workflow-card-bg);
-  border: var(--workflow-card-border-width) solid var(--workflow-card-border-color);
+  border: var(--border-width-none);
   border-radius: var(--workflow-card-radius);
   cursor: var(--workflow-card-cursor);
   transition:
     transform var(--workflow-card-transition-duration) var(--workflow-card-transition-easing),
-    border-color var(--workflow-card-transition-duration)
+    background-color var(--workflow-card-transition-duration)
       var(--workflow-card-hover-transition-easing),
     box-shadow var(--workflow-card-transition-duration) var(--workflow-card-hover-transition-easing);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .workflow-card:hover:not(.workflow-card--selected) {
-    --workflow-card-border-color: var(--border-subtle-hover);
+    --workflow-card-bg: var(--surface-subtle-hover);
   }
 }
 
@@ -114,8 +112,7 @@ const cardClasses = computed(() => [
 }
 
 .workflow-card--selected {
-  --workflow-card-border-width: var(--border-width-thick);
-  --workflow-card-border-color: var(--border-strong);
+  --workflow-card-bg: var(--surface-subtle);
 }
 
 .workflow-card__header {

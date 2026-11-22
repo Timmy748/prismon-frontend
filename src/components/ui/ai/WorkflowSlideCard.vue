@@ -175,8 +175,6 @@ function closeDescription() {
 .workflow-slide-card {
   --workflow-slide-card-bg: var(--surface-inverse);
   --workflow-slide-card-sheet-bg: var(--surface-elevated);
-  --workflow-slide-card-border-width: var(--border-width-thin);
-  --workflow-slide-card-border-color: var(--border-subtle-2);
   --workflow-slide-card-radius: var(--radius-none);
   --workflow-slide-card-inset: var(--spacing-5);
   --workflow-slide-card-layer-inset: var(--spacing-2);
@@ -206,17 +204,11 @@ function closeDescription() {
   overflow: hidden;
   box-sizing: border-box;
   background-color: var(--workflow-slide-card-bg);
-  border: var(--workflow-slide-card-border-width) solid var(--workflow-slide-card-border-color);
+  border: var(--border-width-none);
   border-radius: var(--workflow-slide-card-radius);
   cursor: pointer;
   user-select: none;
-  transition:
-    border-color var(--duration-fast) var(--easing-hover),
-    transform var(--duration-fast) var(--workflow-slide-card-transition-easing);
-}
-
-.workflow-slide-card--selected {
-  --workflow-slide-card-border-color: var(--border-strong);
+  transition: transform var(--duration-fast) var(--workflow-slide-card-transition-easing);
 }
 
 .workflow-slide-card:focus-visible {
@@ -352,7 +344,7 @@ function closeDescription() {
   padding: var(--workflow-slide-card-layer-padding);
   box-sizing: border-box;
   background-color: var(--workflow-slide-card-sheet-bg);
-  border: var(--border-width-thin) solid var(--border-subtle-1);
+  border: var(--border-width-none);
   clip-path: circle(0px at var(--workflow-slide-card-reveal-x) var(--workflow-slide-card-reveal-y));
   pointer-events: none;
   cursor: default;

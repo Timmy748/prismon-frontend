@@ -203,7 +203,7 @@ describe('ChatView', () => {
     expect(workflowModal.find('.modal__title').text()).toBe('workflows')
 
     const cards = workflowModal.findAllComponents(WorkflowSlideCard)
-    expect(cards).toHaveLength(4)
+    expect(cards).toHaveLength(5)
 
     await cards[0]!.find('button[aria-label="Ver descrição"]').trigger('click')
     await flushPromises()

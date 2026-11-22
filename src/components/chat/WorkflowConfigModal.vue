@@ -57,7 +57,9 @@ const emit = defineEmits<{
   apply: [payload: WorkflowConfigApplyPayload]
 }>()
 
-function createWorkflowBackdropSvg(variant: 'strategy' | 'engineering' | 'knowledge'): string {
+function createWorkflowBackdropSvg(
+  variant: 'strategy' | 'engineering' | 'knowledge' | 'compliance',
+): string {
   const motifs = {
     strategy: `
       <defs>
@@ -107,6 +109,19 @@ function createWorkflowBackdropSvg(variant: 'strategy' | 'engineering' | 'knowle
       <rect x="92" y="420" width="336" height="14" fill="#4f4a4f" opacity="0.6"/>
       <rect x="132" y="450" width="256" height="10" fill="#837c83" opacity="0.45"/>
     `,
+    compliance: `
+      <defs>
+        <linearGradient id="bg-comp" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0%" stop-color="#1b181a"/>
+          <stop offset="50%" stop-color="#2a2429"/>
+          <stop offset="100%" stop-color="#4f4a4f"/>
+        </linearGradient>
+      </defs>
+      <rect width="520" height="600" fill="url(#bg-comp)"/>
+      <polygon points="260,120 400,200 400,360 260,440 120,360 120,200" fill="none" stroke="#f99ff7" stroke-opacity="0.35" stroke-width="2"/>
+      <polygon points="260,170 356,225 356,335 260,390 164,335 164,225" fill="#f33ff0" fill-opacity="0.14" stroke="#fb6af9" stroke-width="2"/>
+      <circle cx="260" cy="280" r="24" fill="#f33ff0"/>
+    `,
   }
 
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
@@ -154,6 +169,16 @@ const WORKFLOW_PRESETS: WorkflowPreset[] = [
       'Cruza a solicitação com documentos indexados e assets visuais para fundamentar respostas com citações diretas.',
     defaultEffort: 'Médio',
     imageUrl: createWorkflowBackdropSvg('knowledge'),
+  },
+  {
+    id: 'wf-auditoria-regulatoria',
+    name: 'auditoria regulatória',
+    version: 'Versão: 1.5.0',
+    badge: 'compliance',
+    description:
+      'Confronta políticas internas, pareceres de risco e requisitos normativos com trilha de evidências auditável.',
+    defaultEffort: 'Alto',
+    imageUrl: createWorkflowBackdropSvg('compliance'),
   },
 ]
 
@@ -349,6 +374,8 @@ function getSlideSlotClass(index: number) {
   if (offset === 0) return 'workflow-modal__slide-slot--center'
   if (offset === -1) return 'workflow-modal__slide-slot--left'
   if (offset === 1) return 'workflow-modal__slide-slot--right'
+  if (offset === -2) return 'workflow-modal__slide-slot--far-left'
+  if (offset === 2) return 'workflow-modal__slide-slot--far-right'
   return 'workflow-modal__slide-slot--hidden'
 }
 
@@ -709,7 +736,10 @@ function handleApply() {
   --workflow-modal-gap: var(--spacing-4);
   --workflow-modal-grid-gap: var(--spacing-4);
   --workflow-modal-stage-height: 410px;
-  --workflow-modal-card-width: 340px;
+  --workflow-modal-stage-mask-size: var(--spacing-10);
+  --workflow-modal-stage-mask-opaque: var(--text-primary);
+  --workflow-modal-stage-mask-transparent: var(--surface-transparent);
+  --workflow-modal-card-width: 320px;
   --workflow-modal-card-height: 392px;
   --workflow-modal-slide-duration: var(--duration-drawer);
   --workflow-modal-slide-easing: var(--easing-drawer);
@@ -790,6 +820,20 @@ function handleApply() {
   touch-action: pan-y;
   cursor: grab;
   outline: none;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    var(--workflow-modal-stage-mask-transparent) var(--spacing-0),
+    var(--workflow-modal-stage-mask-opaque) var(--workflow-modal-stage-mask-size),
+    var(--workflow-modal-stage-mask-opaque) calc(100% - var(--workflow-modal-stage-mask-size)),
+    var(--workflow-modal-stage-mask-transparent) 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    var(--workflow-modal-stage-mask-transparent) var(--spacing-0),
+    var(--workflow-modal-stage-mask-opaque) var(--workflow-modal-stage-mask-size),
+    var(--workflow-modal-stage-mask-opaque) calc(100% - var(--workflow-modal-stage-mask-size)),
+    var(--workflow-modal-stage-mask-transparent) 100%
+  );
 }
 
 .workflow-modal__carousel-stage--dragging {
@@ -797,6 +841,7 @@ function handleApply() {
 }
 
 .workflow-modal__carousel-stage:focus-visible {
+  outline: none;
   box-shadow: var(--workflow-modal-shadow-focus);
 }
 
@@ -817,28 +862,40 @@ function handleApply() {
 }
 
 .workflow-modal__slide-slot--center {
-  z-index: 3;
+  z-index: 5;
   opacity: var(--opacity-visible);
   transform: translate3d(-50%, 0, 0) scale(1);
 }
 
 .workflow-modal__slide-slot--left {
-  z-index: 2;
+  z-index: 4;
   opacity: 0.72;
-  transform: translate3d(-112%, 0, 0) scale(0.82);
+  transform: translate3d(-106%, 0, 0) scale(0.84);
 }
 
 .workflow-modal__slide-slot--right {
-  z-index: 2;
+  z-index: 4;
   opacity: 0.72;
-  transform: translate3d(12%, 0, 0) scale(0.82);
+  transform: translate3d(6%, 0, 0) scale(0.84);
+}
+
+.workflow-modal__slide-slot--far-left {
+  z-index: 3;
+  opacity: 0.34;
+  transform: translate3d(-160%, 0, 0) scale(0.68);
+}
+
+.workflow-modal__slide-slot--far-right {
+  z-index: 3;
+  opacity: 0.34;
+  transform: translate3d(60%, 0, 0) scale(0.68);
 }
 
 .workflow-modal__slide-slot--hidden {
   z-index: 1;
   opacity: var(--opacity-hidden);
   pointer-events: none;
-  transform: translate3d(-50%, 0, 0) scale(0.72);
+  transform: translate3d(-50%, 0, 0) scale(0.56);
 }
 
 .workflow-modal__slide-controls {
@@ -1059,12 +1116,15 @@ function handleApply() {
 @media (max-width: 767px) {
   .workflow-modal {
     --workflow-modal-stage-height: 360px;
+    --workflow-modal-stage-mask-size: var(--spacing-6);
     --workflow-modal-card-width: min(300px, calc(100vw - var(--spacing-8)));
     --workflow-modal-card-height: 344px;
   }
 
   .workflow-modal__slide-slot--left,
-  .workflow-modal__slide-slot--right {
+  .workflow-modal__slide-slot--right,
+  .workflow-modal__slide-slot--far-left,
+  .workflow-modal__slide-slot--far-right {
     opacity: var(--opacity-hidden);
     pointer-events: none;
   }
