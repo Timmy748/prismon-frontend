@@ -1,2 +1,2 @@
-export { default as HorizontalScroll } from './HorizontalScroll.vue'
-export type { HorizontalScrollGap } from './HorizontalScroll.vue'
+export { default as ScrollContainer } from './ScrollContainer.vue'
+export type { ScrollContainerDirection, ScrollContainerGap } from './ScrollContainer.vue'

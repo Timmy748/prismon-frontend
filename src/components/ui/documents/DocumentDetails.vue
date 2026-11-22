@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { IconButton } from '../buttons'
 import { Tag } from '../badges'
-import { HorizontalScroll } from '../layout'
+import { ScrollContainer } from '../layout'
 import ModificationEvent from './ModificationEvent.vue'
 
 export interface DocumentTagItem {
@@ -59,7 +59,12 @@ const emit = defineEmits<{
       </div>
 
       <div v-if="tags.length > 0 || showAddTag" class="document-details__tags-row">
-        <HorizontalScroll class="document-details__tags-scroll" gap="md" aria-label="Tags">
+        <ScrollContainer
+          class="document-details__tags-scroll"
+          direction="horizontal"
+          gap="md"
+          ariaLabel="Tags"
+        >
           <Tag
             v-for="tag in tags"
             :key="tag.id"
@@ -67,7 +72,7 @@ const emit = defineEmits<{
             :dismissible="editableTags"
             @dismiss="emit('remove-tag', tag.id)"
           />
-        </HorizontalScroll>
+        </ScrollContainer>
         <IconButton
           v-if="showAddTag"
           variant="ghost"

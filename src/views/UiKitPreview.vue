@@ -31,7 +31,7 @@ import {
   FileAttachmentCard,
   WorkflowCard,
   WorkflowStepsAccordion,
-  HorizontalScroll,
+  ScrollContainer,
   DocumentDetails,
   ModificationEvent,
   DocumentForm,
@@ -721,17 +721,47 @@ function handleTagFormSubmit(payload: TagFormPayload) {
       <section id="layout" class="preview__section">
         <div class="preview__section-header">
           <h2 class="type-heading-04 preview__section-title">layout & scroll</h2>
-          <span class="type-body-compact-01 preview__section-meta">`HorizontalScroll`</span>
+          <span class="type-body-compact-01 preview__section-meta">
+            `ScrollContainer` (horizontal / vertical, exclusivo)
+          </span>
         </div>
 
-        <div class="preview__card preview__stack">
-          <div class="preview__scroll-demo">
+        <div class="preview__split">
+          <div class="preview__card preview__stack">
             <span class="type-label-01 preview__card-label">
-              HorizontalScroll com máscaras dinâmicas (role horizontalmente ou use a roda do mouse)
+              ScrollContainer horizontal (roda do mouse ou clique e arraste com o mouse)
             </span>
-            <HorizontalScroll gap="md" ariaLabel="Exemplo de rolagem horizontal">
-              <Tag v-for="tag in documentTags" :key="tag.id" :label="tag.label" />
-            </HorizontalScroll>
+            <div class="preview__scroll-demo">
+              <ScrollContainer
+                direction="horizontal"
+                gap="md"
+                ariaLabel="Exemplo de rolagem horizontal"
+              >
+                <Tag v-for="tag in documentTags" :key="tag.id" :label="tag.label" />
+              </ScrollContainer>
+            </div>
+          </div>
+
+          <div class="preview__card preview__stack">
+            <span class="type-label-01 preview__card-label">
+              ScrollContainer vertical (roda do mouse ou clique e arraste com o mouse)
+            </span>
+            <div class="preview__vertical-scroll-demo">
+              <ScrollContainer
+                direction="vertical"
+                gap="md"
+                ariaLabel="Exemplo de rolagem vertical"
+              >
+                <ModificationEvent
+                  v-for="item in [1, 2, 3, 4]"
+                  :key="item"
+                  :title="`Evento de modificação #${item}`"
+                  summary="Registro de exemplo para demonstrar rolagem vertical com máscaras dinâmicas nas bordas."
+                  author="Timmy Chen"
+                  date="22/11/2026"
+                />
+              </ScrollContainer>
+            </div>
           </div>
         </div>
       </section>
@@ -983,6 +1013,12 @@ function handleTagFormSubmit(payload: TagFormPayload) {
 
 .preview__scroll-demo {
   max-width: 420px;
+  width: 100%;
+  min-width: var(--spacing-0);
+}
+
+.preview__vertical-scroll-demo {
+  height: 220px;
   width: 100%;
   min-width: var(--spacing-0);
 }

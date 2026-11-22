@@ -9,7 +9,7 @@ import {
 import { Tag } from '../../badges'
 import { IconButton } from '../../buttons'
 import { Icon } from '../../icons'
-import { HorizontalScroll } from '../../layout'
+import { ScrollContainer } from '../../layout'
 
 const sampleTags: DocumentTagItem[] = [
   { id: 't1', label: 'Contrato' },
@@ -149,7 +149,7 @@ describe('DocumentDetails', () => {
     expect(wrapper.find('.document-details__history-list').exists()).toBe(false)
   })
 
-  it('renders tags inside HorizontalScroll without masking the add-tag button', async () => {
+  it('renders tags inside horizontal ScrollContainer without masking the add-tag button', async () => {
     const wrapper = mount(DocumentDetails, {
       props: {
         title: 'Documento com muitas tags',
@@ -158,13 +158,14 @@ describe('DocumentDetails', () => {
       },
     })
 
-    const horizontalScroll = wrapper.findComponent(HorizontalScroll)
-    const scroller = horizontalScroll.find('.horizontal-scroll__track')
+    const scrollContainer = wrapper.findComponent(ScrollContainer)
+    const scroller = scrollContainer.find('.scroll-container__track')
     const addButton = wrapper.find('.document-details__add-tag')
 
-    expect(horizontalScroll.exists()).toBe(true)
+    expect(scrollContainer.exists()).toBe(true)
+    expect(scrollContainer.props('direction')).toBe('horizontal')
     expect(addButton.exists()).toBe(true)
-    expect(horizontalScroll.find('.document-details__add-tag').exists()).toBe(false)
+    expect(scrollContainer.find('.document-details__add-tag').exists()).toBe(false)
 
     const el = scroller.element as HTMLElement
     Object.defineProperty(el, 'scrollWidth', { value: 400, configurable: true })
@@ -172,16 +173,16 @@ describe('DocumentDetails', () => {
     Object.defineProperty(el, 'scrollLeft', { value: 0, writable: true, configurable: true })
 
     await scroller.trigger('scroll')
-    expect(scroller.classes()).toContain('horizontal-scroll__track--mask-right')
-    expect(scroller.classes()).not.toContain('horizontal-scroll__track--mask-left')
+    expect(scroller.classes()).toContain('scroll-container__track--mask-end')
+    expect(scroller.classes()).not.toContain('scroll-container__track--mask-start')
 
     el.scrollLeft = 80
     await scroller.trigger('scroll')
-    expect(scroller.classes()).toContain('horizontal-scroll__track--mask-both')
+    expect(scroller.classes()).toContain('scroll-container__track--mask-both')
 
     el.scrollLeft = 200
     await scroller.trigger('scroll')
-    expect(scroller.classes()).toContain('horizontal-scroll__track--mask-left')
-    expect(scroller.classes()).not.toContain('horizontal-scroll__track--mask-right')
+    expect(scroller.classes()).toContain('scroll-container__track--mask-start')
+    expect(scroller.classes()).not.toContain('scroll-container__track--mask-end')
   })
 })
