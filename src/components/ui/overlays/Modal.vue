@@ -84,6 +84,7 @@ useEscapeKey(() => props.open, handleClose)
   --modal-backdrop-bg: var(--surface-backdrop);
   --modal-viewport-padding: var(--spacing-5);
   --modal-width: 360px;
+  --modal-dialog-height: auto;
   --modal-bg: var(--surface-elevated);
   --modal-border-color: var(--border-subtle-1);
   --modal-border-width: var(--border-width-thin);
@@ -94,6 +95,7 @@ useEscapeKey(() => props.open, handleClose)
   --modal-gap: var(--spacing-5);
   --modal-header-gap: var(--spacing-4);
   --modal-title-gap: var(--spacing-2);
+  --modal-body-flex: 0 1 auto;
   --modal-body-max-height: 320px;
   --modal-footer-gap: var(--spacing-3);
   --modal-title-color: var(--text-primary);
@@ -144,6 +146,7 @@ useEscapeKey(() => props.open, handleClose)
   gap: var(--modal-gap);
   width: 100%;
   max-width: var(--modal-width);
+  height: var(--modal-dialog-height);
   padding: var(--modal-padding-top) var(--modal-padding-x) var(--modal-padding-bottom)
     var(--modal-padding-x);
   box-sizing: border-box;
@@ -157,6 +160,7 @@ useEscapeKey(() => props.open, handleClose)
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--modal-header-gap);
+  flex-shrink: 0;
 }
 
 .modal__titles {
@@ -187,6 +191,8 @@ useEscapeKey(() => props.open, handleClose)
 }
 
 .modal__body {
+  flex: var(--modal-body-flex);
+  min-height: var(--spacing-0);
   max-height: var(--modal-body-max-height);
   overflow-y: auto;
 }
@@ -196,6 +202,21 @@ useEscapeKey(() => props.open, handleClose)
   align-items: center;
   justify-content: flex-end;
   gap: var(--modal-footer-gap);
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  .modal,
+  .modal--sm,
+  .modal--lg {
+    --modal-viewport-padding: var(--spacing-0);
+    --modal-width: 100%;
+    --modal-dialog-height: 100%;
+    --modal-border-width: var(--border-width-none);
+    --modal-radius: var(--radius-none);
+    --modal-body-flex: 1 1 auto;
+    --modal-body-max-height: none;
+  }
 }
 
 .modal-enter-active,

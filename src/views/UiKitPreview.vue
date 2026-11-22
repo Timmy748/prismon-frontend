@@ -739,7 +739,7 @@ function handleTagFormSubmit(payload: TagFormPayload) {
         <div class="preview__split">
           <div class="preview__card preview__stack">
             <span class="type-label-01 preview__card-label">
-              ScrollContainer horizontal (roda do mouse ou clique e arraste com o mouse)
+              ScrollContainer horizontal (roda do mouse no desktop ou arraste no mobile)
             </span>
             <div class="preview__scroll-demo">
               <ScrollContainer
@@ -754,7 +754,7 @@ function handleTagFormSubmit(payload: TagFormPayload) {
 
           <div class="preview__card preview__stack">
             <span class="type-label-01 preview__card-label">
-              ScrollContainer vertical (roda do mouse ou clique e arraste com o mouse)
+              ScrollContainer vertical (roda do mouse no desktop ou arraste no mobile)
             </span>
             <div class="preview__vertical-scroll-demo">
               <ScrollContainer

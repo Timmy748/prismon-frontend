@@ -19,14 +19,17 @@ const props = withDefaults(defineProps<Props>(), {
 
 const DRAG_THRESHOLD_PX = 4
 const LINE_SCROLL_PX = 16
+const MOBILE_MEDIA_QUERY = '(max-width: 767px), (pointer: coarse)'
 
 const trackRef = ref<HTMLDivElement | null>(null)
 const canScrollStart = ref(false)
 const canScrollEnd = ref(false)
 const isDragging = ref(false)
+const isMobile = ref(false)
 
 let resizeObserver: ResizeObserver | null = null
 let mutationObserver: MutationObserver | null = null
+let mobileMediaQuery: MediaQueryList | null = null
 let suppressNextClick = false
 let suppressClickTimer: number | null = null
 let activeCleanupDrag: (() => void) | null = null
@@ -41,7 +44,7 @@ const isScrollable = computed(() => canScrollStart.value || canScrollEnd.value)
 
 const trackClasses = computed(() => {
   const classes = ['scroll-container__track']
-  if (isScrollable.value && props.mouseDrag) {
+  if (isScrollable.value && props.mouseDrag && isMobile.value) {
     classes.push('scroll-container__track--draggable')
   }
   if (isDragging.value) {
@@ -137,7 +140,7 @@ function handleWheel(event: WheelEvent) {
 
 function handleMouseDown(event: MouseEvent) {
   const el = trackRef.value
-  if (!props.mouseDrag || event.button !== 0 || !el) {
+  if (!props.mouseDrag || !isMobile.value || event.button !== 0 || !el) {
     return
   }
 
@@ -215,6 +218,12 @@ function handleMouseDown(event: MouseEvent) {
   window.addEventListener('blur', onMouseUp)
 }
 
+function handleDragStart(event: DragEvent) {
+  if (isMobile.value && props.mouseDrag) {
+    event.preventDefault()
+  }
+}
+
 function handleClickCapture(event: MouseEvent) {
   if (!suppressNextClick) {
     return
@@ -228,9 +237,29 @@ function handleClickCapture(event: MouseEvent) {
   }
 }
 
+function updateMobileState() {
+  if (typeof window === 'undefined') {
+    isMobile.value = false
+    return
+  }
+
+  if (typeof window.matchMedia === 'function') {
+    mobileMediaQuery = window.matchMedia(MOBILE_MEDIA_QUERY)
+    isMobile.value = mobileMediaQuery.matches
+  } else {
+    isMobile.value = window.innerWidth <= 767
+  }
+
+  if (!isMobile.value) {
+    activeCleanupDrag?.()
+  }
+}
+
 watch(() => props.direction, updateScrollState)
 
 onMounted(() => {
+  updateMobileState()
+  mobileMediaQuery?.addEventListener('change', updateMobileState)
   updateScrollState()
   const el = trackRef.value
   if (!el) {
@@ -252,6 +281,7 @@ onUpdated(() => {
 })
 
 onBeforeUnmount(() => {
+  mobileMediaQuery?.removeEventListener('change', updateMobileState)
   trackRef.value?.removeEventListener('wheel', handleWheel)
   activeCleanupDrag?.()
   if (suppressClickTimer !== null) {
@@ -271,7 +301,7 @@ onBeforeUnmount(() => {
       @scroll="updateScrollState"
       @mousedown="handleMouseDown"
       @click.capture="handleClickCapture"
-      @dragstart.prevent
+      @dragstart="handleDragStart"
     >
       <slot />
     </div>

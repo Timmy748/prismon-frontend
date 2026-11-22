@@ -1,6 +1,33 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { ScrollContainer } from '../index'
+
+const originalMatchMedia = window.matchMedia
+
+function mockMobileMatchMedia(matches: boolean) {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: vi.fn<(query: string) => MediaQueryList>().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addListener: vi.fn<() => void>(),
+      removeListener: vi.fn<() => void>(),
+      addEventListener: vi.fn<() => void>(),
+      removeEventListener: vi.fn<() => void>(),
+      dispatchEvent: vi.fn<() => boolean>(() => false),
+    })),
+  })
+}
+
+afterEach(() => {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: originalMatchMedia,
+  })
+})
 
 describe('ScrollContainer', () => {
   it('applies mutually exclusive direction modifier and gap classes', () => {
@@ -49,7 +76,7 @@ describe('ScrollContainer', () => {
 
     await track.trigger('scroll')
     expect(track.classes()).toContain('scroll-container__track--mask-end')
-    expect(track.classes()).toContain('scroll-container__track--draggable')
+    expect(track.classes()).not.toContain('scroll-container__track--draggable')
 
     el.scrollLeft = 100
     await track.trigger('scroll')
@@ -153,7 +180,31 @@ describe('ScrollContainer', () => {
     expect(wheelNoOverflow.defaultPrevented).toBe(false)
   })
 
-  it('supports mouse drag scrolling horizontally and vertically and suppresses click after dragging', async () => {
+  it('enables drag scrolling only on mobile viewports/coarse pointers and disables it on desktop', async () => {
+    mockMobileMatchMedia(false)
+    const onDesktopClick = vi.fn<() => void>()
+    const desktop = mount(ScrollContainer, {
+      props: { direction: 'horizontal' },
+      slots: { default: '<button class="tag-btn">Tag</button>' },
+    })
+
+    desktop.find('.tag-btn').element.addEventListener('click', onDesktopClick)
+    const dTrack = desktop.find('.scroll-container__track')
+    const dEl = dTrack.element as HTMLElement
+    Object.defineProperty(dEl, 'scrollWidth', { value: 500, configurable: true })
+    Object.defineProperty(dEl, 'clientWidth', { value: 200, configurable: true })
+    Object.defineProperty(dEl, 'scrollLeft', { value: 0, writable: true, configurable: true })
+
+    await dTrack.trigger('scroll')
+    expect(dTrack.classes()).not.toContain('scroll-container__track--draggable')
+
+    await dTrack.trigger('mousedown', { button: 0, clientX: 150, clientY: 10 })
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 90, clientY: 10 }))
+    expect(dEl.scrollLeft).toBe(0)
+    await desktop.find('.tag-btn').trigger('click')
+    expect(onDesktopClick).toHaveBeenCalledTimes(1)
+
+    mockMobileMatchMedia(true)
     const onTagClick = vi.fn<() => void>()
     const horizontal = mount(ScrollContainer, {
       props: { direction: 'horizontal' },
@@ -166,6 +217,9 @@ describe('ScrollContainer', () => {
     Object.defineProperty(hEl, 'scrollWidth', { value: 500, configurable: true })
     Object.defineProperty(hEl, 'clientWidth', { value: 200, configurable: true })
     Object.defineProperty(hEl, 'scrollLeft', { value: 0, writable: true, configurable: true })
+
+    await hTrack.trigger('scroll')
+    expect(hTrack.classes()).toContain('scroll-container__track--draggable')
 
     await hTrack.trigger('mousedown', { button: 0, clientX: 150, clientY: 10 })
     window.dispatchEvent(new MouseEvent('mousemove', { clientX: 90, clientY: 10 }))
