@@ -183,14 +183,16 @@ function readLiveTransformOffset(panel: HTMLElement): number {
 }
 
 function canBodyScrollAlongDrag(target: EventTarget | null, delta: number): boolean {
-  if (!(target instanceof Element)) {
+  if (!(target instanceof Element) || target.closest('.drawer__handle-hit')) {
     return false
   }
   const panel = panelRef.value
   let cursor: Element | null = target
   while (cursor && cursor !== panel) {
+    const style = window.getComputedStyle(cursor)
     if (isHorizontal.value) {
-      if (cursor.scrollWidth > cursor.clientWidth + 1) {
+      const canOverflowX = style.overflowX === 'auto' || style.overflowX === 'scroll'
+      if (canOverflowX && cursor.scrollWidth > cursor.clientWidth + 1) {
         if (props.direction === 'right' && delta > 0 && cursor.scrollLeft > 0) return true
         if (
           props.direction === 'left' &&
@@ -206,21 +208,24 @@ function canBodyScrollAlongDrag(target: EventTarget | null, delta: number): bool
           return true
         if (props.direction === 'left' && delta > 0 && cursor.scrollLeft > 0) return true
       }
-    } else if (cursor.scrollHeight > cursor.clientHeight + 1) {
-      if (props.direction === 'bottom' && delta > 0 && cursor.scrollTop > 0) return true
-      if (
-        props.direction === 'bottom' &&
-        delta < 0 &&
-        cursor.scrollTop + cursor.clientHeight < cursor.scrollHeight - 1
-      )
-        return true
-      if (
-        props.direction === 'top' &&
-        delta < 0 &&
-        cursor.scrollTop + cursor.clientHeight < cursor.scrollHeight - 1
-      )
-        return true
-      if (props.direction === 'top' && delta > 0 && cursor.scrollTop > 0) return true
+    } else {
+      const canOverflowY = style.overflowY === 'auto' || style.overflowY === 'scroll'
+      if (canOverflowY && cursor.scrollHeight > cursor.clientHeight + 1) {
+        if (props.direction === 'bottom' && delta > 0 && cursor.scrollTop > 0) return true
+        if (
+          props.direction === 'bottom' &&
+          delta < 0 &&
+          cursor.scrollTop + cursor.clientHeight < cursor.scrollHeight - 1
+        )
+          return true
+        if (
+          props.direction === 'top' &&
+          delta < 0 &&
+          cursor.scrollTop + cursor.clientHeight < cursor.scrollHeight - 1
+        )
+          return true
+        if (props.direction === 'top' && delta > 0 && cursor.scrollTop > 0) return true
+      }
     }
     cursor = cursor.parentElement
   }
