@@ -83,23 +83,55 @@ function normalizeWheelDelta(delta: number, deltaMode: number, pageSize: number)
 
 function handleWheel(event: WheelEvent) {
   const el = trackRef.value
-  if (!el || props.direction !== 'horizontal' || el.scrollWidth <= el.clientWidth) {
+  if (!el || event.ctrlKey) {
     return
   }
 
-  const dominantDelta =
-    Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX
-  const delta = normalizeWheelDelta(dominantDelta, event.deltaMode, el.clientWidth)
+  if (props.direction === 'horizontal') {
+    if (el.scrollWidth <= el.clientWidth) {
+      return
+    }
+
+    const dominantDelta =
+      Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX
+    const delta = normalizeWheelDelta(dominantDelta, event.deltaMode, el.clientWidth)
+    if (delta === 0) {
+      return
+    }
+
+    const maxScrollLeft = el.scrollWidth - el.clientWidth
+    const clamped = Math.max(0, Math.min(maxScrollLeft, el.scrollLeft + delta))
+    if (clamped !== el.scrollLeft) {
+      el.scrollLeft = clamped
+      updateScrollState()
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+
+  if (el.scrollHeight <= el.clientHeight) {
+    return
+  }
+
+  const delta = normalizeWheelDelta(event.deltaY, event.deltaMode, el.clientHeight)
   if (delta === 0) {
     return
   }
 
-  const maxScrollLeft = el.scrollWidth - el.clientWidth
-  const clamped = Math.max(0, Math.min(maxScrollLeft, el.scrollLeft + delta))
-  if (clamped !== el.scrollLeft) {
-    el.scrollLeft = clamped
-    updateScrollState()
+  const maxScrollTop = el.scrollHeight - el.clientHeight
+  const nextScrollTop = el.scrollTop + delta
+  const hitsStart = delta < 0 && nextScrollTop <= 0
+  const hitsEnd = delta > 0 && nextScrollTop >= maxScrollTop - 1
+
+  if (hitsStart || hitsEnd) {
+    const clamped = Math.max(0, Math.min(maxScrollTop, nextScrollTop))
+    if (clamped !== el.scrollTop) {
+      el.scrollTop = clamped
+      updateScrollState()
+    }
     event.preventDefault()
+    event.stopPropagation()
   }
 }
 
@@ -258,6 +290,7 @@ onBeforeUnmount(() => {
   --scroll-container-align: stretch;
   --scroll-container-overflow-x: hidden;
   --scroll-container-overflow-y: auto;
+  --scroll-container-overscroll: contain;
   --scroll-container-cursor: auto;
   --scroll-container-user-select: auto;
   --scroll-container-reset-spacing: var(--spacing-0);
@@ -318,6 +351,7 @@ onBeforeUnmount(() => {
   min-height: var(--scroll-container-reset-spacing);
   overflow-x: var(--scroll-container-overflow-x);
   overflow-y: var(--scroll-container-overflow-y);
+  overscroll-behavior: var(--scroll-container-overscroll);
   cursor: var(--scroll-container-cursor);
   user-select: var(--scroll-container-user-select);
   scrollbar-width: none;

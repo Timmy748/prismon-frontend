@@ -106,6 +106,51 @@ describe('ScrollContainer', () => {
     const wheelLine = new WheelEvent('wheel', { deltaY: 3, deltaMode: 1, cancelable: true })
     el.dispatchEvent(wheelLine)
     expect(el.scrollLeft).toBe(108)
+    expect(wheelLine.defaultPrevented).toBe(true)
+
+    el.scrollLeft = 200
+    const wheelAtEnd = new WheelEvent('wheel', { deltaY: 80, cancelable: true })
+    el.dispatchEvent(wheelAtEnd)
+    expect(el.scrollLeft).toBe(200)
+    expect(wheelAtEnd.defaultPrevented).toBe(true)
+  })
+
+  it('locks vertical wheel scroll at boundaries so page does not scroll, while preserving non-overflowing page scroll', () => {
+    const vertical = mount(ScrollContainer, {
+      props: { direction: 'vertical' },
+      slots: { default: '<div>A</div><div>B</div>' },
+    })
+
+    const el = vertical.find('.scroll-container__track').element as HTMLElement
+    Object.defineProperty(el, 'scrollHeight', { value: 500, configurable: true })
+    Object.defineProperty(el, 'clientHeight', { value: 200, configurable: true })
+    Object.defineProperty(el, 'scrollTop', { value: 0, writable: true, configurable: true })
+
+    const wheelAtTop = new WheelEvent('wheel', { deltaY: -40, cancelable: true })
+    el.dispatchEvent(wheelAtTop)
+    expect(el.scrollTop).toBe(0)
+    expect(wheelAtTop.defaultPrevented).toBe(true)
+
+    el.scrollTop = 50
+    const wheelMiddle = new WheelEvent('wheel', { deltaY: 30, cancelable: true })
+    el.dispatchEvent(wheelMiddle)
+    expect(wheelMiddle.defaultPrevented).toBe(false)
+
+    el.scrollTop = 270
+    const wheelToBottom = new WheelEvent('wheel', { deltaY: 100, cancelable: true })
+    el.dispatchEvent(wheelToBottom)
+    expect(el.scrollTop).toBe(300)
+    expect(wheelToBottom.defaultPrevented).toBe(true)
+
+    const wheelPastBottom = new WheelEvent('wheel', { deltaY: 120, cancelable: true })
+    el.dispatchEvent(wheelPastBottom)
+    expect(el.scrollTop).toBe(300)
+    expect(wheelPastBottom.defaultPrevented).toBe(true)
+
+    Object.defineProperty(el, 'scrollHeight', { value: 200, configurable: true })
+    const wheelNoOverflow = new WheelEvent('wheel', { deltaY: 80, cancelable: true })
+    el.dispatchEvent(wheelNoOverflow)
+    expect(wheelNoOverflow.defaultPrevented).toBe(false)
   })
 
   it('supports mouse drag scrolling horizontally and vertically and suppresses click after dragging', async () => {

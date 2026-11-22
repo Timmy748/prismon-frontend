@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Icon } from '../icons'
+import { ScrollContainer } from '../layout'
 
 export type NavListOrientation = 'vertical' | 'horizontal'
 
@@ -52,9 +53,15 @@ function toggleOpen() {
       </button>
       <span v-else-if="title" class="nav-list__title">{{ title }}</span>
     </div>
-    <div v-if="showItems" class="nav-list__items">
+    <ScrollContainer
+      v-if="showItems"
+      class="nav-list__items"
+      :direction="orientation"
+      gap="none"
+      :ariaLabel="title"
+    >
       <slot />
-    </div>
+    </ScrollContainer>
   </div>
 </template>
 
@@ -67,7 +74,7 @@ function toggleOpen() {
   --nav-list-padding: var(--spacing-3);
   --nav-list-gap: var(--spacing-3);
   --nav-list-items-gap: var(--spacing-0);
-  --nav-list-items-direction: column;
+  --nav-list-reset-spacing: var(--spacing-0);
   --nav-list-title-color: var(--text-primary);
   --nav-list-icon-color: var(--icon-primary);
   --nav-list-title-font-family: var(--type-heading-compact-01-font-family);
@@ -82,6 +89,10 @@ function toggleOpen() {
 
   display: flex;
   flex-direction: column;
+  max-width: 100%;
+  max-height: 100%;
+  min-width: var(--nav-list-reset-spacing);
+  min-height: var(--nav-list-reset-spacing);
   padding: var(--nav-list-padding);
   gap: var(--nav-list-gap);
   box-sizing: border-box;
@@ -89,11 +100,11 @@ function toggleOpen() {
 }
 
 .nav-list--vertical {
-  --nav-list-items-direction: column;
+  --nav-list-bg: var(--surface-elevated);
 }
 
 .nav-list--horizontal {
-  --nav-list-items-direction: row;
+  --nav-list-bg: var(--surface-elevated);
 }
 
 .nav-list--collapsed {
@@ -103,6 +114,7 @@ function toggleOpen() {
 .nav-list__header {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .nav-list__toggle {
@@ -142,8 +154,13 @@ function toggleOpen() {
 }
 
 .nav-list__items {
-  display: flex;
-  flex-direction: var(--nav-list-items-direction);
-  gap: var(--nav-list-items-gap);
+  --scroll-container-gap: var(--nav-list-items-gap);
+  flex: 1 1 auto;
+  min-width: var(--nav-list-reset-spacing);
+  min-height: var(--nav-list-reset-spacing);
+}
+
+.nav-list--horizontal :deep(.list-item:not(.list-item--closed)) {
+  --list-item-width: auto;
 }
 </style>

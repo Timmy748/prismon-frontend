@@ -109,9 +109,12 @@ function handleToggle() {
 }
 
 .sidebar__body {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: var(--spacing-0);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .sidebar__footer {

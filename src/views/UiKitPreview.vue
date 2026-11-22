@@ -543,17 +543,27 @@ function handleTagFormSubmit(payload: TagFormPayload) {
           <span class="type-helper-text-01 preview__hint">Aba ativa: {{ activeTab }}</span>
 
           <div class="preview__split">
-            <NavList title="listas verticais" collapsible>
-              <ListItem label="Conversas" icon="chat" active />
-              <ListItem label="Documentos" icon="documents" />
-              <ListItem label="Membros" icon="members" hasTrailingAction />
-            </NavList>
+            <div class="preview__nav-vertical-demo">
+              <NavList title="listas verticais" collapsible>
+                <ListItem label="Conversas" icon="chat" active />
+                <ListItem label="Documentos" icon="documents" />
+                <ListItem label="Membros" icon="members" hasTrailingAction />
+                <ListItem label="Chaves de API" icon="api-keys" />
+                <ListItem label="Workflows" icon="robot" />
+                <ListItem label="Tags" icon="tag" />
+                <ListItem label="Configurações" icon="setting" />
+              </NavList>
+            </div>
 
             <div class="preview__stack">
               <NavList title="lista horizontal" orientation="horizontal">
-                <ListItem label="Chat" icon="chat" />
+                <ListItem label="Chat" icon="chat" active />
                 <ListItem label="Chaves" icon="api-keys" />
                 <ListItem label="Tags" icon="tag" />
+                <ListItem label="Documentos" icon="documents" />
+                <ListItem label="Membros" icon="members" />
+                <ListItem label="Workflows" icon="robot" />
+                <ListItem label="Configurações" icon="setting" />
               </NavList>
 
               <ProfileCard username="Username" role="Role" />
@@ -1021,6 +1031,15 @@ function handleTagFormSubmit(payload: TagFormPayload) {
   height: 220px;
   width: 100%;
   min-width: var(--spacing-0);
+}
+
+.preview__nav-vertical-demo {
+  width: 100%;
+  min-width: var(--spacing-0);
+}
+
+.preview__nav-vertical-demo > :deep(.nav-list) {
+  max-height: 210px;
 }
 
 .preview__row {
