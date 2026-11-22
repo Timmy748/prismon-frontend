@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
+import { useIsMobile } from '../composables/useIsMobile'
 import { Icon, type IconName } from '../icons'
 import { useEscapeKey } from './useEscapeKey'
 import { hasOverlayPortalRoot } from './useOverlayBackdropBlur'
 
 export type DropdownAlign = 'left' | 'right'
+export type DropdownPlacement = 'bottom' | 'right-start'
 
 export interface DropdownItem {
   id: string
@@ -17,11 +19,13 @@ export interface DropdownItem {
 interface Props {
   items: DropdownItem[]
   align?: DropdownAlign
+  placement?: DropdownPlacement
   ariaLabel?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   align: 'right',
+  placement: 'bottom',
   ariaLabel: 'Menu de ações',
 })
 
@@ -31,14 +35,16 @@ const emit = defineEmits<{
 
 const uid = useId()
 const menuId = `dropdown-menu-${uid}`
+const isMobile = useIsMobile()
 
 const isOpen = ref(false)
 const triggerRef = ref<HTMLDivElement | null>(null)
 const menuRef = ref<HTMLDivElement | null>(null)
-const menuCoords = ref<{ top: number; left: number; minWidth: number }>({
+const menuCoords = ref<{ top: number; left: number; minWidth: number; transformOrigin: string }>({
   top: 0,
   left: 0,
   minWidth: 168,
+  transformOrigin: 'top right',
 })
 
 const canTeleportOverlay = hasOverlayPortalRoot()
@@ -47,6 +53,7 @@ const menuStyle = computed(() => ({
   top: `${menuCoords.value.top}px`,
   left: `${menuCoords.value.left}px`,
   minWidth: `${menuCoords.value.minWidth}px`,
+  transformOrigin: menuCoords.value.transformOrigin,
 }))
 
 function updatePosition() {
@@ -59,14 +66,34 @@ function updatePosition() {
   const menuWidth = Math.max(168, menuRect?.width ?? 176)
   const menuHeight = menuRect?.height ?? props.items.length * 38 + 8
   const viewportPadding = 8
-  const gap = 4
+  const gap = 8
 
-  let top = triggerRect.bottom + gap
+  if (
+    props.placement === 'right-start' &&
+    !isMobile.value &&
+    triggerRect.right + gap + menuWidth <= window.innerWidth - viewportPadding
+  ) {
+    const left = triggerRect.right + gap
+    const top = Math.max(
+      viewportPadding,
+      Math.min(triggerRect.top, window.innerHeight - menuHeight - viewportPadding),
+    )
+    menuCoords.value = {
+      top,
+      left,
+      minWidth: 168,
+      transformOrigin: 'top left',
+    }
+    return
+  }
+
+  const bottomGap = 4
+  let top = triggerRect.bottom + bottomGap
   if (
     top + menuHeight > window.innerHeight - viewportPadding &&
-    triggerRect.top > menuHeight + gap
+    triggerRect.top > menuHeight + bottomGap
   ) {
-    top = Math.max(viewportPadding, triggerRect.top - menuHeight - gap)
+    top = Math.max(viewportPadding, triggerRect.top - menuHeight - bottomGap)
   }
 
   let left = props.align === 'right' ? triggerRect.right - menuWidth : triggerRect.left
@@ -76,6 +103,7 @@ function updatePosition() {
     top,
     left,
     minWidth: Math.max(168, triggerRect.width),
+    transformOrigin: props.align === 'right' ? 'top right' : 'top left',
   }
 }
 

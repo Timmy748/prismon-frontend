@@ -63,4 +63,44 @@ describe('Dropdown', () => {
     await wrapper.vm.$nextTick()
     expect(wrapper.find('[role="menu"]').exists()).toBe(false)
   })
+
+  it('positions menu to the right lateral side on desktop when placement is right-start', async () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1280, configurable: true })
+
+    const Host = defineComponent({
+      components: { Dropdown },
+      setup() {
+        return { items: ITEMS }
+      },
+      template: `
+        <Dropdown :items="items" placement="right-start" aria-label="Menu lateral">
+          <template #trigger="{ toggle }">
+            <button type="button" data-testid="side-trigger" @click="toggle">⋮</button>
+          </template>
+        </Dropdown>
+      `,
+    })
+
+    wrapper = mount(Host)
+    const triggerWrapper = wrapper.find('.dropdown')
+    ;(triggerWrapper.element as HTMLElement).getBoundingClientRect = () =>
+      ({
+        top: 120,
+        bottom: 148,
+        left: 200,
+        right: 228,
+        width: 28,
+        height: 28,
+        x: 200,
+        y: 120,
+        toJSON: () => ({}),
+      }) as DOMRect
+
+    await wrapper.find('[data-testid="side-trigger"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const menuEl = wrapper.find('[role="menu"]').element as HTMLElement
+    expect(Number.parseFloat(menuEl.style.left)).toBeGreaterThanOrEqual(236)
+    expect(Number.parseFloat(menuEl.style.top)).toBe(120)
+  })
 })

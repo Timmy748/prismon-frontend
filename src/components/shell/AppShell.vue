@@ -686,8 +686,16 @@ function handleLogout() {
   border: var(--app-shell-border-width) solid var(--app-shell-border-color);
 }
 
+.app-shell__sidebar :deep(.list-item--active),
+.app-shell__mobile-project-body :deep(.list-item--active),
+.app-shell__mobile-projects-body :deep(.list-item--active) {
+  --list-item-bg: var(--surface-elevated-hover);
+  --list-item-bg-hover: var(--surface-elevated-hover);
+  color: var(--text-primary);
+}
+
 .app-shell__mobile-horizontal-nav :deep(.list-item--active) {
-  border-color: var(--border-brand);
+  border-color: var(--border-strong);
 }
 
 .app-shell__mobile-threads {

@@ -289,6 +289,196 @@ function buildInitialThreads(): ChatThread[] {
       ],
     },
     {
+      id: 'thread-8',
+      projectId: 'prismon-core',
+      title: 'revisão de onboarding de agentes',
+      group: 'week',
+      workflowId: null,
+      workflowName: null,
+      workflowEffort: null,
+      messages: [
+        {
+          id: 'msg-15',
+          role: 'human',
+          content: 'Quais documentos devem entrar no kit inicial de novos projetos?',
+        },
+        {
+          id: 'msg-16',
+          role: 'ai',
+          content: 'Inclua o manual de identidade, guia de prompts e checklist WCAG AA.',
+        },
+      ],
+    },
+    {
+      id: 'thread-9',
+      projectId: 'prismon-core',
+      title: 'benchmark latência streaming sse',
+      group: 'week',
+      workflowId: null,
+      workflowName: null,
+      workflowEffort: null,
+      messages: [
+        {
+          id: 'msg-17',
+          role: 'human',
+          content: 'Qual foi o tempo médio do primeiro token nos testes locais?',
+        },
+        {
+          id: 'msg-18',
+          role: 'ai',
+          content: 'O tempo médio para o primeiro token ficou em 240 ms com payload comprimido.',
+        },
+      ],
+    },
+    {
+      id: 'thread-10',
+      projectId: 'prismon-core',
+      title: 'padronização de variáveis css',
+      group: 'week',
+      workflowId: null,
+      workflowName: null,
+      workflowEffort: null,
+      messages: [
+        {
+          id: 'msg-19',
+          role: 'human',
+          content: 'Todos os componentes da biblioteca seguem prefixo por bloco?',
+        },
+        {
+          id: 'msg-20',
+          role: 'ai',
+          content: 'Sim, cada bloco declara variáveis locais mapeadas a tokens semânticos.',
+        },
+      ],
+    },
+    {
+      id: 'thread-11',
+      projectId: 'prismon-core',
+      title: 'revisão de acessibilidade em modais e drawers móveis',
+      group: 'today',
+      workflowId: null,
+      workflowName: null,
+      workflowEffort: null,
+      messages: [
+        {
+          id: 'msg-21',
+          role: 'human',
+          content: 'Valide aria-modal e foco por teclado nos drawers adaptativos.',
+        },
+        {
+          id: 'msg-22',
+          role: 'ai',
+          content: 'Todos os drawers mantêm role dialog, Escape e safe area no rodapé.',
+        },
+      ],
+    },
+    {
+      id: 'thread-12',
+      projectId: 'prismon-core',
+      title: 'integração de assets visuais no repertório',
+      group: 'today',
+      workflowId: null,
+      workflowName: null,
+      workflowEffort: null,
+      messages: [
+        {
+          id: 'msg-23',
+          role: 'human',
+          content: 'Como organizar previews à esquerda no Sheet desktop?',
+        },
+        {
+          id: 'msg-24',
+          role: 'ai',
+          content:
+            'Use o slot #preview do Sheet para palco à esquerda no desktop e topo no mobile.',
+        },
+      ],
+    },
+    {
+      id: 'thread-13',
+      projectId: 'prismon-core',
+      title: 'roteamento dinâmico de workflows com múltiplos nós',
+      group: 'today',
+      workflowId: null,
+      workflowName: null,
+      workflowEffort: null,
+      messages: [
+        {
+          id: 'msg-25',
+          role: 'human',
+          content: 'Qual modelo usar no nó de validação crítica?',
+        },
+        {
+          id: 'msg-26',
+          role: 'ai',
+          content: 'Configure Prismon Pro 2.5 com esforço Alto na etapa intermediária.',
+        },
+      ],
+    },
+    {
+      id: 'thread-14',
+      projectId: 'prismon-core',
+      title: 'gestão de chaves pessoais e credenciais do projeto',
+      group: 'today',
+      workflowId: null,
+      workflowName: null,
+      workflowEffort: null,
+      messages: [
+        {
+          id: 'msg-27',
+          role: 'human',
+          content: 'Qual o padrão de exibição nas tabelas de chaves?',
+        },
+        {
+          id: 'msg-28',
+          role: 'ai',
+          content: 'Exiba somente ID, Hint mascarada e data de criação sem coluna extra.',
+        },
+      ],
+    },
+    {
+      id: 'thread-15',
+      projectId: 'prismon-core',
+      title: 'políticas de governança de prompts corporativos',
+      group: 'today',
+      workflowId: null,
+      workflowName: null,
+      workflowEffort: null,
+      messages: [
+        {
+          id: 'msg-29',
+          role: 'human',
+          content: 'Quais diretrizes aplicam-se a dados sensíveis em prompts?',
+        },
+        {
+          id: 'msg-30',
+          role: 'ai',
+          content: 'Anonimize identificadores antes do envio e registre auditoria local.',
+        },
+      ],
+    },
+    {
+      id: 'thread-16',
+      projectId: 'prismon-core',
+      title: 'planejamento sprint interface mobile e desktop',
+      group: 'today',
+      workflowId: null,
+      workflowName: null,
+      workflowEffort: null,
+      messages: [
+        {
+          id: 'msg-31',
+          role: 'human',
+          content: 'Quais entregas entram nesta sprint de responsividade?',
+        },
+        {
+          id: 'msg-32',
+          role: 'ai',
+          content: 'Drawers adaptativos universais, navegação horizontal e marquee em hover.',
+        },
+      ],
+    },
+    {
       id: 'thread-jur-1',
       projectId: 'juridico-ia',
       title: 'parecer nda fornecedores 2026',

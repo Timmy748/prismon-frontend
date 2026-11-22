@@ -78,6 +78,23 @@ function updateScrollState() {
   canScrollEnd.value = el.scrollTop + el.clientHeight < el.scrollHeight - 1
 }
 
+function scrollToBottom(behavior: ScrollBehavior = 'smooth') {
+  const el = trackRef.value
+  if (!el || props.direction !== 'vertical') {
+    return
+  }
+  if (typeof el.scrollTo === 'function') {
+    el.scrollTo({ top: el.scrollHeight, behavior })
+  } else {
+    el.scrollTop = el.scrollHeight
+  }
+  updateScrollState()
+}
+
+defineExpose({
+  scrollToBottom,
+})
+
 function normalizeWheelDelta(delta: number, deltaMode: number, pageSize: number): number {
   if (deltaMode === 1) return delta * LINE_SCROLL_PX
   if (deltaMode === 2) return delta * pageSize
@@ -392,6 +409,26 @@ onBeforeUnmount(() => {
 
 .scroll-container__track::-webkit-scrollbar {
   display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .scroll-container--vertical .scroll-container__track {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-subtle-hover) var(--surface-transparent);
+  }
+
+  .scroll-container--vertical .scroll-container__track::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+  }
+
+  .scroll-container--vertical .scroll-container__track::-webkit-scrollbar-track {
+    background: var(--surface-transparent);
+  }
+
+  .scroll-container--vertical .scroll-container__track::-webkit-scrollbar-thumb {
+    background-color: var(--border-subtle-hover);
+  }
 }
 
 .scroll-container__track > :deep(*) {

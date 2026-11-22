@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import {
   AiPromptInput,
   Badge,
@@ -55,8 +55,9 @@ const PROMPT_SUGGESTIONS: PromptSuggestion[] = [
   },
 ]
 
-const { activeThread, selectedWorkflow, ensureActiveThread } = useWorkspaceState()
+const { activeThread, selectedWorkflow, ensureActiveThread, startNewChat } = useWorkspaceState()
 
+const messagesScrollRef = ref<InstanceType<typeof ScrollContainer> | null>(null)
 const draftMessage = ref('')
 const pendingAttachments = ref<AiAttachmentItem[]>([])
 const mockAttachCursor = ref(0)
@@ -65,6 +66,27 @@ const isWorkflowModalOpen = ref(false)
 const isGenerating = ref(false)
 
 const pendingTimers = new Set<ReturnType<typeof setTimeout>>()
+
+function scrollMessagesToBottom() {
+  void nextTick(() => {
+    messagesScrollRef.value?.scrollToBottom()
+  })
+}
+
+watch(
+  () => [activeThread.value?.id, activeThread.value?.messages.length ?? 0, isGenerating.value],
+  ([threadId, count], [prevThreadId, prevCount]) => {
+    if (threadId && (threadId !== prevThreadId || count !== prevCount)) {
+      scrollMessagesToBottom()
+    }
+  },
+)
+
+function handleCreateNewChat() {
+  startNewChat()
+  draftMessage.value = ''
+  pendingAttachments.value = []
+}
 
 function handleAttachMockFile() {
   const sample = MOCK_ATTACHMENTS[mockAttachCursor.value % MOCK_ATTACHMENTS.length]!
@@ -222,13 +244,14 @@ onBeforeUnmount(() => {
         <IconButton
           variant="ghost"
           size="sm"
-          icon="setting"
-          ariaLabel="Configurar workflow"
-          @click="isWorkflowModalOpen = true"
+          icon="plus"
+          ariaLabel="Criar novo chat"
+          @click="handleCreateNewChat"
         />
       </header>
 
       <ScrollContainer
+        ref="messagesScrollRef"
         direction="vertical"
         class="chat-view__messages"
         ariaLabel="Mensagens da conversa"

@@ -5,6 +5,7 @@ import {
   Button,
   ConfirmDialog,
   Dropdown,
+  Icon,
   IconButton,
   ListItem,
   Modal,
@@ -37,8 +38,6 @@ const router = useRouter()
 
 const {
   filteredThreads,
-  todayThreads,
-  weekThreads,
   activeThreadId,
   threadSearch,
   selectThread,
@@ -46,6 +45,8 @@ const {
   renameThread,
   deleteThread,
 } = useWorkspaceState()
+
+const isTodayOpen = ref(true)
 
 const threadMenuItems: DropdownItem[] = [
   { id: 'rename', label: 'Editar nome', icon: 'edit' },
@@ -142,13 +143,6 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
     <div v-if="!collapsed" class="chat-threads__content">
       <div class="chat-threads__header">
         <h2 class="chat-threads__title">conversas</h2>
-        <IconButton
-          variant="ghost"
-          size="sm"
-          icon="plus"
-          ariaLabel="Nova conversa"
-          @click="handleStartNewChat"
-        />
       </div>
 
       <div class="chat-threads__controls">
@@ -159,79 +153,65 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
         />
       </div>
 
+      <div class="chat-threads__group-header">
+        <button
+          type="button"
+          class="chat-threads__group-toggle"
+          :aria-expanded="isTodayOpen"
+          @click="isTodayOpen = !isTodayOpen"
+        >
+          <span class="chat-threads__group-title">hoje</span>
+          <span
+            :class="[
+              'chat-threads__group-chevron',
+              !isTodayOpen ? 'chat-threads__group-chevron--collapsed' : undefined,
+            ]"
+          >
+            <Icon name="arrow-down" size="md" />
+          </span>
+        </button>
+      </div>
+
       <ScrollContainer
+        v-if="isTodayOpen"
         direction="vertical"
-        gap="sm"
+        gap="none"
         class="chat-threads__scroll"
         ariaLabel="Lista de conversas"
       >
         <div class="chat-threads__lists">
-          <NavList v-if="todayThreads.length > 0" title="hoje" :collapsible="true">
-            <ListItem
-              v-for="thread in todayThreads"
-              :key="thread.id"
-              :label="thread.title"
-              :active="thread.id === activeThreadId"
-              @click="handleSelectThread(thread.id)"
-            >
-              <template #trailing>
-                <Dropdown
-                  :items="threadMenuItems"
-                  align="right"
-                  :aria-label="`Ações de ${thread.title}`"
-                  @select="(actionId) => handleThreadMenuAction(thread, actionId)"
-                >
-                  <template #trigger="{ toggle, open: menuOpen, menuId }">
-                    <IconButton
-                      variant="ghost"
-                      size="sm"
-                      icon="more-vertical"
-                      :ariaLabel="`Opções da conversa ${thread.title}`"
-                      :aria-expanded="menuOpen"
-                      :aria-controls="menuId"
-                      @click.stop="toggle"
-                    />
-                  </template>
-                </Dropdown>
-              </template>
-            </ListItem>
-          </NavList>
-
-          <NavList v-if="weekThreads.length > 0" title="últimos 7 dias" :collapsible="true">
-            <ListItem
-              v-for="thread in weekThreads"
-              :key="thread.id"
-              :label="thread.title"
-              :active="thread.id === activeThreadId"
-              @click="handleSelectThread(thread.id)"
-            >
-              <template #trailing>
-                <Dropdown
-                  :items="threadMenuItems"
-                  align="right"
-                  :aria-label="`Ações de ${thread.title}`"
-                  @select="(actionId) => handleThreadMenuAction(thread, actionId)"
-                >
-                  <template #trigger="{ toggle, open: menuOpen, menuId }">
-                    <IconButton
-                      variant="ghost"
-                      size="sm"
-                      icon="more-vertical"
-                      :ariaLabel="`Opções da conversa ${thread.title}`"
-                      :aria-expanded="menuOpen"
-                      :aria-controls="menuId"
-                      @click.stop="toggle"
-                    />
-                  </template>
-                </Dropdown>
-              </template>
-            </ListItem>
-          </NavList>
-
-          <p
-            v-if="todayThreads.length === 0 && weekThreads.length === 0"
-            class="chat-threads__empty"
+          <ListItem
+            v-for="thread in filteredThreads"
+            :key="thread.id"
+            :label="thread.title"
+            :active="thread.id === activeThreadId"
+            :marquee-on-hover="true"
+            @click="handleSelectThread(thread.id)"
           >
+            <template #trailing>
+              <Dropdown
+                :items="threadMenuItems"
+                align="right"
+                placement="right-start"
+                :aria-label="`Ações de ${thread.title}`"
+                @select="(actionId) => handleThreadMenuAction(thread, actionId)"
+              >
+                <template #trigger="{ toggle, open: menuOpen, menuId }">
+                  <IconButton
+                    variant="ghost"
+                    size="sm"
+                    icon="more-vertical"
+                    :ariaLabel="`Opções da conversa ${thread.title}`"
+                    :aria-expanded="menuOpen"
+                    :aria-controls="menuId"
+                    @click.stop="toggle"
+                  />
+                </template>
+              </Dropdown>
+            </template>
+          </ListItem>
+
+          <p v-if="filteredThreads.length === 0" class="chat-threads__empty">
             Nenhuma conversa encontrada.
           </p>
         </div>
@@ -315,17 +295,20 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
   --chat-threads-divider-color: var(--border-subtle-1);
   --chat-threads-divider-height: var(--border-width-thin);
   --chat-threads-title-color: var(--text-primary);
-  --chat-threads-title-font-family: var(--type-heading-03-font-family);
-  --chat-threads-title-font-size: var(--type-heading-03-font-size);
-  --chat-threads-title-line-height: var(--type-heading-03-line-height);
-  --chat-threads-title-font-weight: var(--type-heading-03-font-weight);
-  --chat-threads-title-text-transform: var(--type-heading-03-text-transform);
+  --chat-threads-title-font-family: var(--type-heading-compact-01-font-family);
+  --chat-threads-title-font-size: var(--type-heading-compact-01-font-size);
+  --chat-threads-title-line-height: var(--type-heading-compact-01-line-height);
+  --chat-threads-title-font-weight: var(--type-heading-compact-01-font-weight);
+  --chat-threads-title-text-transform: var(--type-heading-compact-01-text-transform);
   --chat-threads-empty-color: var(--text-helper);
   --chat-threads-empty-font-family: var(--type-body-compact-01-font-family);
   --chat-threads-empty-font-size: var(--type-body-compact-01-font-size);
   --chat-threads-empty-line-height: var(--type-body-compact-01-line-height);
   --chat-threads-empty-font-weight: var(--type-body-compact-01-font-weight);
   --chat-threads-scroll-height: 240px;
+  --chat-threads-shadow-focus: var(--shadow-focus-ring);
+  --chat-threads-transition-duration: var(--duration-normal);
+  --chat-threads-transition-easing: var(--easing-out);
 
   display: flex;
   flex-direction: column;
@@ -371,7 +354,8 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
   gap: var(--spacing-2);
 }
 
-.chat-threads__title {
+.chat-threads__title,
+.chat-threads__group-title {
   margin: var(--spacing-0);
   color: var(--chat-threads-title-color);
   font-family: var(--chat-threads-title-font-family);
@@ -388,9 +372,46 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
   gap: var(--spacing-3);
 }
 
+.chat-threads__group-header {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: var(--spacing-0) var(--spacing-3);
+}
+
+.chat-threads__group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--spacing-0);
+  border: var(--border-width-none) solid var(--border-transparent);
+  background-color: var(--surface-transparent);
+  cursor: pointer;
+}
+
+.chat-threads__group-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--chat-threads-shadow-focus);
+}
+
+.chat-threads__group-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--chat-threads-title-color);
+  transition: transform var(--chat-threads-transition-duration)
+    var(--chat-threads-transition-easing);
+}
+
+.chat-threads__group-chevron--collapsed {
+  transform: rotate(-90deg);
+}
+
 .chat-threads__scroll {
   flex: 1 1 0;
-  min-height: 160px;
+  min-height: var(--spacing-0);
+  height: auto;
   max-height: 100%;
 }
 
@@ -398,18 +419,14 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
   flex: 0 0 auto;
   height: var(--chat-threads-scroll-height);
   min-height: var(--chat-threads-scroll-height);
-  max-height: 40dvh;
+  max-height: 38dvh;
 }
 
 .chat-threads__lists {
   display: flex;
   flex-direction: column;
   width: 100%;
-  gap: var(--spacing-2);
-}
-
-.chat-threads__lists :deep(.nav-list) {
-  padding: var(--spacing-2) var(--spacing-0);
+  gap: var(--spacing-0);
 }
 
 .chat-threads__lists :deep(.list-item) {

@@ -1,7 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { ListItem } from '../index'
 import { Icon } from '../../icons'
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
 
 describe('ListItem', () => {
   it('renders label and default classes without icon', () => {
@@ -87,5 +92,45 @@ describe('ListItem', () => {
 
     expect(wrapper.find('.list-item__label').text()).toBe('Label customizada')
     expect(wrapper.find('[data-testid="trailing-slot"]').text()).toBe('3')
+  })
+
+  it('masks overflowing label and translates to end after 300ms hover when marqueeOnHover is true', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(ListItem, {
+      props: {
+        label: 'Título de conversa extremamente longo para testar o marquee',
+        marqueeOnHover: true,
+      },
+    })
+
+    const wrapEl = wrapper.find('.list-item__label').element as HTMLElement
+    const textEl = wrapper.find('.list-item__label-marquee-text').element as HTMLElement
+
+    Object.defineProperty(wrapEl, 'clientWidth', { value: 120, configurable: true })
+    Object.defineProperty(textEl, 'scrollWidth', { value: 260, configurable: true })
+
+    window.dispatchEvent(new Event('resize'))
+    await wrapper.trigger('pointerenter', { pointerType: 'mouse' })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('.list-item__label').classes()).toContain('list-item__label--mask-end')
+    expect(textEl.style.transform).toBe('translate3d(0, 0, 0)')
+
+    // Before 300ms, marquee should not start yet
+    vi.advanceTimersByTime(250)
+    await wrapper.vm.$nextTick()
+    expect(textEl.style.transform).toBe('translate3d(0, 0, 0)')
+
+    // After 300ms continuous hover, translates smoothly by overflow distance
+    vi.advanceTimersByTime(60)
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.list-item__label').classes()).toContain('list-item__label--mask-start')
+    expect(textEl.style.transform).toContain('translate3d(-144px')
+
+    // Leaving immediately restores original state
+    await wrapper.trigger('pointerleave')
+    await wrapper.vm.$nextTick()
+    expect(textEl.style.transform).toBe('translate3d(0, 0, 0)')
+    expect(wrapper.find('.list-item__label').classes()).toContain('list-item__label--mask-end')
   })
 })

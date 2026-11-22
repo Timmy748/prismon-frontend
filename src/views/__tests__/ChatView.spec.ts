@@ -168,9 +168,14 @@ describe('ChatView', () => {
     const sidebarExtra = wrapper.find('.app-shell__sidebar-extra')
     expect(sidebarExtra.exists()).toBe(true)
     expect(sidebarExtra.find('.chat-threads__title').text()).toBe('conversas')
+    expect(sidebarExtra.find('.chat-threads__header button').exists()).toBe(false)
     expect(sidebarExtra.find('input[aria-label="Buscar conversas"]').exists()).toBe(true)
     expect(sidebarExtra.text()).toContain('hoje')
-    expect(sidebarExtra.text()).toContain('últimos 7 dias')
+    expect(sidebarExtra.text()).not.toContain('últimos 7 dias')
+
+    expect(wrapper.find('.chat-view__header button[aria-label="Criar novo chat"]').exists()).toBe(
+      true,
+    )
 
     const expandedChatItems = sidebarExtra.findAllComponents(ListItem)
     expect(expandedChatItems.length).toBeGreaterThan(0)
@@ -321,6 +326,15 @@ describe('ChatView', () => {
     expect(wrapper.find('.chat-view__empty').exists()).toBe(true)
     expect(wrapper.find('.chat-view__empty-title').text()).toBe('como posso ajudar hoje?')
     expect(wrapper.findAll('.chat-view__suggestion-btn')).toHaveLength(3)
+
+    // Clicking a thread loads it, and clicking the top-right Criar novo chat button resets to Novo Chat
+    await wrapper.find('.chat-threads .list-item__trigger').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.chat-view__empty').exists()).toBe(false)
+
+    await wrapper.find('.chat-view__header button[aria-label="Criar novo chat"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.chat-view__empty').exists()).toBe(true)
 
     // Open vertical three-dots dropdown on the first conversation and choose "Editar nome"
     const optionButtons = wrapper.findAll('.chat-threads button[aria-label^="Opções da conversa"]')

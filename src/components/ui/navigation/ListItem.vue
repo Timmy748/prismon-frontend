@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  onUpdated,
+  ref,
+  watch,
+  type CSSProperties,
+} from 'vue'
 import { Icon, type IconName } from '../icons'
 
 interface Props {
@@ -9,6 +18,7 @@ interface Props {
   active?: boolean
   hasTrailingAction?: boolean
   trailingLabel?: string
+  marqueeOnHover?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -16,11 +26,23 @@ const props = withDefaults(defineProps<Props>(), {
   active: false,
   hasTrailingAction: false,
   trailingLabel: 'Mais ações',
+  marqueeOnHover: false,
 })
 
 const emit = defineEmits<{
   'trailing-click': [event: MouseEvent]
 }>()
+
+const HOVER_REVEAL_DELAY_MS = 300
+const RETURN_DURATION_MS = 180
+
+const labelWrapRef = ref<HTMLSpanElement | null>(null)
+const labelTextRef = ref<HTMLSpanElement | null>(null)
+const overflowDistance = ref(0)
+const isMarqueeActive = ref(false)
+
+let hoverTimer: number | null = null
+let resizeObserver: ResizeObserver | null = null
 
 const listItemClasses = computed(() => [
   'list-item',
@@ -29,13 +51,132 @@ const listItemClasses = computed(() => [
   props.active ? 'list-item--active' : undefined,
 ])
 
+const labelClasses = computed(() => {
+  if (!props.marqueeOnHover) {
+    return ['list-item__label']
+  }
+  const hasOverflow = overflowDistance.value > 1
+  return [
+    'list-item__label',
+    'list-item__label--marquee',
+    hasOverflow && !isMarqueeActive.value ? 'list-item__label--mask-end' : undefined,
+    hasOverflow && isMarqueeActive.value ? 'list-item__label--mask-start' : undefined,
+  ]
+})
+
+const marqueeTextStyle = computed<CSSProperties | undefined>(() => {
+  if (!props.marqueeOnHover) {
+    return undefined
+  }
+  if (!isMarqueeActive.value || overflowDistance.value <= 1) {
+    return {
+      transform: 'translate3d(0, 0, 0)',
+      transitionDuration: `${RETURN_DURATION_MS}ms`,
+    }
+  }
+  const shiftPx = overflowDistance.value + 4
+  const durationMs = Math.max(900, Math.min(3500, Math.round(shiftPx * 22)))
+  return {
+    transform: `translate3d(-${shiftPx}px, 0, 0)`,
+    transitionDuration: `${durationMs}ms`,
+    transitionTimingFunction: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+  }
+})
+
+function measureLabelOverflow() {
+  if (!props.marqueeOnHover || props.collapsed) {
+    overflowDistance.value = 0
+    return
+  }
+  const wrapEl = labelWrapRef.value
+  const textEl = labelTextRef.value
+  if (!wrapEl || !textEl) {
+    overflowDistance.value = 0
+    return
+  }
+  overflowDistance.value = Math.max(0, Math.ceil(textEl.scrollWidth - wrapEl.clientWidth))
+}
+
+function clearHoverTimer() {
+  if (hoverTimer !== null && typeof window !== 'undefined') {
+    window.clearTimeout(hoverTimer)
+    hoverTimer = null
+  }
+}
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+}
+
+function handlePointerEnter(event: PointerEvent) {
+  if (
+    !props.marqueeOnHover ||
+    props.collapsed ||
+    event.pointerType === 'touch' ||
+    prefersReducedMotion()
+  ) {
+    return
+  }
+  clearHoverTimer()
+  measureLabelOverflow()
+  if (overflowDistance.value <= 1 || typeof window === 'undefined') {
+    return
+  }
+  hoverTimer = window.setTimeout(() => {
+    hoverTimer = null
+    measureLabelOverflow()
+    if (overflowDistance.value > 1) {
+      isMarqueeActive.value = true
+    }
+  }, HOVER_REVEAL_DELAY_MS)
+}
+
+function handlePointerLeave() {
+  clearHoverTimer()
+  isMarqueeActive.value = false
+}
+
+watch(
+  () => [props.label, props.marqueeOnHover, props.collapsed],
+  () => {
+    clearHoverTimer()
+    isMarqueeActive.value = false
+    void nextTick(measureLabelOverflow)
+  },
+)
+
+onMounted(() => {
+  measureLabelOverflow()
+  if (typeof ResizeObserver !== 'undefined' && labelWrapRef.value) {
+    resizeObserver = new ResizeObserver(measureLabelOverflow)
+    resizeObserver.observe(labelWrapRef.value)
+  }
+})
+
+onUpdated(() => {
+  measureLabelOverflow()
+})
+
+onBeforeUnmount(() => {
+  clearHoverTimer()
+  resizeObserver?.disconnect()
+})
+
 function handleTrailingClick(event: MouseEvent) {
   emit('trailing-click', event)
 }
 </script>
 
 <template>
-  <div :class="listItemClasses">
+  <div
+    :class="listItemClasses"
+    @pointerenter="handlePointerEnter"
+    @pointerleave="handlePointerLeave"
+  >
     <button
       type="button"
       class="list-item__trigger"
@@ -45,8 +186,16 @@ function handleTrailingClick(event: MouseEvent) {
       <span v-if="icon" class="list-item__icon">
         <Icon :name="icon" size="md" />
       </span>
-      <span v-if="!collapsed" class="list-item__label">
-        <slot>{{ label }}</slot>
+      <span v-if="!collapsed" ref="labelWrapRef" :class="labelClasses">
+        <span
+          v-if="marqueeOnHover"
+          ref="labelTextRef"
+          class="list-item__label-marquee-text"
+          :style="marqueeTextStyle"
+        >
+          <slot>{{ label }}</slot>
+        </span>
+        <slot v-else>{{ label }}</slot>
       </span>
     </button>
     <span
@@ -118,6 +267,7 @@ function handleTrailingClick(event: MouseEvent) {
   justify-content: var(--list-item-justify);
   flex: 1;
   min-width: var(--spacing-0);
+  overflow: hidden;
   gap: var(--list-item-gap);
   padding: var(--spacing-0);
   border: var(--list-item-border-width) solid var(--list-item-border-color);
@@ -149,6 +299,59 @@ function handleTrailingClick(event: MouseEvent) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.list-item__label--marquee {
+  display: block;
+  width: 100%;
+  text-overflow: clip;
+  --list-item-marquee-mask-opaque: var(--text-primary);
+  --list-item-marquee-mask-transparent: var(--surface-transparent);
+  --list-item-marquee-mask-size: var(--spacing-5);
+}
+
+.list-item__label--mask-end {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    var(--list-item-marquee-mask-opaque) var(--spacing-0),
+    var(--list-item-marquee-mask-opaque) calc(100% - var(--list-item-marquee-mask-size)),
+    var(--list-item-marquee-mask-transparent) 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    var(--list-item-marquee-mask-opaque) var(--spacing-0),
+    var(--list-item-marquee-mask-opaque) calc(100% - var(--list-item-marquee-mask-size)),
+    var(--list-item-marquee-mask-transparent) 100%
+  );
+}
+
+.list-item__label--mask-start {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    var(--list-item-marquee-mask-transparent) var(--spacing-0),
+    var(--list-item-marquee-mask-opaque) var(--list-item-marquee-mask-size),
+    var(--list-item-marquee-mask-opaque) 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    var(--list-item-marquee-mask-transparent) var(--spacing-0),
+    var(--list-item-marquee-mask-opaque) var(--list-item-marquee-mask-size),
+    var(--list-item-marquee-mask-opaque) 100%
+  );
+}
+
+.list-item__label-marquee-text {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform;
+  transition-property: transform;
+  transition-timing-function: var(--easing-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .list-item__label-marquee-text {
+    transition: none;
+  }
 }
 
 .list-item__trailing {
