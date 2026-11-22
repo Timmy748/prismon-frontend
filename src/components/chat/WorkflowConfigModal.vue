@@ -736,7 +736,7 @@ function handleApply() {
   --workflow-modal-gap: var(--spacing-4);
   --workflow-modal-grid-gap: var(--spacing-4);
   --workflow-modal-stage-height: 410px;
-  --workflow-modal-stage-mask-size: var(--spacing-10);
+  --workflow-modal-stage-mask-size: var(--spacing-8);
   --workflow-modal-stage-mask-opaque: var(--text-primary);
   --workflow-modal-stage-mask-transparent: var(--surface-transparent);
   --workflow-modal-card-width: 320px;
@@ -869,25 +869,25 @@ function handleApply() {
 
 .workflow-modal__slide-slot--left {
   z-index: 4;
-  opacity: 0.72;
+  opacity: 0.88;
   transform: translate3d(-106%, 0, 0) scale(0.84);
 }
 
 .workflow-modal__slide-slot--right {
   z-index: 4;
-  opacity: 0.72;
+  opacity: 0.88;
   transform: translate3d(6%, 0, 0) scale(0.84);
 }
 
 .workflow-modal__slide-slot--far-left {
   z-index: 3;
-  opacity: 0.34;
+  opacity: 0.62;
   transform: translate3d(-160%, 0, 0) scale(0.68);
 }
 
 .workflow-modal__slide-slot--far-right {
   z-index: 3;
-  opacity: 0.34;
+  opacity: 0.62;
   transform: translate3d(60%, 0, 0) scale(0.68);
 }
 
