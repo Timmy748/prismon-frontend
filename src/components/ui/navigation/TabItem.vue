@@ -40,7 +40,7 @@ const tabItemClasses = computed(() => [
   --tab-item-color: var(--text-secondary);
   --tab-item-border-color: var(--border-transparent);
   --tab-item-border-width: var(--border-width-thin);
-  --tab-item-padding-y: var(--spacing-2);
+  --tab-item-padding-y: var(--spacing-3);
   --tab-item-padding-x: var(--spacing-5);
   --tab-item-font-family: var(--type-body-compact-02-font-family);
   --tab-item-font-size: var(--type-body-compact-02-font-size);

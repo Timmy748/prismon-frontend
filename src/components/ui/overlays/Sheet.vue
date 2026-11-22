@@ -2,6 +2,7 @@
 import { computed, useId } from 'vue'
 import { IconButton } from '../buttons'
 import { useEscapeKey } from './useEscapeKey'
+import { hasOverlayPortalRoot, useOverlayBackdropBlur } from './useOverlayBackdropBlur'
 
 export type SheetSize = 'md' | 'lg'
 
@@ -41,26 +42,35 @@ function handleBackdropClick() {
   handleClose()
 }
 
+const canTeleportOverlay = hasOverlayPortalRoot()
+useOverlayBackdropBlur(() => props.open)
 useEscapeKey(() => props.open, handleClose)
 </script>
 
 <template>
-  <Transition name="sheet">
-    <div v-if="open" :class="sheetClasses">
-      <div class="sheet__backdrop" @click.self="handleBackdropClick">
-        <aside class="sheet__panel" role="dialog" aria-modal="true" :aria-labelledby="titleId">
-          <header class="sheet__header">
-            <h2 :id="titleId" class="sheet__title">{{ title }}</h2>
-            <IconButton variant="ghost" icon="close" :ariaLabel="closeLabel" @click="handleClose" />
-          </header>
+  <Teleport to="#prismon-overlay-root" :disabled="!canTeleportOverlay">
+    <Transition name="sheet">
+      <div v-if="open" :class="sheetClasses">
+        <div class="sheet__backdrop" @click.self="handleBackdropClick">
+          <aside class="sheet__panel" role="dialog" aria-modal="true" :aria-labelledby="titleId">
+            <header class="sheet__header">
+              <h2 :id="titleId" class="sheet__title">{{ title }}</h2>
+              <IconButton
+                variant="ghost"
+                icon="close"
+                :ariaLabel="closeLabel"
+                @click="handleClose"
+              />
+            </header>
 
-          <div class="sheet__body">
-            <slot />
-          </div>
-        </aside>
+            <div class="sheet__body">
+              <slot />
+            </div>
+          </aside>
+        </div>
       </div>
-    </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>

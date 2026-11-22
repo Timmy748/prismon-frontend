@@ -1,5 +1,12 @@
-export { default as DocumentDetails } from './DocumentDetails.vue'
-export type { DocumentTagItem, DocumentHistoryEntry } from './DocumentDetails.vue'
+export { default as RepertoryItemDetails } from './RepertoryItemDetails.vue'
+export { default as DocumentDetails } from './RepertoryItemDetails.vue'
+export type {
+  RepertoryItemTag,
+  RepertoryItemHistoryEntry,
+  RepertoryPreviewType,
+  DocumentTagItem,
+  DocumentHistoryEntry,
+} from './RepertoryItemDetails.vue'
 export { default as ModificationEvent } from './ModificationEvent.vue'
 export { default as DocumentForm } from './DocumentForm.vue'
 export type { DocumentFormPayload } from './DocumentForm.vue'

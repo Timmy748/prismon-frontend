@@ -13,7 +13,6 @@ import {
   NavList,
   ScrollContainer,
   SearchInput,
-  Sidebar,
   Tag,
   WorkflowStepsAccordion,
   toast,
@@ -24,6 +23,7 @@ import {
 import { AppShell } from '@/components/shell'
 import WorkflowConfigModal, {
   type WorkflowConfigApplyPayload,
+  type WorkflowGraphNodeConfig,
 } from '@/components/chat/WorkflowConfigModal.vue'
 
 interface ChatWorkflowStep extends WorkflowStep {
@@ -52,6 +52,8 @@ interface SelectedWorkflow {
   id: string
   name: string
   effort: string
+  iterations?: string
+  nodesConfig?: Record<string, WorkflowGraphNodeConfig>
 }
 
 interface PromptSuggestion {
@@ -214,7 +216,6 @@ const INITIAL_THREADS: ChatThread[] = [
 
 const threads = ref<ChatThread[]>(INITIAL_THREADS)
 const activeThreadId = ref<string | null>('thread-1')
-const isHistoryCollapsed = ref(false)
 const threadSearch = ref('')
 
 const draftMessage = ref('')
@@ -341,14 +342,16 @@ function handleApplyWorkflow(payload: WorkflowConfigApplyPayload) {
   const applied: SelectedWorkflow = {
     id: payload.workflowId,
     name: payload.workflowName,
-    effort: payload.stageOneEffort,
+    effort: payload.summaryEffort,
+    iterations: payload.iterations,
+    nodesConfig: payload.nodesConfig,
   }
   selectedWorkflow.value = applied
 
   if (activeThread.value) {
     activeThread.value.workflowId = payload.workflowId
     activeThread.value.workflowName = payload.workflowName
-    activeThread.value.workflowEffort = payload.stageOneEffort
+    activeThread.value.workflowEffort = payload.summaryEffort
   }
 
   toast.success(`Workflow "${payload.workflowName}" (${payload.version}) aplicado.`)
@@ -399,6 +402,11 @@ function buildSimulatedAiResponse(
     attachments.length > 0
       ? ` considerando ${attachments.map((item) => item.filename).join(', ')}`
       : ''
+  const pipelineNote = workflow?.nodesConfig
+    ? ` (${Object.values(workflow.nodesConfig)
+        .map((node) => `${node.label} [${node.model}]`)
+        .join(' → ')})`
+    : ''
 
   return {
     id: nextId('msg'),
@@ -412,7 +420,7 @@ function buildSimulatedAiResponse(
       {
         id: nextId('step'),
         title: 'Consultando repertório',
-        summary: `Referências cruzadas no repertório utilizando ${workflowLabel}${attachmentNote}.`,
+        summary: `Referências cruzadas no repertório utilizando ${workflowLabel}${pipelineNote}${attachmentNote}.`,
       },
       {
         id: nextId('step'),
@@ -478,18 +486,19 @@ onBeforeUnmount(() => {
 
 <template>
   <AppShell active-nav="chat" :show-topbar="false" title="chatbot">
-    <template #secondary-sidebar>
-      <Sidebar
-        v-model:collapsed="isHistoryCollapsed"
-        title="conversas"
-        toggle-label="Alternar painel de conversas"
-        class="chat-history-sidebar"
-      >
-        <div v-if="!isHistoryCollapsed" class="chat-history-sidebar__content">
-          <div class="chat-history-sidebar__controls">
+    <template #sidebar-extra="{ collapsed }">
+      <div class="chat-threads">
+        <div class="chat-threads__divider" aria-hidden="true" />
+
+        <div v-if="!collapsed" class="chat-threads__content">
+          <div class="chat-threads__header">
+            <h2 class="chat-threads__title">conversas</h2>
+          </div>
+
+          <div class="chat-threads__controls">
             <Button
               variant="primary"
-              size="md"
+              size="sm"
               icon="chat"
               :full-width="true"
               @click="createNewThread"
@@ -503,7 +512,7 @@ onBeforeUnmount(() => {
             />
           </div>
 
-          <div class="chat-history-sidebar__lists">
+          <div class="chat-threads__lists">
             <NavList v-if="todayThreads.length > 0" title="hoje" :collapsible="true">
               <ListItem
                 v-for="thread in todayThreads"
@@ -534,17 +543,17 @@ onBeforeUnmount(() => {
 
             <p
               v-if="todayThreads.length === 0 && weekThreads.length === 0"
-              class="chat-history-sidebar__empty"
+              class="chat-threads__empty"
             >
               Nenhuma conversa encontrada.
             </p>
           </div>
         </div>
 
-        <div v-else class="chat-history-sidebar__collapsed">
+        <div v-else class="chat-threads__collapsed">
           <IconButton
             variant="primary"
-            size="md"
+            size="sm"
             icon="chat"
             ariaLabel="Nova conversa"
             @click="createNewThread"
@@ -561,7 +570,7 @@ onBeforeUnmount(() => {
             />
           </NavList>
         </div>
-      </Sidebar>
+      </div>
     </template>
 
     <section class="chat-view" aria-label="Área de conversa">
@@ -684,39 +693,83 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.chat-history-sidebar__content {
+.chat-threads {
+  --chat-threads-gap: var(--spacing-3);
+  --chat-threads-divider-color: var(--border-subtle-1);
+  --chat-threads-divider-height: var(--border-width-thin);
+  --chat-threads-title-color: var(--text-primary);
+  --chat-threads-title-font-family: var(--type-heading-03-font-family);
+  --chat-threads-title-font-size: var(--type-heading-03-font-size);
+  --chat-threads-title-line-height: var(--type-heading-03-line-height);
+  --chat-threads-title-font-weight: var(--type-heading-03-font-weight);
+  --chat-threads-title-text-transform: var(--type-heading-03-text-transform);
+  --chat-threads-empty-color: var(--text-helper);
+  --chat-threads-empty-font-family: var(--type-body-compact-01-font-family);
+  --chat-threads-empty-font-size: var(--type-body-compact-01-font-size);
+  --chat-threads-empty-line-height: var(--type-body-compact-01-line-height);
+  --chat-threads-empty-font-weight: var(--type-body-compact-01-font-weight);
+
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-4);
+  width: 100%;
+  gap: var(--chat-threads-gap);
 }
 
-.chat-history-sidebar__controls {
+.chat-threads__divider {
+  width: 100%;
+  height: var(--chat-threads-divider-height);
+  background-color: var(--chat-threads-divider-color);
+  flex-shrink: 0;
+}
+
+.chat-threads__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--chat-threads-gap);
+}
+
+.chat-threads__header {
+  padding: var(--spacing-0) var(--spacing-3);
+}
+
+.chat-threads__title {
+  margin: var(--spacing-0);
+  color: var(--chat-threads-title-color);
+  font-family: var(--chat-threads-title-font-family);
+  font-size: var(--chat-threads-title-font-size);
+  line-height: var(--chat-threads-title-line-height);
+  font-weight: var(--chat-threads-title-font-weight);
+  text-transform: var(--chat-threads-title-text-transform);
+}
+
+.chat-threads__controls {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-3);
 }
 
-.chat-history-sidebar__lists {
+.chat-threads__lists {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-3);
+  gap: var(--spacing-2);
 }
 
-.chat-history-sidebar__empty {
+.chat-threads__empty {
   margin: var(--spacing-0);
   padding: var(--spacing-3);
-  color: var(--text-helper);
-  font-family: var(--type-body-compact-01-font-family);
-  font-size: var(--type-body-compact-01-font-size);
-  line-height: var(--type-body-compact-01-line-height);
-  font-weight: var(--type-body-compact-01-font-weight);
+  color: var(--chat-threads-empty-color);
+  font-family: var(--chat-threads-empty-font-family);
+  font-size: var(--chat-threads-empty-font-size);
+  line-height: var(--chat-threads-empty-line-height);
+  font-weight: var(--chat-threads-empty-font-weight);
 }
 
-.chat-history-sidebar__collapsed {
+.chat-threads__collapsed {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--spacing-3);
+  width: 100%;
 }
 
 .chat-view {
@@ -738,6 +791,8 @@ onBeforeUnmount(() => {
   --chat-view-feed-padding-y: var(--spacing-6);
   --chat-view-feed-padding-x: var(--spacing-6);
   --chat-view-feed-gap: var(--spacing-5);
+  --chat-view-human-max-width: min(78%, 580px);
+  --chat-view-ai-max-width: min(88%, 660px);
   --chat-view-composer-padding-top: var(--spacing-3);
   --chat-view-composer-padding-x: var(--spacing-6);
   --chat-view-composer-padding-bottom: var(--spacing-6);
@@ -759,6 +814,7 @@ onBeforeUnmount(() => {
   --chat-view-step-font-size: var(--type-body-compact-01-font-size);
   --chat-view-step-line-height: var(--type-body-compact-01-line-height);
   --chat-view-step-font-weight: var(--type-body-compact-01-font-weight);
+  --chat-view-generating-color: var(--text-helper);
   --chat-view-shadow-focus: var(--shadow-focus-ring);
   --chat-view-transition-duration: var(--duration-fast);
   --chat-view-transition-easing: var(--easing-out);
@@ -891,6 +947,18 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
 }
 
+.chat-view__feed :deep(.chat-message--human) {
+  align-self: flex-end;
+  max-width: var(--chat-view-human-max-width);
+  width: fit-content;
+}
+
+.chat-view__feed :deep(.chat-message--ai) {
+  align-self: flex-start;
+  max-width: var(--chat-view-ai-max-width);
+  width: 100%;
+}
+
 .chat-view__message-body {
   display: flex;
   flex-direction: column;
@@ -900,6 +968,7 @@ onBeforeUnmount(() => {
 .chat-view__message-attachments {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--spacing-3);
 }
 
@@ -923,7 +992,7 @@ onBeforeUnmount(() => {
 
 .chat-view__generating {
   margin: var(--spacing-0);
-  color: var(--text-helper);
+  color: var(--chat-view-generating-color);
 }
 
 .chat-view__composer-wrap {
@@ -948,14 +1017,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 767px) {
-  .chat-history-sidebar,
-  .chat-history-sidebar.sidebar--closed {
-    --sidebar-width: 100%;
-    --sidebar-border-width: var(--border-width-none);
-    width: 100%;
-    border: none;
-  }
-
   .chat-view__header {
     padding: var(--spacing-3) var(--spacing-4);
   }

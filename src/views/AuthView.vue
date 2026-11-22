@@ -258,7 +258,7 @@ function handleForgotSubmit() {
 
     <Modal
       v-model:open="forgotModalOpen"
-      size="sm"
+      size="lg"
       title="recuperar senha"
       subtitle="Informe seu email para receber as instruções de acesso."
       @close="resetForgotModal"

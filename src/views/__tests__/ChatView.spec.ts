@@ -6,6 +6,8 @@ import {
   ChatMessage,
   ConfirmDialog,
   FileAttachmentCard,
+  ListItem,
+  Sidebar,
   WorkflowCard,
   WorkflowStepsAccordion,
   toast,
@@ -47,7 +49,36 @@ afterEach(() => {
 })
 
 describe('ChatView', () => {
-  it('sends a message and generates a simulated AI response with workflow steps', async () => {
+  it('renders human and AI messages with differentiated sender classes inside the feed', async () => {
+    const router = await createTestRouter('/chat')
+
+    wrapper = mount(ChatView, {
+      global: {
+        plugins: [router],
+      },
+    })
+
+    const feed = wrapper.find('.chat-view__feed')
+    expect(feed.exists()).toBe(true)
+
+    const messages = feed.findAllComponents(ChatMessage)
+    expect(messages.length).toBeGreaterThanOrEqual(2)
+
+    const humanMsg = messages.find(
+      (msg: VueWrapper) => (msg.props() as { role?: string }).role === 'human',
+    )
+    const aiMsg = messages.find(
+      (msg: VueWrapper) => (msg.props() as { role?: string }).role === 'ai',
+    )
+
+    expect(humanMsg).toBeDefined()
+    expect(aiMsg).toBeDefined()
+    expect(humanMsg!.classes()).toContain('chat-message--human')
+    expect(aiMsg!.classes()).toContain('chat-message--ai')
+    expect(feed.find('.chat-view__message-attachments').exists()).toBe(true)
+  })
+
+  it('sends a message, renders generating AI placeholder, and generates a simulated AI response with workflow steps', async () => {
     vi.useFakeTimers()
     const router = await createTestRouter('/chat')
 
@@ -64,16 +95,23 @@ describe('ChatView', () => {
     await promptInput.find('button[aria-label="Enviar mensagem"]').trigger('click')
     await flushPromises()
 
-    const afterSendMessages = wrapper.findAllComponents(ChatMessage)
+    const feed = wrapper.find('.chat-view__feed')
+    const afterSendMessages = feed.findAllComponents(ChatMessage)
     expect(afterSendMessages.length).toBeGreaterThan(initialMessages)
     expect(wrapper.text()).toContain('Resuma os principais riscos do anexo.')
+
+    const generatingPlaceholder = afterSendMessages[afterSendMessages.length - 1]
+    expect(generatingPlaceholder?.props('role')).toBe('ai')
+    expect(generatingPlaceholder?.classes()).toContain('chat-message--ai')
+    expect(generatingPlaceholder?.text()).toContain('Processando etapas do workflow...')
 
     await vi.advanceTimersByTimeAsync(500)
     await flushPromises()
 
-    const completedMessages = wrapper.findAllComponents(ChatMessage)
+    const completedMessages = feed.findAllComponents(ChatMessage)
     const lastMessage = completedMessages[completedMessages.length - 1]
     expect(lastMessage?.props('role')).toBe('ai')
+    expect(lastMessage?.classes()).toContain('chat-message--ai')
     expect(lastMessage?.findComponent(WorkflowStepsAccordion).exists()).toBe(true)
     expect(lastMessage?.text()).toContain('Analisando contexto')
     expect(lastMessage?.text()).toContain('Consultando repertório')
@@ -110,7 +148,43 @@ describe('ChatView', () => {
     expect(remainingCards[0]?.props('filename')).toBe('contrato-revisao.docx')
   })
 
-  it('opens WorkflowConfigModal, advances to step 2, and applies the configured workflow', async () => {
+  it('renders conversations integrated inside the primary navigation sidebar (#sidebar-extra) and supports collapsed mode', async () => {
+    const router = await createTestRouter('/chat')
+
+    wrapper = mount(ChatView, {
+      global: {
+        plugins: [router],
+      },
+    })
+
+    expect(wrapper.find('.app-shell__secondary-sidebar').exists()).toBe(false)
+    const sidebars = wrapper.findAllComponents(Sidebar)
+    expect(sidebars.some((sb) => sb.props('title') === 'conversas')).toBe(false)
+
+    const sidebarExtra = wrapper.find('.app-shell__sidebar-extra')
+    expect(sidebarExtra.exists()).toBe(true)
+    expect(sidebarExtra.find('.chat-threads__title').text()).toBe('conversas')
+    expect(sidebarExtra.find('input[aria-label="Buscar conversas"]').exists()).toBe(true)
+    expect(sidebarExtra.text()).toContain('hoje')
+    expect(sidebarExtra.text()).toContain('últimos 7 dias')
+
+    const navToggleButton = wrapper.find('button[aria-label="Alternar menu do projeto"]')
+    expect(navToggleButton.exists()).toBe(true)
+    await navToggleButton.trigger('click')
+    await flushPromises()
+
+    expect(sidebarExtra.find('.chat-threads__collapsed').exists()).toBe(true)
+    expect(sidebarExtra.find('button[aria-label="Nova conversa"]').exists()).toBe(true)
+    const collapsedItems = sidebarExtra.findAllComponents(ListItem)
+    expect(collapsedItems.length).toBeGreaterThan(0)
+    expect(
+      collapsedItems.every(
+        (item: VueWrapper) => (item.props() as { collapsed?: boolean }).collapsed === true,
+      ),
+    ).toBe(true)
+  })
+
+  it('opens WorkflowConfigModal, navigates the node graph, edits node config, and applies the workflow', async () => {
     const router = await createTestRouter('/chat')
 
     wrapper = mount(ChatView, {
@@ -142,10 +216,39 @@ describe('ChatView', () => {
     await flushPromises()
 
     expect(workflowModal.find('.modal__title').text()).toBe('configurações')
-    const selects = workflowModal.findAll('select')
-    expect(selects.length).toBeGreaterThanOrEqual(5)
 
-    await selects[1]!.setValue('Alto')
+    const graphNodes = workflowModal.findAll('.workflow-modal__graph-node')
+    expect(graphNodes).toHaveLength(3)
+    expect(graphNodes[0]!.classes()).toContain('workflow-modal__graph-node--selected')
+    expect(workflowModal.find('.workflow-modal__node-form-title').text()).toContain(
+      'configurando nó: Ingestão',
+    )
+
+    await graphNodes[1]!.trigger('click')
+    await flushPromises()
+
+    expect(graphNodes[1]!.classes()).toContain('workflow-modal__graph-node--selected')
+    expect(workflowModal.find('.workflow-modal__node-form-title').text()).toContain(
+      'configurando nó: Análise Crítica',
+    )
+
+    const nodeLabelInput = workflowModal.find('.workflow-modal__node-form input')
+    await nodeLabelInput.setValue('Auditoria Profunda')
+    await flushPromises()
+    expect(graphNodes[1]!.text()).toContain('Auditoria Profunda')
+
+    const nodeFormSelects = workflowModal.findAll('.workflow-modal__node-form select')
+    expect(nodeFormSelects).toHaveLength(3)
+    await nodeFormSelects[0]!.setValue('Claude Sonnet')
+    await nodeFormSelects[1]!.setValue('Baixo')
+    await nodeFormSelects[2]!.setValue('output')
+    await flushPromises()
+
+    expect(graphNodes[1]!.text()).toContain('Claude Sonnet')
+    expect(graphNodes[1]!.text()).toContain('Saída')
+
+    const instructionTextarea = workflowModal.find('.workflow-modal__node-form textarea')
+    await instructionTextarea.setValue('Validar aderência arquitetural e riscos de segurança.')
     await flushPromises()
 
     const applyButton = workflowModal
@@ -158,7 +261,7 @@ describe('ChatView', () => {
     expect(workflowModal.props('open')).toBe(false)
     expect(wrapper.find('.chat-view__header').text()).toContain('revisão técnica')
     expect(wrapper.find('.chat-view__workflow-chip').text()).toContain(
-      'workflow: revisão técnica (Alto)',
+      'workflow: revisão técnica (Baixo)',
     )
     expect(toast.getToasts().some((item) => item.type === 'success')).toBe(true)
 
@@ -180,7 +283,7 @@ describe('ChatView', () => {
     })
 
     const newChatButton = wrapper
-      .findAll('.chat-history-sidebar button')
+      .findAll('.chat-threads button')
       .find((btn) => btn.text().includes('nova conversa'))
     expect(newChatButton).toBeDefined()
 
@@ -191,9 +294,7 @@ describe('ChatView', () => {
     expect(wrapper.find('.chat-view__empty-title').text()).toBe('como posso ajudar hoje?')
     expect(wrapper.findAll('.chat-view__suggestion-btn')).toHaveLength(3)
 
-    const removeButtons = wrapper.findAll(
-      '.chat-history-sidebar button[aria-label="Remover conversa"]',
-    )
+    const removeButtons = wrapper.findAll('.chat-threads button[aria-label="Remover conversa"]')
     const initialThreadCount = removeButtons.length
     expect(initialThreadCount).toBeGreaterThan(1)
 
@@ -213,7 +314,7 @@ describe('ChatView', () => {
 
     expect(confirmDialog.props('open')).toBe(false)
     const remainingRemoveButtons = wrapper.findAll(
-      '.chat-history-sidebar button[aria-label="Remover conversa"]',
+      '.chat-threads button[aria-label="Remover conversa"]',
     )
     expect(remainingRemoveButtons).toHaveLength(initialThreadCount - 1)
     expect(toast.getToasts().some((item) => item.type === 'info')).toBe(true)

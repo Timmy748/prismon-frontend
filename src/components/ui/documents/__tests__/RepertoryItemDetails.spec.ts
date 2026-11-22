@@ -3,20 +3,21 @@ import { mount } from '@vue/test-utils'
 import {
   DocumentDetails,
   ModificationEvent,
-  type DocumentHistoryEntry,
-  type DocumentTagItem,
+  RepertoryItemDetails,
+  type RepertoryItemHistoryEntry,
+  type RepertoryItemTag,
 } from '../index'
 import { Tag } from '../../badges'
 import { IconButton } from '../../buttons'
 import { Icon } from '../../icons'
 import { ScrollContainer } from '../../layout'
 
-const sampleTags: DocumentTagItem[] = [
+const sampleTags: RepertoryItemTag[] = [
   { id: 't1', label: 'Contrato' },
   { id: 't2', label: 'Financeiro' },
 ]
 
-const sampleHistory: DocumentHistoryEntry[] = [
+const sampleHistory: RepertoryItemHistoryEntry[] = [
   {
     id: 'h1',
     title: 'Alteração de cláusula',
@@ -33,9 +34,13 @@ const sampleHistory: DocumentHistoryEntry[] = [
   },
 ]
 
-describe('DocumentDetails', () => {
+describe('RepertoryItemDetails (DocumentDetails)', () => {
+  it('exposes DocumentDetails compatibility alias', () => {
+    expect(DocumentDetails).toBe(RepertoryItemDetails)
+  })
+
   it('renders title, description, header-actions slot and default history title', () => {
-    const wrapper = mount(DocumentDetails, {
+    const wrapper = mount(RepertoryItemDetails, {
       props: {
         title: 'Contrato de Prestação de Serviços',
         description: 'Documento referente ao escopo anual de serviços.',
@@ -45,20 +50,54 @@ describe('DocumentDetails', () => {
       },
     })
 
-    expect(wrapper.find('.document-details__title').text()).toBe(
+    expect(wrapper.find('.repertory-item-details__title').text()).toBe(
       'Contrato de Prestação de Serviços',
     )
-    expect(wrapper.find('.document-details__description').text()).toBe(
+    expect(wrapper.find('.repertory-item-details__description').text()).toBe(
       'Documento referente ao escopo anual de serviços.',
     )
     expect(wrapper.find('[data-testid="edit-btn"]').exists()).toBe(true)
-    expect(wrapper.find('.document-details__history-title').text()).toBe(
+    expect(wrapper.find('.repertory-item-details__history-title').text()).toBe(
       'Histórico de modificações',
     )
+    expect(wrapper.find('.repertory-item-details__preview').exists()).toBe(false)
+  })
+
+  it('renders image asset preview and document excerpt preview', () => {
+    const assetWrapper = mount(RepertoryItemDetails, {
+      props: {
+        title: 'Ilustração Prismon Hero',
+        previewType: 'image',
+        previewUrl: '/img/hero.jpg',
+        previewLabel: 'JPG',
+        previewMeta: '1376x768 px • 896 KB',
+      },
+    })
+
+    expect(assetWrapper.find('.repertory-item-details__preview').exists()).toBe(true)
+    expect(assetWrapper.find('.repertory-item-details__preview-image').attributes('src')).toBe(
+      '/img/hero.jpg',
+    )
+    expect(assetWrapper.text()).toContain('1376x768 px • 896 KB')
+    expect(assetWrapper.text()).toContain('JPG')
+
+    const docWrapper = mount(RepertoryItemDetails, {
+      props: {
+        title: 'Manual de Identidade',
+        previewType: 'document',
+        previewLabel: 'PDF',
+        previewMeta: 'PDF • 2.4 MB • 14 páginas',
+        previewExcerpt: 'Capítulo 1: Princípios tipográficos e semânticos.',
+      },
+    })
+
+    expect(docWrapper.find('.repertory-item-details__preview-doc').exists()).toBe(true)
+    expect(docWrapper.text()).toContain('PDF • 2.4 MB • 14 páginas')
+    expect(docWrapper.text()).toContain('Capítulo 1: Princípios tipográficos e semânticos.')
   })
 
   it('renders tags and emits add-tag and remove-tag events', async () => {
-    const wrapper = mount(DocumentDetails, {
+    const wrapper = mount(RepertoryItemDetails, {
       props: {
         title: 'Política Interna',
         tags: sampleTags,
@@ -88,7 +127,7 @@ describe('DocumentDetails', () => {
   })
 
   it('does not show tag dismiss buttons when editableTags is false and hides add button when showAddTag is false', () => {
-    const wrapper = mount(DocumentDetails, {
+    const wrapper = mount(RepertoryItemDetails, {
       props: {
         title: 'Manual',
         tags: sampleTags,
@@ -105,7 +144,7 @@ describe('DocumentDetails', () => {
   })
 
   it('renders history entries using ModificationEvent with title, summary, author, date and helper icons', () => {
-    const wrapper = mount(DocumentDetails, {
+    const wrapper = mount(RepertoryItemDetails, {
       props: {
         title: 'Ata de Reunião',
         historyTitle: 'Alterações recentes',
@@ -113,7 +152,9 @@ describe('DocumentDetails', () => {
       },
     })
 
-    expect(wrapper.find('.document-details__history-title').text()).toBe('Alterações recentes')
+    expect(wrapper.find('.repertory-item-details__history-title').text()).toBe(
+      'Alterações recentes',
+    )
 
     const events = wrapper.findAllComponents(ModificationEvent)
     expect(events).toHaveLength(2)
@@ -137,20 +178,20 @@ describe('DocumentDetails', () => {
   })
 
   it('handles omitted optional description, tags and history cleanly', () => {
-    const wrapper = mount(DocumentDetails, {
+    const wrapper = mount(RepertoryItemDetails, {
       props: {
         title: 'Documento Vazio',
         showAddTag: false,
       },
     })
 
-    expect(wrapper.find('.document-details__description').exists()).toBe(false)
-    expect(wrapper.find('.document-details__tags-row').exists()).toBe(false)
-    expect(wrapper.find('.document-details__history-list').exists()).toBe(false)
+    expect(wrapper.find('.repertory-item-details__description').exists()).toBe(false)
+    expect(wrapper.find('.repertory-item-details__tags-row').exists()).toBe(false)
+    expect(wrapper.find('.repertory-item-details__history-list').exists()).toBe(false)
   })
 
   it('renders tags inside horizontal ScrollContainer without masking the add-tag button', async () => {
-    const wrapper = mount(DocumentDetails, {
+    const wrapper = mount(RepertoryItemDetails, {
       props: {
         title: 'Documento com muitas tags',
         tags: sampleTags,
@@ -160,12 +201,12 @@ describe('DocumentDetails', () => {
 
     const scrollContainer = wrapper.findComponent(ScrollContainer)
     const scroller = scrollContainer.find('.scroll-container__track')
-    const addButton = wrapper.find('.document-details__add-tag')
+    const addButton = wrapper.find('.repertory-item-details__add-tag')
 
     expect(scrollContainer.exists()).toBe(true)
     expect(scrollContainer.props('direction')).toBe('horizontal')
     expect(addButton.exists()).toBe(true)
-    expect(scrollContainer.find('.document-details__add-tag').exists()).toBe(false)
+    expect(scrollContainer.find('.repertory-item-details__add-tag').exists()).toBe(false)
 
     const el = scroller.element as HTMLElement
     Object.defineProperty(el, 'scrollWidth', { value: 400, configurable: true })

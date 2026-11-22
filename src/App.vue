@@ -9,7 +9,7 @@ const showGlobalToaster = computed(() => route?.name !== 'ui-kit-preview')
 
 <template>
   <RouterView />
-  <Toaster v-if="showGlobalToaster" position="bottom-right" :rich-colors="true" />
+  <Toaster v-if="showGlobalToaster" position="bottom-right" />
 </template>
 
 <style>
@@ -27,5 +27,23 @@ body {
   color: var(--text-primary);
   font-family: var(--font-family-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  transition: filter var(--duration-modal) var(--easing-out);
+}
+
+body[data-overlay-open='true'] #app {
+  filter: blur(var(--blur-overlay));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app {
+    transition: none;
+  }
+
+  body[data-overlay-open='true'] #app {
+    filter: none;
+  }
 }
 </style>

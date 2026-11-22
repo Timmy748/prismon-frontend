@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ToastItem from './ToastItem.vue'
+import { hasOverlayPortalRoot } from './useOverlayBackdropBlur'
 import {
   autoCloseToast,
   removeToastFromDom,
@@ -19,11 +20,8 @@ export type ToasterOffset =
 interface Props {
   id?: string
   position?: ToastPosition
-  expand?: boolean
   visibleToasts?: number
   closeButton?: boolean
-  richColors?: boolean
-  invert?: boolean
   duration?: number
   gap?: number
   offset?: ToasterOffset
@@ -38,11 +36,8 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   position: 'bottom-right',
-  expand: false,
   visibleToasts: 3,
   closeButton: false,
-  richColors: false,
-  invert: false,
   duration: 4000,
   gap: 14,
   offset: '24px',
@@ -77,9 +72,7 @@ const activePositions = computed<ToastPosition[]>(() => {
   return Array.from(seen)
 })
 
-const isExpanded = computed(
-  () => props.expand || expandedByHover.value || (activeVisibleCount.value <= 1 && props.expand),
-)
+const isExpanded = computed(() => expandedByHover.value)
 
 const activeVisibleCount = computed(
   () => filteredToasts.value.filter((item) => !item.dismissed).length,
@@ -264,61 +257,64 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', handleHotkeyKeydown)
 })
+const canTeleportToaster = hasOverlayPortalRoot()
 </script>
 
 <template>
-  <section
-    class="toaster"
-    :aria-label="containerAriaLabel"
-    :dir="dir"
-    tabindex="-1"
-    aria-live="polite"
-  >
-    <ol
-      v-for="(pos, posIndex) in activePositions"
-      :key="pos"
-      :ref="(el) => setListRef(el as Element | null, posIndex)"
-      :class="['toaster__list', `toaster__list--${pos}`]"
-      :style="listStyleVars"
+  <Teleport to="#prismon-overlay-root" :disabled="!canTeleportToaster">
+    <section
+      class="toaster"
+      :aria-label="containerAriaLabel"
+      :dir="dir"
       tabindex="-1"
-      :data-y-position="pos.startsWith('top') ? 'top' : 'bottom'"
-      :data-x-position="pos.endsWith('left') ? 'left' : pos.endsWith('center') ? 'center' : 'right'"
-      @mouseenter="handleMouseEnter"
-      @mousemove="handleMouseMove"
-      @mouseleave="handleMouseLeave"
-      @focusin="handleMouseEnter"
-      @focusout="handleFocusOut"
-      @pointerdown="handlePointerDown"
-      @pointerup="handlePointerUp"
+      aria-live="polite"
     >
-      <ToastItem
-        v-for="(item, index) in getToastsForPosition(pos)"
-        :key="item.id"
-        :toast="item"
-        :index="index"
-        :visibleIndex="getVisibleIndex(pos, item.id)"
-        :totalVisible="getToastsForPosition(pos).length"
-        :expanded="isExpanded"
-        :position="pos"
-        :visibleToasts="visibleToasts"
-        :frontToastHeight="getFrontToastHeight(pos)"
-        :offsetBefore="getOffsetBefore(pos, item.id)"
-        :gap="gap"
-        :swipeDirections="getSwipeDirections(pos)"
-        :interacting="interacting"
-        :defaultDuration="duration"
-        :closeButton="closeButton"
-        :richColors="richColors"
-        :invert="invert"
-        :icons="icons"
-        @dismiss="toast.dismiss"
-        @auto-close="autoCloseToast"
-        @remove-from-dom="handleRemoveFromDom"
-        @height-change="handleHeightChange"
-        @interacting-change="interacting = $event"
-      />
-    </ol>
-  </section>
+      <ol
+        v-for="(pos, posIndex) in activePositions"
+        :key="pos"
+        :ref="(el) => setListRef(el as Element | null, posIndex)"
+        :class="['toaster__list', `toaster__list--${pos}`]"
+        :style="listStyleVars"
+        tabindex="-1"
+        :data-y-position="pos.startsWith('top') ? 'top' : 'bottom'"
+        :data-x-position="
+          pos.endsWith('left') ? 'left' : pos.endsWith('center') ? 'center' : 'right'
+        "
+        @mouseenter="handleMouseEnter"
+        @mousemove="handleMouseMove"
+        @mouseleave="handleMouseLeave"
+        @focusin="handleMouseEnter"
+        @focusout="handleFocusOut"
+        @pointerdown="handlePointerDown"
+        @pointerup="handlePointerUp"
+      >
+        <ToastItem
+          v-for="(item, index) in getToastsForPosition(pos)"
+          :key="item.id"
+          :toast="item"
+          :index="index"
+          :visibleIndex="getVisibleIndex(pos, item.id)"
+          :totalVisible="getToastsForPosition(pos).length"
+          :expanded="isExpanded"
+          :position="pos"
+          :visibleToasts="visibleToasts"
+          :frontToastHeight="getFrontToastHeight(pos)"
+          :offsetBefore="getOffsetBefore(pos, item.id)"
+          :gap="gap"
+          :swipeDirections="getSwipeDirections(pos)"
+          :interacting="interacting"
+          :defaultDuration="duration"
+          :closeButton="closeButton"
+          :icons="icons"
+          @dismiss="toast.dismiss"
+          @auto-close="autoCloseToast"
+          @remove-from-dom="handleRemoveFromDom"
+          @height-change="handleHeightChange"
+          @interacting-change="interacting = $event"
+        />
+      </ol>
+    </section>
+  </Teleport>
 </template>
 
 <style scoped>

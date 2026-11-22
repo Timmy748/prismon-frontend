@@ -104,9 +104,6 @@ function handleTrailingClick(event: MouseEvent) {
   background-color: var(--list-item-bg);
   color: var(--list-item-color);
   border-radius: var(--list-item-radius);
-  transition:
-    background-color var(--list-item-transition-duration) var(--list-item-hover-transition-easing),
-    color var(--list-item-transition-duration) var(--list-item-hover-transition-easing);
 }
 
 @media (hover: hover) and (pointer: fine) {

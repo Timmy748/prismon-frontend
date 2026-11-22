@@ -164,9 +164,6 @@ const drawerActiveSnap = ref<DrawerSnapPoint>(0.45)
 const lastOverlayFeedback = ref('Nenhuma ação disparada ainda.')
 
 const toastPosition = ref<ToastPosition>('bottom-right')
-const toastExpand = ref(false)
-const toastRichColors = ref(false)
-const toastInvert = ref(false)
 const toastCloseButton = ref(true)
 
 const TOAST_POSITIONS: ToastPosition[] = [
@@ -697,15 +694,6 @@ function handleTagFormSubmit(payload: TagFormPayload) {
               <Button variant="tertiary" size="sm" @click="cycleToastPosition">
                 Posição: {{ toastPosition }}
               </Button>
-              <Button variant="tertiary" size="sm" @click="toastExpand = !toastExpand">
-                Expandir pilha: {{ toastExpand ? 'sim' : 'hover' }}
-              </Button>
-              <Button variant="tertiary" size="sm" @click="toastRichColors = !toastRichColors">
-                Rich colors: {{ toastRichColors ? 'on' : 'off' }}
-              </Button>
-              <Button variant="tertiary" size="sm" @click="toastInvert = !toastInvert">
-                Invert: {{ toastInvert ? 'on' : 'off' }}
-              </Button>
             </div>
           </div>
 
@@ -1076,13 +1064,7 @@ function handleTagFormSubmit(payload: TagFormPayload) {
       </div>
     </Drawer>
 
-    <Toaster
-      :position="toastPosition"
-      :expand="toastExpand"
-      :richColors="toastRichColors"
-      :invert="toastInvert"
-      :closeButton="toastCloseButton"
-    />
+    <Toaster :position="toastPosition" :closeButton="toastCloseButton" />
   </div>
 </template>
 

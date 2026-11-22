@@ -192,6 +192,7 @@
 
   --opacity-hidden: 0;
   --opacity-visible: 1;
+  --blur-overlay: 4px;
   --scale-press: 0.97;
   --scale-press-subtle: 0.98;
   --scale-modal-closed: 0.96;

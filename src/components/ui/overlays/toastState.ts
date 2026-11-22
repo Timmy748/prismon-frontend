@@ -29,8 +29,6 @@ export interface ToastOptions {
   position?: ToastPosition
   dismissible?: boolean
   closeButton?: boolean
-  richColors?: boolean
-  invert?: boolean
   icon?: IconName | null
   action?: ToastAction
   cancel?: ToastAction

@@ -1,12 +1,19 @@
 import type { IconName } from '@/components/ui'
 
-export type AppNavId = 'chat' | 'repertory' | 'members' | 'api-keys' | 'ui-kit'
+export type AppNavId = 'chat' | 'repertory' | 'members' | 'api-keys'
 
 export interface AppNavItem {
   id: AppNavId
   label: string
   icon: IconName
   to: string
+}
+
+export interface ProjectItem {
+  id: string
+  name: string
+  role: string
+  icon: IconName
 }
 
 export interface UserProfile {
@@ -43,12 +50,30 @@ export const PRIMARY_NAV_ITEMS: AppNavItem[] = [
   },
 ]
 
-export const SECONDARY_NAV_ITEMS: AppNavItem[] = [
+export const MEMBER_PROJECTS: ProjectItem[] = [
   {
-    id: 'ui-kit',
-    label: 'ui kit preview',
-    icon: 'setting',
-    to: '/ui-kit',
+    id: 'prismon-core',
+    name: 'Prismon Core',
+    role: 'Administradora',
+    icon: 'folder',
+  },
+  {
+    id: 'juridico-ia',
+    name: 'Jurídico IA',
+    role: 'Editora',
+    icon: 'folder',
+  },
+  {
+    id: 'produto-dados',
+    name: 'Produto & Dados',
+    role: 'Administradora',
+    icon: 'folder',
+  },
+  {
+    id: 'pesquisa-ux',
+    name: 'Pesquisa UX',
+    role: 'Visualizadora',
+    icon: 'folder',
   },
 ]
 
@@ -56,5 +81,5 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   username: 'Ana Paula',
   role: 'Administradora',
   email: 'ana@prismon.ai',
-  workspace: 'Prismon Studio',
+  workspace: 'Prismon Core',
 }

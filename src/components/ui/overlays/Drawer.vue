@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useEscapeKey } from './useEscapeKey'
+import { hasOverlayPortalRoot, useOverlayBackdropBlur } from './useOverlayBackdropBlur'
 
 export type DrawerDirection = 'bottom' | 'top' | 'left' | 'right'
 export type DrawerSnapPoint = number | string
@@ -618,6 +619,9 @@ watch(
   },
 )
 
+const canTeleportOverlay = hasOverlayPortalRoot()
+useOverlayBackdropBlur(() => props.open)
+
 useEscapeKey(
   () => props.open && props.dismissible,
   () => handleClose(),
@@ -630,58 +634,60 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <Transition
-    name="drawer"
-    :css="false"
-    @before-enter="onBeforeEnter"
-    @enter="onEnter"
-    @after-enter="onAfterEnter"
-    @leave="onLeave"
-    @after-leave="onAfterLeave"
-  >
-    <div v-if="open" ref="rootRef" :class="drawerClasses">
-      <div ref="backdropRef" class="drawer__backdrop" @click="handleBackdropClick" />
+  <Teleport to="#prismon-overlay-root" :disabled="!canTeleportOverlay">
+    <Transition
+      name="drawer"
+      :css="false"
+      @before-enter="onBeforeEnter"
+      @enter="onEnter"
+      @after-enter="onAfterEnter"
+      @leave="onLeave"
+      @after-leave="onAfterLeave"
+    >
+      <div v-if="open" ref="rootRef" :class="drawerClasses">
+        <div ref="backdropRef" class="drawer__backdrop" @click="handleBackdropClick" />
 
-      <div
-        ref="panelRef"
-        class="drawer__panel"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="ariaLabel"
-        @pointerdown="onPointerDown"
-        @pointermove="onPointerMove"
-        @pointerup="onPointerUp"
-        @pointercancel="onPointerUp"
-      >
         <div
-          v-if="direction === 'bottom' || direction === 'top'"
-          class="drawer__handle-hit"
-          aria-hidden="true"
+          ref="panelRef"
+          class="drawer__panel"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="ariaLabel"
+          @pointerdown="onPointerDown"
+          @pointermove="onPointerMove"
+          @pointerup="onPointerUp"
+          @pointercancel="onPointerUp"
         >
-          <div class="drawer__handle" aria-hidden="true" />
+          <div
+            v-if="direction === 'bottom' || direction === 'top'"
+            class="drawer__handle-hit"
+            aria-hidden="true"
+          >
+            <div class="drawer__handle" aria-hidden="true" />
+          </div>
+
+          <header v-if="$slots.header" class="drawer__header">
+            <slot name="header" />
+          </header>
+
+          <div ref="bodyRef" class="drawer__body">
+            <slot />
+          </div>
+
+          <footer v-if="$slots.footer" class="drawer__footer">
+            <slot name="footer" />
+          </footer>
         </div>
-
-        <header v-if="$slots.header" class="drawer__header">
-          <slot name="header" />
-        </header>
-
-        <div ref="bodyRef" class="drawer__body">
-          <slot />
-        </div>
-
-        <footer v-if="$slots.footer" class="drawer__footer">
-          <slot name="footer" />
-        </footer>
       </div>
-    </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
 .drawer {
   --drawer-z-index: var(--z-drawer);
   --drawer-backdrop-bg: var(--surface-backdrop);
-  --drawer-max-width: 484px;
+  --drawer-max-width: 100%;
   --drawer-max-height: 92dvh;
   --drawer-bg: var(--surface-elevated);
   --drawer-border-color: var(--border-subtle-1);
@@ -729,6 +735,7 @@ onBeforeUnmount(() => {
 .drawer--left {
   align-items: stretch;
   justify-content: flex-start;
+  --drawer-max-width: min(360px, 100%);
   --drawer-touch-action: pan-y;
   --drawer-transform-closed: translate3d(-100%, 0, 0);
 }
@@ -736,6 +743,7 @@ onBeforeUnmount(() => {
 .drawer--right {
   align-items: stretch;
   justify-content: flex-end;
+  --drawer-max-width: min(360px, 100%);
   --drawer-touch-action: pan-y;
   --drawer-transform-closed: translate3d(100%, 0, 0);
 }

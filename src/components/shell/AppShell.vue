@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, ref, useSlots } from 'vue'
+import { computed, ref, useSlots, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Drawer, IconButton, ListItem, NavList, ProfileCard, Sidebar, toast } from '@/components/ui'
-import ProfileSettingsDrawer from './ProfileSettingsDrawer.vue'
+import ProfileSettingsModal from './ProfileSettingsModal.vue'
 import {
   DEFAULT_USER_PROFILE,
+  MEMBER_PROJECTS,
   PRIMARY_NAV_ITEMS,
-  SECONDARY_NAV_ITEMS,
   type AppNavItem,
+  type ProjectItem,
   type UserProfile,
 } from './navigationConfig'
 
@@ -15,29 +16,59 @@ interface Props {
   title?: string
   showTopbar?: boolean
   activeNav?: string
+  activeProjectId?: string
   defaultCollapsed?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showTopbar: undefined,
+  activeProjectId: undefined,
   defaultCollapsed: undefined,
 })
 
 const emit = defineEmits<{
   logout: []
+  'project-change': [project: ProjectItem]
 }>()
 
 const slots = useSlots()
 const route = useRoute()
 const router = useRouter()
 
-const hasSecondarySidebar = computed(() => Boolean(slots['secondary-sidebar']))
-const isNavCollapsed = ref(props.defaultCollapsed ?? hasSecondarySidebar.value)
+const isProjectsCollapsed = ref(true)
+const isNavCollapsed = ref(props.defaultCollapsed ?? false)
 const isMobileNavOpen = ref(false)
-const isMobileSecondaryOpen = ref(false)
 const isSettingsOpen = ref(false)
 
-const profile = ref<UserProfile>({ ...DEFAULT_USER_PROFILE })
+const internalProjectId = ref(props.activeProjectId ?? MEMBER_PROJECTS[0]?.id ?? '')
+
+watch(
+  () => props.activeProjectId,
+  (nextId) => {
+    if (nextId) {
+      internalProjectId.value = nextId
+    }
+  },
+)
+
+const activeProject = computed<ProjectItem>(() => {
+  const targetId = props.activeProjectId ?? internalProjectId.value
+  return (
+    MEMBER_PROJECTS.find((project) => project.id === targetId) ??
+    MEMBER_PROJECTS[0] ?? {
+      id: 'prismon-core',
+      name: 'Prismon Core',
+      role: 'Administradora',
+      icon: 'folder',
+    }
+  )
+})
+
+const profile = ref<UserProfile>({
+  ...DEFAULT_USER_PROFILE,
+  role: activeProject.value.role,
+  workspace: activeProject.value.name,
+})
 
 const shouldShowTopbar = computed(() => {
   if (props.showTopbar === false) {
@@ -46,8 +77,15 @@ const shouldShowTopbar = computed(() => {
   return props.showTopbar ?? Boolean(props.title || slots['topbar-right'])
 })
 
-const sidebarWrapperClasses = computed(() => [
+const projectsSidebarClasses = computed(() => [
   'app-shell__sidebar',
+  'app-shell__projects-sidebar',
+  isProjectsCollapsed.value ? 'app-shell__sidebar--collapsed' : undefined,
+])
+
+const navSidebarClasses = computed(() => [
+  'app-shell__sidebar',
+  'app-shell__nav-sidebar',
   isNavCollapsed.value ? 'app-shell__sidebar--collapsed' : undefined,
 ])
 
@@ -62,6 +100,16 @@ function isItemActive(item: AppNavItem): boolean {
   return currentPath === item.to || currentPath.startsWith(`${item.to}/`)
 }
 
+function selectProject(project: ProjectItem) {
+  internalProjectId.value = project.id
+  profile.value = {
+    ...profile.value,
+    role: project.role,
+    workspace: project.name,
+  }
+  emit('project-change', project)
+}
+
 async function navigateTo(to: string) {
   isMobileNavOpen.value = false
   if (route?.path !== to) {
@@ -74,30 +122,22 @@ function openSettings() {
   isSettingsOpen.value = true
 }
 
-function openMobileSecondary() {
-  isMobileSecondaryOpen.value = true
-}
-
-function closeMobileSecondary() {
-  isMobileSecondaryOpen.value = false
-}
-
-function toggleMobileSecondary() {
-  isMobileSecondaryOpen.value = !isMobileSecondaryOpen.value
-}
-
 function handleSaveProfile(payload: { username: string; email: string; workspace: string }) {
+  const matchedProject = MEMBER_PROJECTS.find((project) => project.name === payload.workspace)
+  if (matchedProject && !props.activeProjectId) {
+    internalProjectId.value = matchedProject.id
+  }
   profile.value = {
     ...profile.value,
     username: payload.username,
     email: payload.email,
     workspace: payload.workspace,
+    role: matchedProject ? matchedProject.role : profile.value.role,
   }
 }
 
 function handleLogout() {
   isMobileNavOpen.value = false
-  isMobileSecondaryOpen.value = false
   isSettingsOpen.value = false
   emit('logout')
   toast.info('Sessão encerrada localmente (modo demonstração).')
@@ -109,8 +149,32 @@ function handleLogout() {
 
 <template>
   <div class="app-shell">
-    <div :class="sidebarWrapperClasses">
-      <Sidebar v-model:collapsed="isNavCollapsed" title="prismon">
+    <div :class="projectsSidebarClasses">
+      <Sidebar
+        v-model:collapsed="isProjectsCollapsed"
+        title="projetos"
+        toggle-label="Alternar lista de projetos"
+      >
+        <NavList :title="isProjectsCollapsed ? undefined : 'seus projetos'">
+          <ListItem
+            v-for="project in MEMBER_PROJECTS"
+            :key="project.id"
+            :label="project.name"
+            :icon="project.icon"
+            :collapsed="isProjectsCollapsed"
+            :active="project.id === activeProject.id"
+            @click="selectProject(project)"
+          />
+        </NavList>
+      </Sidebar>
+    </div>
+
+    <div :class="navSidebarClasses">
+      <Sidebar
+        v-model:collapsed="isNavCollapsed"
+        :title="activeProject.name"
+        toggle-label="Alternar menu do projeto"
+      >
         <div class="app-shell__nav-groups">
           <NavList :title="isNavCollapsed ? undefined : 'navegação'">
             <ListItem
@@ -124,18 +188,13 @@ function handleLogout() {
             />
           </NavList>
 
-          <NavList :title="isNavCollapsed ? undefined : 'sistema'">
-            <ListItem
-              v-for="item in SECONDARY_NAV_ITEMS"
-              :key="item.id"
-              :label="item.label"
-              :icon="item.icon"
+          <div v-if="$slots['sidebar-extra']" class="app-shell__sidebar-extra">
+            <slot
+              name="sidebar-extra"
               :collapsed="isNavCollapsed"
-              :active="isItemActive(item)"
-              @click="navigateTo(item.to)"
+              :active-project="activeProject"
             />
-            <ListItem label="sair" icon="leave" :collapsed="isNavCollapsed" @click="handleLogout" />
-          </NavList>
+          </div>
         </div>
 
         <template #footer>
@@ -158,14 +217,6 @@ function handleLogout() {
       </Sidebar>
     </div>
 
-    <aside
-      v-if="hasSecondarySidebar"
-      class="app-shell__secondary-sidebar"
-      aria-label="Painel secundário"
-    >
-      <slot name="secondary-sidebar" />
-    </aside>
-
     <div class="app-shell__workspace">
       <header class="app-shell__mobile-bar">
         <IconButton
@@ -175,25 +226,8 @@ function handleLogout() {
           ariaLabel="Abrir navegação"
           @click="isMobileNavOpen = true"
         />
-        <span class="app-shell__mobile-title">{{ title || 'prismon' }}</span>
-        <div class="app-shell__mobile-actions">
-          <slot
-            name="mobile-secondary-action"
-            :is-secondary-open="isMobileSecondaryOpen"
-            :open-secondary="openMobileSecondary"
-            :close-secondary="closeMobileSecondary"
-            :toggle-secondary="toggleMobileSecondary"
-          >
-            <IconButton
-              v-if="hasSecondarySidebar"
-              variant="ghost"
-              size="md"
-              icon="chat"
-              ariaLabel="Abrir painel lateral"
-              @click="openMobileSecondary"
-            />
-          </slot>
-        </div>
+        <span class="app-shell__mobile-title">{{ title || activeProject.name }}</span>
+        <div class="app-shell__mobile-actions" aria-hidden="true" />
       </header>
 
       <header v-if="shouldShowTopbar" class="app-shell__topbar">
@@ -209,14 +243,14 @@ function handleLogout() {
       </div>
 
       <main class="app-shell__main app-shell__content">
-        <slot />
+        <slot :active-project="activeProject" />
       </main>
     </div>
 
     <Drawer v-model:open="isMobileNavOpen" direction="left" ariaLabel="Menu de navegação">
       <template #header>
         <div class="app-shell__mobile-drawer-header">
-          <span class="app-shell__brand">prismon</span>
+          <span class="app-shell__brand">{{ activeProject.name }}</span>
           <IconButton
             variant="ghost"
             size="md"
@@ -228,6 +262,17 @@ function handleLogout() {
       </template>
 
       <div class="app-shell__nav-groups">
+        <NavList title="seus projetos">
+          <ListItem
+            v-for="project in MEMBER_PROJECTS"
+            :key="project.id"
+            :label="project.name"
+            :icon="project.icon"
+            :active="project.id === activeProject.id"
+            @click="selectProject(project)"
+          />
+        </NavList>
+
         <NavList title="navegação">
           <ListItem
             v-for="item in PRIMARY_NAV_ITEMS"
@@ -239,17 +284,9 @@ function handleLogout() {
           />
         </NavList>
 
-        <NavList title="sistema">
-          <ListItem
-            v-for="item in SECONDARY_NAV_ITEMS"
-            :key="item.id"
-            :label="item.label"
-            :icon="item.icon"
-            :active="isItemActive(item)"
-            @click="navigateTo(item.to)"
-          />
-          <ListItem label="sair" icon="leave" @click="handleLogout" />
-        </NavList>
+        <div v-if="$slots['sidebar-extra']" class="app-shell__sidebar-extra">
+          <slot name="sidebar-extra" :collapsed="false" :active-project="activeProject" />
+        </div>
       </div>
 
       <template #footer>
@@ -261,31 +298,7 @@ function handleLogout() {
       </template>
     </Drawer>
 
-    <Drawer
-      v-if="hasSecondarySidebar"
-      v-model:open="isMobileSecondaryOpen"
-      direction="left"
-      ariaLabel="Painel secundário"
-    >
-      <template #header>
-        <div class="app-shell__mobile-drawer-header">
-          <span class="app-shell__secondary-drawer-title">painel</span>
-          <IconButton
-            variant="ghost"
-            size="md"
-            icon="close"
-            ariaLabel="Fechar painel lateral"
-            @click="closeMobileSecondary"
-          />
-        </div>
-      </template>
-
-      <div class="app-shell__secondary-drawer-body">
-        <slot name="secondary-sidebar" />
-      </div>
-    </Drawer>
-
-    <ProfileSettingsDrawer
+    <ProfileSettingsModal
       v-model:open="isSettingsOpen"
       :username="profile.username"
       :email="profile.email"
@@ -302,7 +315,6 @@ function handleLogout() {
   --app-shell-bg: var(--surface-base);
   --app-shell-topbar-bg: var(--surface-elevated);
   --app-shell-subheader-bg: var(--surface-elevated);
-  --app-shell-secondary-bg: var(--surface-elevated);
   --app-shell-mobile-bar-bg: var(--surface-elevated);
   --app-shell-border-color: var(--border-subtle-1);
   --app-shell-border-width: var(--border-width-thin);
@@ -341,6 +353,11 @@ function handleLogout() {
   height: 100%;
 }
 
+.app-shell__nav-sidebar :deep(.sidebar) {
+  --sidebar-title-font-size: var(--type-heading-03-font-size);
+  --sidebar-title-line-height: var(--type-heading-03-line-height);
+}
+
 .app-shell__sidebar--collapsed :deep(.nav-list) {
   --nav-list-padding: var(--spacing-2) var(--spacing-0);
 }
@@ -351,21 +368,16 @@ function handleLogout() {
   gap: var(--app-shell-nav-gap);
 }
 
+.app-shell__sidebar-extra {
+  display: flex;
+  flex-direction: column;
+  min-height: var(--spacing-0);
+}
+
 .app-shell__collapsed-footer {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.app-shell__secondary-sidebar {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  height: 100%;
-  background-color: var(--app-shell-secondary-bg);
-  border-right: var(--app-shell-border-width) solid var(--app-shell-border-color);
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 .app-shell__workspace {
@@ -479,26 +491,13 @@ function handleLogout() {
   line-height: var(--app-shell-brand-line-height);
   font-weight: var(--app-shell-brand-font-weight);
   text-transform: var(--app-shell-brand-text-transform);
-}
-
-.app-shell__secondary-drawer-title {
-  color: var(--app-shell-title-color);
-  font-family: var(--app-shell-title-font-family);
-  font-size: var(--app-shell-title-font-size);
-  line-height: var(--app-shell-title-line-height);
-  font-weight: var(--app-shell-title-font-weight);
-  text-transform: var(--app-shell-title-text-transform);
-}
-
-.app-shell__secondary-drawer-body {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 767px) {
   .app-shell__sidebar,
-  .app-shell__secondary-sidebar,
   .app-shell__topbar {
     display: none;
   }

@@ -2,6 +2,7 @@
 import { computed, useId } from 'vue'
 import { IconButton } from '../buttons'
 import { useEscapeKey } from './useEscapeKey'
+import { hasOverlayPortalRoot, useOverlayBackdropBlur } from './useOverlayBackdropBlur'
 
 export type ModalSize = 'sm' | 'lg'
 
@@ -43,39 +44,48 @@ function handleBackdropClick() {
   handleClose()
 }
 
+const canTeleportOverlay = hasOverlayPortalRoot()
+useOverlayBackdropBlur(() => props.open)
 useEscapeKey(() => props.open, handleClose)
 </script>
 
 <template>
-  <Transition name="modal">
-    <div v-if="open" :class="modalClasses">
-      <div class="modal__backdrop" @click.self="handleBackdropClick">
-        <div
-          class="modal__dialog"
-          role="dialog"
-          aria-modal="true"
-          :aria-labelledby="titleId"
-          :aria-describedby="subtitle ? subtitleId : undefined"
-        >
-          <header class="modal__header">
-            <div class="modal__titles">
-              <h2 :id="titleId" class="modal__title">{{ title }}</h2>
-              <p v-if="subtitle" :id="subtitleId" class="modal__subtitle">{{ subtitle }}</p>
+  <Teleport to="#prismon-overlay-root" :disabled="!canTeleportOverlay">
+    <Transition name="modal">
+      <div v-if="open" :class="modalClasses">
+        <div class="modal__backdrop" @click.self="handleBackdropClick">
+          <div
+            class="modal__dialog"
+            role="dialog"
+            aria-modal="true"
+            :aria-labelledby="titleId"
+            :aria-describedby="subtitle ? subtitleId : undefined"
+          >
+            <header class="modal__header">
+              <div class="modal__titles">
+                <h2 :id="titleId" class="modal__title">{{ title }}</h2>
+                <p v-if="subtitle" :id="subtitleId" class="modal__subtitle">{{ subtitle }}</p>
+              </div>
+              <IconButton
+                variant="ghost"
+                icon="close"
+                :ariaLabel="closeLabel"
+                @click="handleClose"
+              />
+            </header>
+
+            <div class="modal__body">
+              <slot />
             </div>
-            <IconButton variant="ghost" icon="close" :ariaLabel="closeLabel" @click="handleClose" />
-          </header>
 
-          <div class="modal__body">
-            <slot />
+            <footer v-if="$slots.footer" class="modal__footer">
+              <slot name="footer" />
+            </footer>
           </div>
-
-          <footer v-if="$slots.footer" class="modal__footer">
-            <slot name="footer" />
-          </footer>
         </div>
       </div>
-    </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -127,6 +137,7 @@ useEscapeKey(() => props.open, handleClose)
 
 .modal--lg {
   --modal-width: 713px;
+  --modal-body-max-height: min(64dvh, 560px);
 }
 
 .modal__backdrop {

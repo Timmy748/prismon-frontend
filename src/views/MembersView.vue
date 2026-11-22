@@ -338,7 +338,7 @@ function confirmRemoveMembers() {
 
     <Modal
       v-model:open="isInviteModalOpen"
-      size="sm"
+      size="lg"
       title="convidar membro"
       subtitle="Adicione um integrante ao workspace."
       @close="resetInviteForm"
@@ -372,7 +372,7 @@ function confirmRemoveMembers() {
 
     <Modal
       v-model:open="isRoleModalOpen"
-      size="sm"
+      size="lg"
       title="alterar cargo"
       subtitle="Defina o novo nível de acesso dos membros selecionados."
     >

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Badge, Icon, IconButton, ScrollContainer, Tag } from '@/components/ui'
+import { Badge, Icon, IconButton, ScrollContainer, Tag, type IconName } from '@/components/ui'
 
 export interface DocumentCardTag {
   id: string
@@ -13,10 +13,15 @@ interface Props {
   tags?: DocumentCardTag[]
   thumbnailUrl?: string
   status?: string
+  format?: string
+  icon?: IconName
+  tagsAriaLabel?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   tags: () => [],
+  icon: 'documents',
+  tagsAriaLabel: 'Tags do item',
 })
 
 const emit = defineEmits<{
@@ -52,14 +57,11 @@ function handleDownload() {
         class="document-card__image"
         loading="lazy"
       />
-      <Icon
-        v-else
-        name="documents"
-        size="xl"
-        color="helper"
-        class="document-card__placeholder-icon"
-      />
-      <Badge v-if="status" :label="status" class="document-card__status" />
+      <Icon v-else :name="icon" size="xl" color="helper" class="document-card__placeholder-icon" />
+      <div v-if="format || status" class="document-card__badges">
+        <Badge v-if="format" :label="format" class="document-card__format" />
+        <Badge v-if="status" :label="status" class="document-card__status" />
+      </div>
     </div>
 
     <div class="document-card__body">
@@ -79,7 +81,7 @@ function handleDownload() {
       <p class="document-card__description">{{ description }}</p>
 
       <div v-if="tags.length > 0" class="document-card__tags">
-        <ScrollContainer direction="horizontal" gap="sm" aria-label="Tags do documento">
+        <ScrollContainer direction="horizontal" gap="sm" :aria-label="tagsAriaLabel">
           <Tag
             v-for="tag in tags"
             :key="tag.id"
@@ -104,6 +106,7 @@ function handleDownload() {
   --document-card-media-height: var(--spacing-13);
   --document-card-media-bg: var(--surface-placeholder);
   --document-card-status-offset: var(--spacing-3);
+  --document-card-badges-gap: var(--spacing-2);
   --document-card-body-padding: var(--spacing-4);
   --document-card-body-gap: var(--spacing-3);
   --document-card-header-gap: var(--spacing-3);
@@ -164,6 +167,7 @@ function handleDownload() {
   width: 100%;
   height: var(--document-card-media-height);
   background-color: var(--document-card-media-bg);
+  border-bottom: var(--document-card-border-width) solid var(--document-card-border-color);
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -173,16 +177,23 @@ function handleDownload() {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
 }
 
 .document-card__placeholder-icon {
   pointer-events: none;
 }
 
-.document-card__status {
+.document-card__badges {
   position: absolute;
   top: var(--document-card-status-offset);
   right: var(--document-card-status-offset);
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--document-card-badges-gap);
+  max-width: calc(100% - var(--document-card-status-offset) * 2);
 }
 
 .document-card__body {

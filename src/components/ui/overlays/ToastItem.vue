@@ -19,8 +19,6 @@ interface Props {
   interacting: boolean
   defaultDuration: number
   closeButton: boolean
-  richColors: boolean
-  invert: boolean
   icons?: ToasterIcons
 }
 
@@ -78,8 +76,6 @@ const xPosition = computed<'left' | 'center' | 'right'>(() => {
 const isRemoved = computed(() => Boolean(props.toast.dismissed) || isSwipedOut.value)
 const isVisible = computed(() => !props.toast.dismissed && props.visibleIndex < props.visibleToasts)
 const isFront = computed(() => props.visibleIndex === 0)
-const isInverted = computed(() => props.toast.invert ?? props.invert)
-const isRichColors = computed(() => props.toast.richColors ?? props.richColors)
 const hasCloseButton = computed(() => props.toast.closeButton ?? props.closeButton)
 const isDismissible = computed(() => props.toast.dismissible !== false)
 
@@ -119,8 +115,6 @@ const roleAttribute = computed(() => (props.toast.type === 'error' ? 'alert' : '
 const toastClasses = computed(() => [
   'toast',
   `toast--${props.toast.type}`,
-  isRichColors.value ? 'toast--rich-colors' : undefined,
-  isInverted.value ? 'toast--inverted' : undefined,
   props.toast.unstyled ? 'toast--unstyled' : undefined,
   props.toast.className,
 ])
@@ -644,48 +638,38 @@ onBeforeUnmount(() => {
 }
 
 .toast--success {
-  --toast-icon-bg: var(--surface-brand-subtle);
+  --toast-bg: var(--surface-brand-subtle);
+  --toast-border-color: var(--border-brand-subtle);
+  --toast-icon-bg: var(--surface-brand-selection);
   --toast-indicator-bg: var(--interactive-brand);
 }
 
 .toast--info {
+  --toast-bg: var(--surface-elevated);
+  --toast-border-color: var(--border-subtle-2);
   --toast-icon-bg: var(--surface-subtle);
   --toast-indicator-bg: var(--icon-primary);
 }
 
 .toast--warning {
-  --toast-icon-bg: var(--surface-subtle-hover);
+  --toast-bg: var(--surface-subtle-hover);
   --toast-border-color: var(--border-strong);
+  --toast-icon-bg: var(--surface-placeholder);
   --toast-indicator-bg: var(--icon-primary);
 }
 
 .toast--error {
+  --toast-bg: var(--surface-danger-subtle);
+  --toast-border-color: var(--border-danger-subtle);
   --toast-icon-bg: var(--border-danger-subtle);
   --toast-icon-color: var(--icon-danger);
 }
 
-.toast--error.toast--rich-colors {
-  --toast-bg: var(--surface-danger-subtle);
-  --toast-border-color: var(--border-danger-subtle);
-}
-
-.toast--success.toast--rich-colors {
+.toast--loading {
   --toast-bg: var(--surface-brand-subtle);
   --toast-border-color: var(--border-brand-subtle);
-}
-
-.toast--loading {
-  --toast-icon-bg: var(--surface-brand-subtle);
+  --toast-icon-bg: var(--surface-brand-selection);
   --toast-icon-color: var(--icon-brand);
-}
-
-.toast--inverted {
-  --toast-bg: var(--surface-inverse);
-  --toast-color: var(--text-inverse);
-  --toast-description-color: var(--text-inverse);
-  --toast-border-color: var(--border-strong);
-  --toast-icon-bg: var(--surface-inverse-subtle);
-  --toast-icon-color: var(--icon-inverse);
 }
 
 .toast--unstyled {

@@ -2,6 +2,7 @@
 import { useId } from 'vue'
 import { Button } from '../buttons'
 import { useEscapeKey } from './useEscapeKey'
+import { hasOverlayPortalRoot, useOverlayBackdropBlur } from './useOverlayBackdropBlur'
 
 export type ConfirmDialogVariant = 'primary' | 'danger'
 
@@ -35,35 +36,39 @@ function handleCancel() {
   emit('update:open', false)
 }
 
+const canTeleportOverlay = hasOverlayPortalRoot()
+useOverlayBackdropBlur(() => props.open)
 useEscapeKey(() => props.open, handleCancel)
 </script>
 
 <template>
-  <Transition name="confirm-dialog">
-    <div v-if="open" class="confirm-dialog">
-      <div class="confirm-dialog__backdrop" @click.self="handleCancel">
-        <div
-          class="confirm-dialog__dialog"
-          role="alertdialog"
-          aria-modal="true"
-          :aria-labelledby="titleId"
-          :aria-describedby="descriptionId"
-        >
-          <div class="confirm-dialog__content">
-            <h2 :id="titleId" class="confirm-dialog__title">{{ title }}</h2>
-            <p :id="descriptionId" class="confirm-dialog__description">{{ description }}</p>
-          </div>
+  <Teleport to="#prismon-overlay-root" :disabled="!canTeleportOverlay">
+    <Transition name="confirm-dialog">
+      <div v-if="open" class="confirm-dialog">
+        <div class="confirm-dialog__backdrop" @click.self="handleCancel">
+          <div
+            class="confirm-dialog__dialog"
+            role="alertdialog"
+            aria-modal="true"
+            :aria-labelledby="titleId"
+            :aria-describedby="descriptionId"
+          >
+            <div class="confirm-dialog__content">
+              <h2 :id="titleId" class="confirm-dialog__title">{{ title }}</h2>
+              <p :id="descriptionId" class="confirm-dialog__description">{{ description }}</p>
+            </div>
 
-          <footer class="confirm-dialog__footer">
-            <Button variant="tertiary" @click="handleCancel">{{ cancelLabel }}</Button>
-            <Button :variant="confirmVariant" @click="emit('confirm')">
-              {{ confirmLabel }}
-            </Button>
-          </footer>
+            <footer class="confirm-dialog__footer">
+              <Button variant="tertiary" @click="handleCancel">{{ cancelLabel }}</Button>
+              <Button :variant="confirmVariant" @click="emit('confirm')">
+                {{ confirmLabel }}
+              </Button>
+            </footer>
+          </div>
         </div>
       </div>
-    </div>
-  </Transition>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
