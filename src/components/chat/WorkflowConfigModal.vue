@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import heroRobotImg from '@/assets/images/2da21ad867bb41c5bb1b67c4a94cdda9ac4949e1.jpg'
 import {
   Badge,
   Button,
@@ -9,7 +10,7 @@ import {
   Tag,
   TextArea,
   TextInput,
-  WorkflowCard,
+  WorkflowSlideCard,
   type SelectOption,
 } from '@/components/ui'
 
@@ -20,6 +21,7 @@ export interface WorkflowPreset {
   badge: string
   description: string
   defaultEffort: string
+  imageUrl: string
 }
 
 export interface WorkflowGraphNodeConfig {
@@ -55,42 +57,103 @@ const emit = defineEmits<{
   apply: [payload: WorkflowConfigApplyPayload]
 }>()
 
+function createWorkflowBackdropSvg(variant: 'strategy' | 'engineering' | 'knowledge'): string {
+  const motifs = {
+    strategy: `
+      <defs>
+        <linearGradient id="bg-strat" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#1b181a"/>
+          <stop offset="55%" stop-color="#353134"/>
+          <stop offset="100%" stop-color="#60065e"/>
+        </linearGradient>
+      </defs>
+      <rect width="520" height="600" fill="url(#bg-strat)"/>
+      <circle cx="420" cy="140" r="170" fill="#f33ff0" fill-opacity="0.16"/>
+      <circle cx="110" cy="440" r="140" fill="#fb6af9" fill-opacity="0.12"/>
+      <path d="M56 380 L180 280 L300 320 L460 170" fill="none" stroke="#f99ff7" stroke-width="3"/>
+      <circle cx="180" cy="280" r="8" fill="#ffffff" stroke="#f33ff0" stroke-width="3"/>
+      <circle cx="300" cy="320" r="8" fill="#ffffff" stroke="#f33ff0" stroke-width="3"/>
+      <circle cx="460" cy="170" r="8" fill="#f33ff0"/>
+    `,
+    engineering: `
+      <defs>
+        <linearGradient id="bg-eng" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#080708"/>
+          <stop offset="100%" stop-color="#2a2429"/>
+        </linearGradient>
+      </defs>
+      <rect width="520" height="600" fill="url(#bg-eng)"/>
+      <g stroke="#4f4a4f" stroke-width="1" opacity="0.45">
+        <path d="M0 120 H520 M0 240 H520 M0 360 H520 M0 480 H520"/>
+        <path d="M104 0 V600 M208 0 V600 M312 0 V600 M416 0 V600"/>
+      </g>
+      <rect x="64" y="210" width="124" height="72" fill="#1b181a" stroke="#f33ff0" stroke-width="2"/>
+      <rect x="240" y="150" width="144" height="72" fill="#1b181a" stroke="#fb6af9" stroke-width="2"/>
+      <rect x="240" y="290" width="144" height="72" fill="#1b181a" stroke="#837c83" stroke-width="2"/>
+      <path d="M188 246 H214 V186 H240 M214 246 V326 H240" fill="none" stroke="#f33ff0" stroke-width="2"/>
+    `,
+    knowledge: `
+      <defs>
+        <linearGradient id="bg-know" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#353134"/>
+          <stop offset="50%" stop-color="#1b181a"/>
+          <stop offset="100%" stop-color="#080708"/>
+        </linearGradient>
+      </defs>
+      <rect width="520" height="600" fill="url(#bg-know)"/>
+      <circle cx="260" cy="290" r="160" fill="none" stroke="#f33ff0" stroke-opacity="0.35" stroke-width="1.5"/>
+      <circle cx="260" cy="290" r="108" fill="none" stroke="#fb6af9" stroke-opacity="0.55" stroke-width="1.5"/>
+      <circle cx="260" cy="290" r="56" fill="#f33ff0" fill-opacity="0.22" stroke="#f99ff7" stroke-width="2"/>
+      <rect x="92" y="420" width="336" height="14" fill="#4f4a4f" opacity="0.6"/>
+      <rect x="132" y="450" width="256" height="10" fill="#837c83" opacity="0.45"/>
+    `,
+  }
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 600">${motifs[variant]}</svg>`,
+  )}`
+}
+
 const WORKFLOW_PRESETS: WorkflowPreset[] = [
   {
     id: 'wf-analise-critica',
     name: 'análise crítica',
-    version: 'v2.4',
+    version: 'Versão: 2.4.0',
     badge: 'jurídico & compliance',
     description:
-      'Avalia contratos, pareceres e cláusulas de risco com verificação cruzada em grafo de etapas.',
+      'Avalia contratos, pareceres e cláusulas de risco com verificação cruzada em grafo de etapas e justificativa rastreável por documento.',
     defaultEffort: 'Médio',
+    imageUrl: heroRobotImg,
   },
   {
     id: 'wf-sintese-executiva',
     name: 'síntese executiva',
-    version: 'v2.1',
+    version: 'Versão: 2.1.0',
     badge: 'estratégia',
     description:
-      'Condensa relatórios extensos em recomendações objetivas e próximos passos priorizados.',
+      'Condensa relatórios extensos em recomendações objetivas, pontos de decisão e próximos passos priorizados para liderança.',
     defaultEffort: 'Baixo',
+    imageUrl: createWorkflowBackdropSvg('strategy'),
   },
   {
     id: 'wf-revisao-tecnica',
     name: 'revisão técnica',
-    version: 'v3.0',
+    version: 'Versão: 3.0.0',
     badge: 'engenharia',
     description:
-      'Inspeciona especificações, requisitos de arquitetura e lacunas entre documentação e código.',
+      'Inspeciona especificações, requisitos de arquitetura e lacunas entre documentação técnica e contratos de implementação.',
     defaultEffort: 'Alto',
+    imageUrl: createWorkflowBackdropSvg('engineering'),
   },
   {
     id: 'wf-pesquisa-repertorio',
     name: 'pesquisa de repertório',
-    version: 'v1.8',
+    version: 'Versão: 1.8.0',
     badge: 'conhecimento',
     description:
-      'Cruza a solicitação com documentos indexados para fundamentar respostas com rastreabilidade.',
+      'Cruza a solicitação com documentos indexados e assets visuais para fundamentar respostas com citações diretas.',
     defaultEffort: 'Médio',
+    imageUrl: createWorkflowBackdropSvg('knowledge'),
   },
 ]
 
@@ -206,8 +269,12 @@ function buildPresetNodes(workflowId: string | null): Record<NodeId, WorkflowGra
   }
 }
 
+const DRAG_SWIPE_THRESHOLD_PX = 48
+const DRAG_VELOCITY_THRESHOLD = 0.25
+
 const step = ref<1 | 2>(1)
-const draftWorkflowId = ref<string | null>(props.selectedWorkflowId ?? null)
+const activeSlideIndex = ref(0)
+const draftWorkflowId = ref<string>(props.selectedWorkflowId ?? WORKFLOW_PRESETS[0]!.id)
 const configuredForWorkflowId = ref<string | null>(null)
 const activeNodeId = ref<NodeId>('n1')
 const lastEditedNodeId = ref<NodeId>('n1')
@@ -216,8 +283,20 @@ const nodesMap = ref<Record<NodeId, WorkflowGraphNodeConfig>>(
 )
 const iterations = ref('2 rodadas')
 
+const isDragging = ref(false)
+const dragOffsetX = ref(0)
+let activePointerId: number | null = null
+let dragStartX = 0
+let dragStartTime = 0
+let suppressSlideClick = false
+
+const activeSlidePreset = computed(
+  () => WORKFLOW_PRESETS[activeSlideIndex.value] ?? WORKFLOW_PRESETS[0]!,
+)
+
 const selectedWorkflow = computed(
-  () => WORKFLOW_PRESETS.find((item) => item.id === draftWorkflowId.value) ?? null,
+  () =>
+    WORKFLOW_PRESETS.find((item) => item.id === draftWorkflowId.value) ?? activeSlidePreset.value,
 )
 
 const orderedNodes = computed(() => NODE_IDS.map((id) => nodesMap.value[id]))
@@ -246,10 +325,131 @@ watch(
   (isOpen) => {
     if (isOpen) {
       step.value = 1
-      draftWorkflowId.value = props.selectedWorkflowId ?? null
+      isDragging.value = false
+      dragOffsetX.value = 0
+      activePointerId = null
+      const matchedIdx = WORKFLOW_PRESETS.findIndex((item) => item.id === props.selectedWorkflowId)
+      const resolvedIndex = matchedIdx >= 0 ? matchedIdx : 0
+      activeSlideIndex.value = resolvedIndex
+      draftWorkflowId.value = WORKFLOW_PRESETS[resolvedIndex]!.id
     }
   },
 )
+
+function getRelativeOffset(index: number): number {
+  const total = WORKFLOW_PRESETS.length
+  let diff = (index - activeSlideIndex.value) % total
+  if (diff > total / 2) diff -= total
+  if (diff < -total / 2) diff += total
+  return diff
+}
+
+function getSlideSlotClass(index: number) {
+  const offset = getRelativeOffset(index)
+  if (offset === 0) return 'workflow-modal__slide-slot--center'
+  if (offset === -1) return 'workflow-modal__slide-slot--left'
+  if (offset === 1) return 'workflow-modal__slide-slot--right'
+  return 'workflow-modal__slide-slot--hidden'
+}
+
+function getSlideSlotStyle(index: number): Record<string, string> | undefined {
+  const offset = getRelativeOffset(index)
+  if (offset !== 0 || !isDragging.value || dragOffsetX.value === 0) {
+    return undefined
+  }
+  return {
+    transform: `translate3d(calc(-50% + ${dragOffsetX.value}px), 0, 0) scale(1)`,
+  }
+}
+
+function setSlideIndex(index: number) {
+  const total = WORKFLOW_PRESETS.length
+  const normalized = ((index % total) + total) % total
+  activeSlideIndex.value = normalized
+  draftWorkflowId.value = WORKFLOW_PRESETS[normalized]!.id
+}
+
+function goPreviousSlide() {
+  setSlideIndex(activeSlideIndex.value - 1)
+}
+
+function goNextSlide() {
+  setSlideIndex(activeSlideIndex.value + 1)
+}
+
+function handleSlideClick(index: number) {
+  if (suppressSlideClick) {
+    suppressSlideClick = false
+    return
+  }
+  if (activeSlideIndex.value !== index) {
+    setSlideIndex(index)
+    return
+  }
+  draftWorkflowId.value = WORKFLOW_PRESETS[index]!.id
+}
+
+function handleStagePointerDown(event: PointerEvent) {
+  if (event.button !== 0 && event.pointerType === 'mouse') {
+    return
+  }
+  const target = event.target as HTMLElement | null
+  if (target?.closest('button, a, input, select, textarea')) {
+    return
+  }
+
+  activePointerId = event.pointerId
+  dragStartX = event.clientX
+  dragStartTime = performance.now()
+  isDragging.value = true
+  dragOffsetX.value = 0
+  suppressSlideClick = false
+  ;(event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId)
+}
+
+function handleStagePointerMove(event: PointerEvent) {
+  if (!isDragging.value || activePointerId !== event.pointerId) {
+    return
+  }
+  const deltaX = event.clientX - dragStartX
+  dragOffsetX.value = Math.max(-220, Math.min(220, deltaX))
+}
+
+function handleStagePointerUp(event: PointerEvent) {
+  if (!isDragging.value || activePointerId !== event.pointerId) {
+    return
+  }
+  const deltaX = event.clientX - dragStartX
+  const elapsed = Math.max(1, performance.now() - dragStartTime)
+  const velocity = Math.abs(deltaX) / elapsed
+
+  if (Math.abs(deltaX) > 6) {
+    suppressSlideClick = true
+  }
+
+  if (deltaX <= -DRAG_SWIPE_THRESHOLD_PX || (deltaX < -20 && velocity >= DRAG_VELOCITY_THRESHOLD)) {
+    goNextSlide()
+  } else if (
+    deltaX >= DRAG_SWIPE_THRESHOLD_PX ||
+    (deltaX > 20 && velocity >= DRAG_VELOCITY_THRESHOLD)
+  ) {
+    goPreviousSlide()
+  }
+
+  isDragging.value = false
+  dragOffsetX.value = 0
+  activePointerId = null
+}
+
+function handleStageKeydown(event: KeyboardEvent) {
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    goPreviousSlide()
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    goNextSlide()
+  }
+}
 
 function initializeNodesForWorkflow(workflowId: string | null) {
   nodesMap.value = buildPresetNodes(workflowId)
@@ -285,10 +485,8 @@ function handleClose() {
   emit('update:open', false)
 }
 
-function goToConfigStep() {
-  if (!draftWorkflowId.value) {
-    return
-  }
+function selectCurrentSlideAndContinue() {
+  draftWorkflowId.value = activeSlidePreset.value.id
   if (configuredForWorkflowId.value !== draftWorkflowId.value) {
     initializeNodesForWorkflow(draftWorkflowId.value)
   }
@@ -296,11 +494,9 @@ function goToConfigStep() {
 }
 
 function handleApply() {
-  if (!selectedWorkflow.value) {
-    return
-  }
+  const chosenWorkflow = selectedWorkflow.value
   const summaryEffort =
-    nodesMap.value[lastEditedNodeId.value]?.effort ?? selectedWorkflow.value.defaultEffort
+    nodesMap.value[lastEditedNodeId.value]?.effort ?? chosenWorkflow.defaultEffort
 
   const clonedNodes: Record<string, WorkflowGraphNodeConfig> = {}
   for (const id of NODE_IDS) {
@@ -308,9 +504,9 @@ function handleApply() {
   }
 
   emit('apply', {
-    workflowId: selectedWorkflow.value.id,
-    workflowName: selectedWorkflow.value.name,
-    version: selectedWorkflow.value.version,
+    workflowId: chosenWorkflow.id,
+    workflowName: chosenWorkflow.name,
+    version: chosenWorkflow.version,
     iterations: iterations.value,
     summaryEffort,
     stageOneEffort: summaryEffort,
@@ -327,26 +523,77 @@ function handleApply() {
     :title="step === 1 ? 'workflows' : 'configurações'"
     :subtitle="
       step === 1
-        ? 'Escolha qual workflow deseja usar.'
+        ? 'Arraste ou navegue no slide para escolher qual workflow deseja configurar.'
         : 'Selecione os nós do grafo para configurar papel, modelo, aresta e instruções.'
     "
     @update:open="emit('update:open', $event)"
   >
     <div class="workflow-modal">
-      <div v-if="step === 1" class="workflow-modal__grid">
-        <WorkflowCard
-          v-for="item in WORKFLOW_PRESETS"
-          :key="item.id"
-          :name="item.name"
-          :version="item.version"
-          :description="item.description"
-          :selected="draftWorkflowId === item.id"
-          @select="draftWorkflowId = item.id"
+      <div v-if="step === 1" class="workflow-modal__slide-view">
+        <div
+          :class="[
+            'workflow-modal__carousel-stage',
+            isDragging ? 'workflow-modal__carousel-stage--dragging' : undefined,
+          ]"
+          tabindex="0"
+          role="region"
+          aria-roledescription="carrossel"
+          aria-label="Slide de seleção de workflow"
+          @pointerdown="handleStagePointerDown"
+          @pointermove="handleStagePointerMove"
+          @pointerup="handleStagePointerUp"
+          @pointercancel="handleStagePointerUp"
+          @keydown="handleStageKeydown"
         >
-          <template #badge>
-            <Badge :label="item.badge" />
-          </template>
-        </WorkflowCard>
+          <div
+            v-for="(item, index) in WORKFLOW_PRESETS"
+            :key="item.id"
+            :class="['workflow-modal__slide-slot', getSlideSlotClass(index)]"
+            :style="getSlideSlotStyle(index)"
+          >
+            <WorkflowSlideCard
+              :name="item.name"
+              :version="item.version"
+              :description="item.description"
+              :image-url="item.imageUrl"
+              :selected="activeSlideIndex === index"
+              @select="handleSlideClick(index)"
+            >
+              <template #badge>
+                <Badge :label="item.badge" />
+              </template>
+            </WorkflowSlideCard>
+          </div>
+        </div>
+
+        <div class="workflow-modal__slide-controls">
+          <Button variant="tertiary" size="sm" icon="arrow-left" @click="goPreviousSlide">
+            Anterior
+          </Button>
+
+          <div class="workflow-modal__slide-indicators" aria-label="Indicadores do slide">
+            <button
+              v-for="(item, index) in WORKFLOW_PRESETS"
+              :key="item.id"
+              type="button"
+              :class="[
+                'workflow-modal__slide-dot',
+                activeSlideIndex === index ? 'workflow-modal__slide-dot--active' : undefined,
+              ]"
+              :aria-label="`Ir para workflow ${item.name}`"
+              :aria-current="activeSlideIndex === index ? 'true' : undefined"
+              @click="setSlideIndex(index)"
+            />
+            <span class="workflow-modal__slide-counter">
+              {{ activeSlideIndex + 1 }} / {{ WORKFLOW_PRESETS.length }}
+            </span>
+          </div>
+
+          <Button variant="tertiary" size="sm" @click="goNextSlide">
+            <span>Próximo</span>
+            <Icon name="arrow-right" size="sm" />
+          </Button>
+        </div>
       </div>
 
       <div v-else class="workflow-modal__config">
@@ -447,9 +694,7 @@ function handleApply() {
     <template #footer>
       <template v-if="step === 1">
         <Button variant="tertiary" @click="handleClose">Cancelar</Button>
-        <Button variant="primary" :disabled="!draftWorkflowId" @click="goToConfigStep">
-          Próximo
-        </Button>
+        <Button variant="primary" @click="selectCurrentSlideAndContinue">Selecionar</Button>
       </template>
       <template v-else>
         <Button variant="tertiary" @click="step = 1">Voltar</Button>
@@ -463,6 +708,14 @@ function handleApply() {
 .workflow-modal {
   --workflow-modal-gap: var(--spacing-4);
   --workflow-modal-grid-gap: var(--spacing-4);
+  --workflow-modal-stage-height: 410px;
+  --workflow-modal-card-width: 340px;
+  --workflow-modal-card-height: 392px;
+  --workflow-modal-slide-duration: var(--duration-drawer);
+  --workflow-modal-slide-easing: var(--easing-drawer);
+  --workflow-modal-dot-bg: var(--surface-placeholder);
+  --workflow-modal-dot-active-bg: var(--interactive-brand);
+  --workflow-modal-counter-color: var(--text-helper);
   --workflow-modal-summary-bg: var(--surface-base);
   --workflow-modal-summary-border-color: var(--border-subtle-1);
   --workflow-modal-summary-border-width: var(--border-width-thin);
@@ -523,10 +776,112 @@ function handleApply() {
   gap: var(--workflow-modal-gap);
 }
 
-.workflow-modal__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--workflow-modal-grid-gap);
+.workflow-modal__slide-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--workflow-modal-gap);
+}
+
+.workflow-modal__carousel-stage {
+  position: relative;
+  width: 100%;
+  height: var(--workflow-modal-stage-height);
+  overflow: hidden;
+  touch-action: pan-y;
+  cursor: grab;
+  outline: none;
+}
+
+.workflow-modal__carousel-stage--dragging {
+  cursor: grabbing;
+}
+
+.workflow-modal__carousel-stage:focus-visible {
+  box-shadow: var(--workflow-modal-shadow-focus);
+}
+
+.workflow-modal__slide-slot {
+  position: absolute;
+  top: calc((var(--workflow-modal-stage-height) - var(--workflow-modal-card-height)) / 2);
+  left: 50%;
+  width: var(--workflow-modal-card-width);
+  height: var(--workflow-modal-card-height);
+  transform-origin: center;
+  transition:
+    transform var(--workflow-modal-slide-duration) var(--workflow-modal-slide-easing),
+    opacity var(--workflow-modal-slide-duration) var(--workflow-modal-slide-easing);
+}
+
+.workflow-modal__carousel-stage--dragging .workflow-modal__slide-slot--center {
+  transition: opacity var(--workflow-modal-slide-duration) var(--workflow-modal-slide-easing);
+}
+
+.workflow-modal__slide-slot--center {
+  z-index: 3;
+  opacity: var(--opacity-visible);
+  transform: translate3d(-50%, 0, 0) scale(1);
+}
+
+.workflow-modal__slide-slot--left {
+  z-index: 2;
+  opacity: 0.72;
+  transform: translate3d(-112%, 0, 0) scale(0.82);
+}
+
+.workflow-modal__slide-slot--right {
+  z-index: 2;
+  opacity: 0.72;
+  transform: translate3d(12%, 0, 0) scale(0.82);
+}
+
+.workflow-modal__slide-slot--hidden {
+  z-index: 1;
+  opacity: var(--opacity-hidden);
+  pointer-events: none;
+  transform: translate3d(-50%, 0, 0) scale(0.72);
+}
+
+.workflow-modal__slide-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+}
+
+.workflow-modal__slide-indicators {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.workflow-modal__slide-dot {
+  width: 8px;
+  height: 8px;
+  padding: var(--spacing-0);
+  border: var(--border-width-none);
+  background-color: var(--workflow-modal-dot-bg);
+  cursor: pointer;
+  transition: transform var(--workflow-modal-transition-duration)
+    var(--workflow-modal-transition-easing);
+}
+
+.workflow-modal__slide-dot--active {
+  background-color: var(--workflow-modal-dot-active-bg);
+  transform: scale(1.25);
+}
+
+.workflow-modal__slide-dot:focus-visible {
+  outline: none;
+  box-shadow: var(--workflow-modal-shadow-focus);
+}
+
+.workflow-modal__slide-counter {
+  margin-left: var(--spacing-2);
+  color: var(--workflow-modal-counter-color);
+  font-family: var(--type-label-01-font-family);
+  font-size: var(--type-label-01-font-size);
+  line-height: var(--type-label-01-line-height);
+  font-weight: var(--type-label-01-font-weight);
 }
 
 .workflow-modal__config {
@@ -702,7 +1057,18 @@ function handleApply() {
 }
 
 @media (max-width: 767px) {
-  .workflow-modal__grid,
+  .workflow-modal {
+    --workflow-modal-stage-height: 360px;
+    --workflow-modal-card-width: min(300px, calc(100vw - var(--spacing-8)));
+    --workflow-modal-card-height: 344px;
+  }
+
+  .workflow-modal__slide-slot--left,
+  .workflow-modal__slide-slot--right {
+    opacity: var(--opacity-hidden);
+    pointer-events: none;
+  }
+
   .workflow-modal__node-fields {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -721,7 +1087,9 @@ function handleApply() {
     --workflow-modal-press-scale: 1;
   }
 
-  .workflow-modal__graph-node {
+  .workflow-modal__slide-slot,
+  .workflow-modal__graph-node,
+  .workflow-modal__slide-dot {
     transition: none;
   }
 }

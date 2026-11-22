@@ -8,7 +8,7 @@ import {
   FileAttachmentCard,
   ListItem,
   Sidebar,
-  WorkflowCard,
+  WorkflowSlideCard,
   WorkflowStepsAccordion,
   toast,
 } from '@/components/ui'
@@ -199,20 +199,34 @@ describe('ChatView', () => {
 
     const workflowModal = wrapper.findComponent(WorkflowConfigModal)
     expect(workflowModal.props('open')).toBe(true)
+    expect(workflowModal.find('.modal').classes()).toContain('modal--lg')
     expect(workflowModal.find('.modal__title').text()).toBe('workflows')
 
-    const cards = workflowModal.findAllComponents(WorkflowCard)
+    const cards = workflowModal.findAllComponents(WorkflowSlideCard)
     expect(cards).toHaveLength(4)
 
-    await cards[2]!.trigger('click')
+    await cards[0]!.find('button[aria-label="Ver descrição"]').trigger('click')
+    await flushPromises()
+    expect(cards[0]!.classes()).toContain('workflow-slide-card--description-open')
+
+    await cards[0]!.find('button[aria-label="Fechar descrição"]').trigger('click')
+    await flushPromises()
+    expect(cards[0]!.classes()).not.toContain('workflow-slide-card--description-open')
+
+    const slideNextButton = workflowModal
+      .findAll('button')
+      .find((btn) => btn.text().trim() === 'Próximo')
+    expect(slideNextButton).toBeDefined()
+    await slideNextButton!.trigger('click')
+    await slideNextButton!.trigger('click')
     await flushPromises()
     expect(cards[2]!.props('selected')).toBe(true)
 
-    const nextButton = workflowModal
+    const selectButton = workflowModal
       .findAll('button')
-      .find((btn) => btn.text().trim() === 'Próximo')
-    expect(nextButton).toBeDefined()
-    await nextButton!.trigger('click')
+      .find((btn) => btn.text().trim() === 'Selecionar')
+    expect(selectButton).toBeDefined()
+    await selectButton!.trigger('click')
     await flushPromises()
 
     expect(workflowModal.find('.modal__title').text()).toBe('configurações')

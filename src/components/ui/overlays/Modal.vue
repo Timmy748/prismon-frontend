@@ -4,7 +4,7 @@ import { IconButton } from '../buttons'
 import { useEscapeKey } from './useEscapeKey'
 import { hasOverlayPortalRoot, useOverlayBackdropBlur } from './useOverlayBackdropBlur'
 
-export type ModalSize = 'sm' | 'lg'
+export type ModalSize = 'sm' | 'md' | 'lg'
 
 interface Props {
   open: boolean
@@ -135,9 +135,14 @@ useEscapeKey(() => props.open, handleClose)
   --modal-width: 360px;
 }
 
-.modal--lg {
+.modal--md {
   --modal-width: 713px;
   --modal-body-max-height: min(64dvh, 560px);
+}
+
+.modal--lg {
+  --modal-width: min(960px, calc(100vw - var(--spacing-8)));
+  --modal-body-max-height: min(76dvh, 700px);
 }
 
 .modal__backdrop {
@@ -221,6 +226,7 @@ useEscapeKey(() => props.open, handleClose)
 @media (max-width: 767px) {
   .modal,
   .modal--sm,
+  .modal--md,
   .modal--lg {
     --modal-viewport-padding: var(--spacing-0);
     --modal-width: 100%;
@@ -260,6 +266,7 @@ useEscapeKey(() => props.open, handleClose)
 @media (prefers-reduced-motion: reduce) {
   .modal,
   .modal--sm,
+  .modal--md,
   .modal--lg {
     --modal-dialog-transform-closed: none;
     --modal-transition-duration: var(--duration-normal);

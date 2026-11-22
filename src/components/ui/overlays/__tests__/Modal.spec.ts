@@ -84,7 +84,7 @@ describe('Modal', () => {
     expect(footer.find('[data-testid="save-btn"]').exists()).toBe(true)
   })
 
-  it.each(['sm', 'lg'] as ModalSize[])('applies size BEM modifier modal--%s', (size) => {
+  it.each(['sm', 'md', 'lg'] as ModalSize[])('applies size BEM modifier modal--%s', (size) => {
     wrapper = mount(Modal, {
       props: {
         open: true,

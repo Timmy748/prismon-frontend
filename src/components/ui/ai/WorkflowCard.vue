@@ -115,7 +115,7 @@ const cardClasses = computed(() => [
 
 .workflow-card--selected {
   --workflow-card-border-width: var(--border-width-thick);
-  --workflow-card-border-color: var(--border-brand-subtle);
+  --workflow-card-border-color: var(--border-strong);
 }
 
 .workflow-card__header {
