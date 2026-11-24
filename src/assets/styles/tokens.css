@@ -5,7 +5,7 @@
   --color-gray-200: #fcfcfc;
   --color-gray-300: #f3f2f2;
   --color-gray-400: #e6e5e6;
-  --color-gray-500: #cdcbed;
+  --color-gray-500: #cdcbcd;
   --color-gray-600: #b5b0b5;
   --color-gray-700: #837c83;
   --color-gray-800: #4f4a4f;
@@ -46,7 +46,8 @@
   --spacing-12: 96px;
   --spacing-13: 160px;
 
-  --font-family-sans: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-family-sans:
+    'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-family-display: 'Funnel Display', sans-serif;
 
   --font-weight-light: 300;
@@ -153,7 +154,7 @@
 
   --type-expressive-heading-03-font-family: var(--font-family-display);
   --type-expressive-heading-03-font-size: 20px;
-  --type-heading-03-line-height: 26px;
+  --type-expressive-heading-03-line-height: 26px;
   --type-expressive-heading-03-font-weight: var(--font-weight-medium);
   --type-expressive-heading-03-text-transform: lowercase;
 
@@ -180,6 +181,39 @@
   --type-expressive-heading-07-line-height: 64px;
   --type-expressive-heading-07-font-weight: var(--font-weight-light);
   --type-expressive-heading-07-text-transform: lowercase;
+
+  --radius-none: 0px;
+  --radius-sm: 4px;
+  --radius-full: 9999px;
+
+  --border-width-none: 0px;
+  --border-width-thin: 1px;
+  --border-width-thick: 4px;
+
+  --opacity-hidden: 0;
+  --opacity-visible: 1;
+  --blur-overlay: 4px;
+  --scale-press: 0.97;
+  --scale-press-subtle: 0.98;
+  --scale-modal-closed: 0.96;
+  --scale-popover-closed: 0.95;
+  --duration-fast: 160ms;
+  --duration-normal: 200ms;
+  --duration-modal: 250ms;
+  --duration-drawer: 400ms;
+  --duration-toast: 400ms;
+  --easing-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --easing-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --easing-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --easing-hover: ease;
+  --easing-standard: var(--easing-out);
+  --z-sticky: 100;
+  --z-dropdown: 200;
+  --z-backdrop: 300;
+  --z-sheet: 400;
+  --z-drawer: 400;
+  --z-modal: 500;
+  --z-toast: 600;
 }
 
 .type-label-01 {
@@ -313,7 +347,7 @@
 .type-expressive-heading-03 {
   font-family: var(--type-expressive-heading-03-font-family);
   font-size: var(--type-expressive-heading-03-font-size);
-  line-height: var(--type-heading-03-line-height);
+  line-height: var(--type-expressive-heading-03-line-height);
   font-weight: var(--type-expressive-heading-03-font-weight);
   text-transform: var(--type-expressive-heading-03-text-transform);
 }
