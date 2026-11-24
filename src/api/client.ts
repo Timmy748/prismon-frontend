@@ -5,7 +5,7 @@ interface RetryableRequestConfig extends AxiosRequestConfig {
 }
 
 /**
- * Normalizes the configured API base URL from `VITE_API_BASE_URL`,
+ * Normalizes the configured API base URL from `API_BASE_URL`,
  * defaulting to `/api` when unset or blank.
  */
 export function normalizeApiBaseUrl(rawUrl?: string): string {
@@ -19,7 +19,7 @@ export function normalizeApiBaseUrl(rawUrl?: string): string {
   return trimmed.replace(/\/+$/, '')
 }
 
-export const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
+export const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.API_BASE_URL)
 
 const AUTH_BYPASS_PATHS = ['/login', '/refresh-token', '/logout', '/users']
 
@@ -85,7 +85,7 @@ apiClient.interceptors.response.use(
 )
 
 /**
- * Resolves a relative API endpoint into a usable URL (respecting Vite proxy / VITE_API_BASE_URL).
+ * Resolves a relative API endpoint into a usable URL (respecting Vite proxy / API_BASE_URL).
  */
 export function resolveApiUrl(path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`

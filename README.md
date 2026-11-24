@@ -61,8 +61,8 @@ Copie `.env.example` para `.env`:
 cp .env.example .env
 ```
 
-- `VITE_API_BASE_URL`: URL base usada pelo cliente HTTP (`src/api/client.ts`). Em desenvolvimento usa `/api` via proxy do Vite; em produção aponte para a URL da API (ex.: `https://api.seudominio.com`).
-- `VITE_API_PROXY_TARGET`: destino do proxy `/api` no Vite em `dev` e `preview` (padrão `http://localhost:8000`).
+- `API_BASE_URL`: URL base usada pelo cliente HTTP (`src/api/client.ts`). Em desenvolvimento usa `/api` via proxy do Vite; em produção aponte para a URL da API (ex.: `https://api.seudominio.com`).
+- `API_PROXY_TARGET`: destino do proxy `/api` no Vite em `dev` e `preview` (padrão `http://localhost:8000`).
 
 ## Deploy na Vercel
 
@@ -70,5 +70,5 @@ O projeto já inclui [`vercel.json`](./vercel.json) com rewrite de fallback para
 
 1. Importe o repositório na Vercel (branch `main`).
 2. Configure **Framework Preset**: `Vite`, **Build Command**: `npm run build`, **Output Directory**: `dist`.
-3. Em **Settings → Environment Variables**, adicione `VITE_API_BASE_URL` com a URL pública da sua API (sem barra no final, ex.: `https://api.seudominio.com`).
-4. Garanta que o backend tenha CORS liberado (`Access-Control-Allow-Credentials: true` para o domínio da Vercel) e cookies de sessão compatíveis (`SameSite=None; Secure` se frontend e API estiverem em domínios distintos, ou utilize rewrite `/api/:path*` no `vercel.json` com `VITE_API_BASE_URL=/api`).
+3. Em **Settings → Environment Variables**, adicione `API_BASE_URL` com a URL pública da sua API (sem barra no final, ex.: `https://api.seudominio.com`).
+4. Garanta que o backend tenha CORS liberado (`Access-Control-Allow-Credentials: true` para o domínio da Vercel) e cookies de sessão compatíveis (`SameSite=None; Secure` se frontend e API estiverem em domínios distintos, ou utilize rewrite `/api/:path*` no `vercel.json` com `API_BASE_URL=/api`).

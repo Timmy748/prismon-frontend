@@ -23,8 +23,8 @@ describe('api/client environment configuration', () => {
     expect(resolveApiUrl('projects/1/files')).toBe('/api/projects/1/files')
   })
 
-  it('configures apiClient.defaults.baseURL and resolveApiUrl from VITE_API_BASE_URL', async () => {
-    vi.stubEnv('VITE_API_BASE_URL', 'https://backend.prismon.dev/')
+  it('configures apiClient.defaults.baseURL and resolveApiUrl from API_BASE_URL', async () => {
+    vi.stubEnv('API_BASE_URL', 'https://backend.prismon.dev/')
     vi.resetModules()
 
     const freshClient = await import('@/api/client')

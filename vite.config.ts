@@ -7,10 +7,10 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const rawBaseUrl = env.VITE_API_BASE_URL?.trim() || '/api'
+  const rawBaseUrl = env.API_BASE_URL?.trim() || '/api'
   const proxyPrefix =
     rawBaseUrl.startsWith('/') && rawBaseUrl !== '/' ? rawBaseUrl.replace(/\/+$/, '') : '/api'
-  const proxyTarget = env.VITE_API_PROXY_TARGET?.trim() || 'http://localhost:8000'
+  const proxyTarget = env.API_PROXY_TARGET?.trim() || 'http://localhost:8000'
 
   const apiProxy = {
     [proxyPrefix]: {
@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    envPrefix: ['VITE_', 'API_BASE_URL'],
     plugins: [vue(), vueDevTools()],
     server: {
       proxy: apiProxy,
