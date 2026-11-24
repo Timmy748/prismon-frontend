@@ -8,6 +8,7 @@ import ModificationEvent from './ModificationEvent.vue'
 export interface RepertoryItemTag {
   id: string
   label: string
+  color?: string
 }
 
 export interface RepertoryItemHistoryEntry {
@@ -132,6 +133,7 @@ const emit = defineEmits<{
             v-for="tag in tags"
             :key="tag.id"
             :label="tag.label"
+            :color="tag.color"
             :dismissible="editableTags"
             @dismiss="emit('remove-tag', tag.id)"
           />

@@ -1,599 +1,134 @@
 import { computed, ref } from 'vue'
-import type { AiAttachmentItem, ChatMessageRole, WorkflowStep } from '@/components/ui'
-import {
-  DEFAULT_USER_PROFILE,
-  MEMBER_PROJECTS,
-  type ProjectItem,
-  type UserProfile,
-} from '@/components/shell/navigationConfig'
-import type { WorkflowGraphNodeConfig } from '@/components/chat/WorkflowConfigModal.vue'
+import { serializeWorkflowConfigPayload } from '@/api/mappers/workflowMapper'
+import { useChatsApi, useProjectsApi } from '@/composables/api'
+import { useAuthState } from '@/stores/authState'
+import type { ChatMessageItem, ChatSummary, SendChatMessageResult } from '@/types/chats'
+import type { CreateProjectInput, Project, UpdateProjectInput } from '@/types/projects'
+import type { WorkflowConfigValues } from '@/types/workflows'
+import type { IconName } from '@/components/ui'
 
-export interface ProjectDetailsItem extends ProjectItem {
-  description: string
-  createdAt: string
-  owner: string
-  membersCount: number
-  documentsCount: number
-  workflowsCount: number
+export interface ProjectDetailsItem extends Project {
+  icon: IconName
 }
 
-export interface ChatWorkflowStep extends WorkflowStep {
-  summary: string
-}
-
-export interface ChatThreadMessage {
-  id: string
-  role: ChatMessageRole
-  content: string
-  attachments?: AiAttachmentItem[]
-  steps?: ChatWorkflowStep[]
-}
-
-export interface ChatThread {
-  id: string
-  projectId: string
-  title: string
-  group: 'today' | 'week'
-  workflowId: string | null
-  workflowName: string | null
-  workflowEffort: string | null
-  messages: ChatThreadMessage[]
+export interface ChatThread extends ChatSummary {
+  messages: ChatMessageItem[]
+  messagesLoaded: boolean
 }
 
 export interface SelectedWorkflow {
-  id: string
+  id: number
   name: string
-  effort: string
-  iterations?: string
-  nodesConfig?: Record<string, WorkflowGraphNodeConfig>
+  version: string
+  description?: string
+  config?: WorkflowConfigValues
 }
 
-const INITIAL_PROJECT_DETAILS: ProjectDetailsItem[] = [
-  {
-    ...MEMBER_PROJECTS[0]!,
-    description:
-      'Workspace principal de governança, análise documental, workflows multiagente e repositório central do ecossistema Prismon.',
-    createdAt: '12 jan 2026',
-    owner: 'Ana Paula Ribeiro',
-    membersCount: 5,
-    documentsCount: 12,
-    workflowsCount: 5,
-  },
-  {
-    ...MEMBER_PROJECTS[1]!,
-    description:
-      'Ambiente dedicado à triagem de contratos, cláusulas de SLA, riscos regulatórios e pareceres jurídicos assistidos por IA.',
-    createdAt: '03 fev 2026',
-    owner: 'Lucas Ferreira',
-    membersCount: 4,
-    documentsCount: 18,
-    workflowsCount: 3,
-  },
-  {
-    ...MEMBER_PROJECTS[2]!,
-    description:
-      'Projeto voltado para síntese executiva, métricas operacionais e consolidação de roadmaps de produto e dados.',
-    createdAt: '19 fev 2026',
-    owner: 'Ana Paula Ribeiro',
-    membersCount: 6,
-    documentsCount: 9,
-    workflowsCount: 4,
-  },
-  {
-    ...MEMBER_PROJECTS[3]!,
-    description:
-      'Base colaborativa para entrevistas com usuários, checklists de acessibilidade WCAG e relatórios qualitativos.',
-    createdAt: '04 mar 2026',
-    owner: 'Camila Andrade',
-    membersCount: 3,
-    documentsCount: 7,
-    workflowsCount: 2,
-  },
-]
-
-function buildInitialThreads(): ChatThread[] {
-  return [
-    {
-      id: 'thread-1',
-      projectId: 'prismon-core',
-      title: 'revisão de contrato q4',
-      group: 'today',
-      workflowId: 'wf-analise-critica',
-      workflowName: 'análise crítica',
-      workflowEffort: 'Médio',
-      messages: [
-        {
-          id: 'msg-1',
-          role: 'human',
-          content: 'Analise as cláusulas de rescisão e SLA do contrato anexo para o Q4.',
-          attachments: [
-            {
-              id: 'att-init-1',
-              filename: 'contrato-fornecedor-q4.pdf',
-              fileSize: '248 KB',
-            },
-          ],
-        },
-        {
-          id: 'msg-2',
-          role: 'ai',
-          steps: [
-            {
-              id: 'step-init-1',
-              title: 'Analisando contexto',
-              summary: 'Identificadas 3 cláusulas de SLA e prazo de aviso prévio de 30 dias.',
-            },
-            {
-              id: 'step-init-2',
-              title: 'Consultando repertório',
-              summary: 'Comparado com a política padrão de compras corporativas v2.4.',
-            },
-            {
-              id: 'step-init-3',
-              title: 'Gerando resposta estruturada',
-              summary: 'Recomendações priorizadas por impacto financeiro e operacional.',
-            },
-          ],
-          content:
-            'Foram encontrados dois pontos de atenção na seção 4.2: a multa por indisponibilidade está abaixo do mínimo institucional (2% vs. 5%) e não há previsão de transição assistida ao término da vigência.',
-        },
-      ],
-    },
-    {
-      id: 'thread-2',
-      projectId: 'prismon-core',
-      title: 'arquitetura de autenticação',
-      group: 'today',
-      workflowId: 'wf-revisao-tecnica',
-      workflowName: 'revisão técnica',
-      workflowEffort: 'Alto',
-      messages: [
-        {
-          id: 'msg-3',
-          role: 'human',
-          content: 'Quais cuidados devo adotar na rotação de tokens em múltiplas abas?',
-        },
-        {
-          id: 'msg-4',
-          role: 'ai',
-          steps: [
-            {
-              id: 'step-auth-1',
-              title: 'Analisando contexto',
-              summary: 'Mapeado fluxo de concorrência entre abas e expiração de sessão.',
-            },
-            {
-              id: 'step-auth-2',
-              title: 'Consultando repertório',
-              summary: 'Verificadas referências de segurança e boas práticas de sessão.',
-            },
-            {
-              id: 'step-auth-3',
-              title: 'Gerando resposta estruturada',
-              summary: 'Checklist de mitigação consolidado.',
-            },
-          ],
-          content:
-            'Recomenda-se coordenar a renovação via lock compartilhado (Web Locks API ou BroadcastChannel) e manter janela de tolerância curta para evitar invalidação prematura em requisições paralelas.',
-        },
-      ],
-    },
-    {
-      id: 'thread-3',
-      projectId: 'prismon-core',
-      title: 'sumário executivo diretoria',
-      group: 'week',
-      workflowId: 'wf-sintese-executiva',
-      workflowName: 'síntese executiva',
-      workflowEffort: 'Baixo',
-      messages: [
-        {
-          id: 'msg-5',
-          role: 'human',
-          content: 'Resuma os principais marcos operacionais do último trimestre.',
-        },
-        {
-          id: 'msg-6',
-          role: 'ai',
-          content:
-            'O trimestre encerrou com redução de 18% no tempo médio de revisão documental, adoção de 4 workflows padronizados e ampliação do repertório compartilhado entre as equipes.',
-        },
-      ],
-    },
-    {
-      id: 'thread-4',
-      projectId: 'prismon-core',
-      title: 'políticas de retenção de logs',
-      group: 'week',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-7',
-          role: 'human',
-          content: 'Qual o prazo padrão de retenção de trilhas de auditoria?',
-        },
-        {
-          id: 'msg-8',
-          role: 'ai',
-          content:
-            'De acordo com as diretrizes vigentes, eventos críticos de acesso e alteração documental devem permanecer retidos por no mínimo 24 meses em armazenamento auditável.',
-        },
-      ],
-    },
-    {
-      id: 'thread-5',
-      projectId: 'prismon-core',
-      title: 'checklist wcag aa formulários',
-      group: 'week',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-9',
-          role: 'human',
-          content: 'Quais critérios de foco e teclado precisamos validar nos overlays?',
-        },
-        {
-          id: 'msg-10',
-          role: 'ai',
-          content:
-            'Todos os overlays devem responder à tecla Escape, expor atributos `aria-modal` e `aria-labelledby`, e garantir anel de foco visível nos controles interativos.',
-        },
-      ],
-    },
-    {
-      id: 'thread-6',
-      projectId: 'prismon-core',
-      title: 'governança de tokens semânticos',
-      group: 'week',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-11',
-          role: 'human',
-          content: 'Liste as regras de nomenclatura entre tokens primitivos e semânticos.',
-        },
-        {
-          id: 'msg-12',
-          role: 'ai',
-          content:
-            'Componentes consomem exclusivamente variáveis locais mapeadas para tokens semânticos (`--surface-*`, `--text-*`, `--border-*`) sem cores hexadecimais diretas.',
-        },
-      ],
-    },
-    {
-      id: 'thread-7',
-      projectId: 'prismon-core',
-      title: 'auditoria de chaves de api q1',
-      group: 'week',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-13',
-          role: 'human',
-          content: 'Quais chaves antigas devem ser rotacionadas neste ciclo?',
-        },
-        {
-          id: 'msg-14',
-          role: 'ai',
-          content:
-            'Recomenda-se rotacionar chaves de projeto com mais de 90 dias sem auditoria e separar credenciais de automação de chaves pessoais.',
-        },
-      ],
-    },
-    {
-      id: 'thread-8',
-      projectId: 'prismon-core',
-      title: 'revisão de onboarding de agentes',
-      group: 'week',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-15',
-          role: 'human',
-          content: 'Quais documentos devem entrar no kit inicial de novos projetos?',
-        },
-        {
-          id: 'msg-16',
-          role: 'ai',
-          content: 'Inclua o manual de identidade, guia de prompts e checklist WCAG AA.',
-        },
-      ],
-    },
-    {
-      id: 'thread-9',
-      projectId: 'prismon-core',
-      title: 'benchmark latência streaming sse',
-      group: 'week',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-17',
-          role: 'human',
-          content: 'Qual foi o tempo médio do primeiro token nos testes locais?',
-        },
-        {
-          id: 'msg-18',
-          role: 'ai',
-          content: 'O tempo médio para o primeiro token ficou em 240 ms com payload comprimido.',
-        },
-      ],
-    },
-    {
-      id: 'thread-10',
-      projectId: 'prismon-core',
-      title: 'padronização de variáveis css',
-      group: 'week',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-19',
-          role: 'human',
-          content: 'Todos os componentes da biblioteca seguem prefixo por bloco?',
-        },
-        {
-          id: 'msg-20',
-          role: 'ai',
-          content: 'Sim, cada bloco declara variáveis locais mapeadas a tokens semânticos.',
-        },
-      ],
-    },
-    {
-      id: 'thread-11',
-      projectId: 'prismon-core',
-      title: 'revisão de acessibilidade em modais e drawers móveis',
-      group: 'today',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-21',
-          role: 'human',
-          content: 'Valide aria-modal e foco por teclado nos drawers adaptativos.',
-        },
-        {
-          id: 'msg-22',
-          role: 'ai',
-          content: 'Todos os drawers mantêm role dialog, Escape e safe area no rodapé.',
-        },
-      ],
-    },
-    {
-      id: 'thread-12',
-      projectId: 'prismon-core',
-      title: 'integração de assets visuais no repertório',
-      group: 'today',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-23',
-          role: 'human',
-          content: 'Como organizar previews à esquerda no Sheet desktop?',
-        },
-        {
-          id: 'msg-24',
-          role: 'ai',
-          content:
-            'Use o slot #preview do Sheet para palco à esquerda no desktop e topo no mobile.',
-        },
-      ],
-    },
-    {
-      id: 'thread-13',
-      projectId: 'prismon-core',
-      title: 'roteamento dinâmico de workflows com múltiplos nós',
-      group: 'today',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-25',
-          role: 'human',
-          content: 'Qual modelo usar no nó de validação crítica?',
-        },
-        {
-          id: 'msg-26',
-          role: 'ai',
-          content: 'Configure Prismon Pro 2.5 com esforço Alto na etapa intermediária.',
-        },
-      ],
-    },
-    {
-      id: 'thread-14',
-      projectId: 'prismon-core',
-      title: 'gestão de chaves pessoais e credenciais do projeto',
-      group: 'today',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-27',
-          role: 'human',
-          content: 'Qual o padrão de exibição nas tabelas de chaves?',
-        },
-        {
-          id: 'msg-28',
-          role: 'ai',
-          content: 'Exiba somente ID, Hint mascarada e data de criação sem coluna extra.',
-        },
-      ],
-    },
-    {
-      id: 'thread-15',
-      projectId: 'prismon-core',
-      title: 'políticas de governança de prompts corporativos',
-      group: 'today',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-29',
-          role: 'human',
-          content: 'Quais diretrizes aplicam-se a dados sensíveis em prompts?',
-        },
-        {
-          id: 'msg-30',
-          role: 'ai',
-          content: 'Anonimize identificadores antes do envio e registre auditoria local.',
-        },
-      ],
-    },
-    {
-      id: 'thread-16',
-      projectId: 'prismon-core',
-      title: 'planejamento sprint interface mobile e desktop',
-      group: 'today',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-31',
-          role: 'human',
-          content: 'Quais entregas entram nesta sprint de responsividade?',
-        },
-        {
-          id: 'msg-32',
-          role: 'ai',
-          content: 'Drawers adaptativos universais, navegação horizontal e marquee em hover.',
-        },
-      ],
-    },
-    {
-      id: 'thread-jur-1',
-      projectId: 'juridico-ia',
-      title: 'parecer nda fornecedores 2026',
-      group: 'today',
-      workflowId: 'wf-analise-critica',
-      workflowName: 'análise crítica',
-      workflowEffort: 'Alto',
-      messages: [
-        {
-          id: 'msg-jur-1',
-          role: 'human',
-          content: 'Verifique a cláusula de confidencialidade mútua no modelo NDA 2026.',
-        },
-        {
-          id: 'msg-jur-2',
-          role: 'ai',
-          content:
-            'O prazo de sigilo de 5 anos está aderente, restando apenas ajustar a exceção para requisições regulatórias.',
-        },
-      ],
-    },
-    {
-      id: 'thread-prod-1',
-      projectId: 'produto-dados',
-      title: 'métricas de adoção q4',
-      group: 'today',
-      workflowId: 'wf-sintese-executiva',
-      workflowName: 'síntese executiva',
-      workflowEffort: 'Médio',
-      messages: [
-        {
-          id: 'msg-prod-1',
-          role: 'human',
-          content: 'Consolide os principais ganhos de produtividade dos fluxos automatizados.',
-        },
-        {
-          id: 'msg-prod-2',
-          role: 'ai',
-          content:
-            'Os pipelines com revisão em 3 estágios alcançaram 91% de aprovação direta com redução de retrabalho.',
-        },
-      ],
-    },
-    {
-      id: 'thread-ux-1',
-      projectId: 'pesquisa-ux',
-      title: 'entrevistas fluxo mobile',
-      group: 'today',
-      workflowId: null,
-      workflowName: null,
-      workflowEffort: null,
-      messages: [
-        {
-          id: 'msg-ux-1',
-          role: 'human',
-          content: 'Quais feedbacks surgiram sobre navegação por drawer em telas pequenas?',
-        },
-        {
-          id: 'msg-ux-2',
-          role: 'ai',
-          content:
-            'Participantes aprovaram a navegação horizontal compacta para seções do projeto e a troca rápida de projetos sem fechar a gaveta.',
-        },
-      ],
-    },
-  ]
+export interface SyncWorkspaceRouteParams {
+  projectId?: number | null
+  chatId?: number | null
 }
 
-const projectsState = ref<ProjectDetailsItem[]>(
-  INITIAL_PROJECT_DETAILS.map((item) => ({ ...item })),
-)
-const activeProjectIdState = ref<string>(INITIAL_PROJECT_DETAILS[0]!.id)
-const profileState = ref<UserProfile>({
-  ...DEFAULT_USER_PROFILE,
-  role: INITIAL_PROJECT_DETAILS[0]!.role,
-  workspace: INITIAL_PROJECT_DETAILS[0]!.name,
-})
+const DEFAULT_PROJECT_STORAGE_KEY = 'prismon:default-project-id'
 
-const threadsState = ref<ChatThread[]>(buildInitialThreads())
-const activeThreadIdState = ref<string | null>('thread-1')
+function readStoredDefaultProjectId(): number | null {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return null
+    }
+    const raw = window.localStorage.getItem(DEFAULT_PROJECT_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = Number(raw)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function writeStoredDefaultProjectId(projectId: number | null): void {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return
+    }
+    if (projectId === null) {
+      window.localStorage.removeItem(DEFAULT_PROJECT_STORAGE_KEY)
+      return
+    }
+    window.localStorage.setItem(DEFAULT_PROJECT_STORAGE_KEY, String(projectId))
+  } catch {
+    // Ignore storage quota or sandbox access errors
+  }
+}
+
+function toProjectDetails(project: Project): ProjectDetailsItem {
+  return {
+    ...project,
+    icon: 'folder',
+  }
+}
+
+const projectsState = ref<ProjectDetailsItem[]>([])
+const activeProjectIdState = ref<number | null>(null)
+const defaultProjectIdState = ref<number | null>(readStoredDefaultProjectId())
+const isLoadingProjectsState = ref(false)
+const projectsLoadedState = ref(false)
+
+const threadsState = ref<ChatThread[]>([])
+const activeThreadIdState = ref<number | null>(null)
 const threadSearchState = ref('')
-const selectedWorkflowState = ref<SelectedWorkflow | null>({
-  id: 'wf-analise-critica',
-  name: 'análise crítica',
-  effort: 'Médio',
-})
+const isLoadingChatsState = ref(false)
+const isLoadingMessagesState = ref(false)
+const pendingUserMessageState = ref<string | null>(null)
+const streamingAssistantTextState = ref('')
+const loadedChatProjects = new Set<number>()
 
-let idSequence = 200
+const selectedWorkflowState = ref<SelectedWorkflow | null>(null)
+const isNavCollapsedState = ref(false)
+const isProjectsCollapsedState = ref(true)
 
-export function nextWorkspaceId(prefix: string): string {
-  idSequence += 1
-  return `${prefix}-${idSequence}`
-}
+let pendingProjectsLoad: Promise<ProjectDetailsItem[]> | null = null
 
 export function useWorkspaceState() {
+  const { isAuthenticated, currentUser } = useAuthState()
+  const projectsApi = useProjectsApi()
+  const chatsApi = useChatsApi()
+
   const projects = projectsState
   const activeProjectId = activeProjectIdState
-  const profile = profileState
+  const defaultProjectId = defaultProjectIdState
+  const isLoadingProjects = isLoadingProjectsState
+  const projectsLoaded = projectsLoadedState
   const threads = threadsState
   const activeThreadId = activeThreadIdState
   const threadSearch = threadSearchState
+  const isLoadingChats = isLoadingChatsState
+  const isLoadingMessages = isLoadingMessagesState
+  const pendingUserMessage = pendingUserMessageState
+  const streamingAssistantText = streamingAssistantTextState
   const selectedWorkflow = selectedWorkflowState
+  const isNavCollapsed = isNavCollapsedState
+  const isProjectsCollapsed = isProjectsCollapsedState
 
-  const activeProject = computed<ProjectDetailsItem>(() => {
+  const activeProject = computed<ProjectDetailsItem | null>(() => {
+    if (projects.value.length === 0) return null
     return (
       projects.value.find((project) => project.id === activeProjectId.value) ??
-      projects.value[0] ?? {
-        ...INITIAL_PROJECT_DETAILS[0]!,
-      }
+      projects.value[0] ??
+      null
     )
   })
 
-  const projectThreads = computed(() =>
-    threads.value.filter((thread) => thread.projectId === activeProject.value.id),
-  )
+  const profile = computed(() => ({
+    username: currentUser.value?.username ?? 'Convidado',
+    email: currentUser.value?.email ?? '',
+    workspace: activeProject.value?.name ?? 'Sem projeto',
+  }))
+
+  const projectThreads = computed(() => {
+    const projectId = activeProject.value?.id
+    if (!projectId) return []
+    return threads.value.filter((thread) => thread.projectId === projectId)
+  })
 
   const filteredThreads = computed(() => {
     const query = threadSearch.value.trim().toLowerCase()
@@ -603,91 +138,246 @@ export function useWorkspaceState() {
     return projectThreads.value.filter((thread) => thread.title.toLowerCase().includes(query))
   })
 
-  const todayThreads = computed(() =>
-    filteredThreads.value.filter((thread) => thread.group === 'today'),
-  )
-
-  const weekThreads = computed(() =>
-    filteredThreads.value.filter((thread) => thread.group === 'week'),
-  )
-
   const activeThread = computed(
     () => projectThreads.value.find((thread) => thread.id === activeThreadId.value) ?? null,
   )
 
-  function syncWorkflowFromThread(thread: ChatThread | null) {
-    if (thread?.workflowId && thread.workflowName) {
-      selectedWorkflow.value = {
-        id: thread.workflowId,
-        name: thread.workflowName,
-        effort: thread.workflowEffort ?? 'Médio',
+  async function loadProjectChats(projectId: number, force = false): Promise<ChatThread[]> {
+    if (!force && loadedChatProjects.has(projectId)) {
+      return threads.value.filter((thread) => thread.projectId === projectId)
+    }
+
+    isLoadingChatsState.value = true
+    try {
+      const page = await chatsApi.listProjectChats(projectId, { limit: 100 })
+      const existingById = new Map(
+        threads.value
+          .filter((thread) => thread.projectId === projectId)
+          .map((thread) => [thread.id, thread]),
+      )
+
+      const mappedThreads: ChatThread[] = page.items.map((summary) => {
+        const previous = existingById.get(summary.id)
+        return {
+          ...summary,
+          messages: previous?.messages ?? [],
+          messagesLoaded: previous?.messagesLoaded ?? false,
+        }
+      })
+
+      const otherProjectThreads = threads.value.filter((thread) => thread.projectId !== projectId)
+      threads.value = [...mappedThreads, ...otherProjectThreads]
+      loadedChatProjects.add(projectId)
+      return mappedThreads
+    } finally {
+      isLoadingChatsState.value = false
+    }
+  }
+
+  async function loadProjects(
+    force = false,
+    preferredRouteProjectId?: number | null,
+  ): Promise<ProjectDetailsItem[]> {
+    if (!force && projectsLoadedState.value) {
+      if (
+        preferredRouteProjectId !== undefined &&
+        preferredRouteProjectId !== null &&
+        preferredRouteProjectId !== activeProjectId.value &&
+        projects.value.some((project) => project.id === preferredRouteProjectId)
+      ) {
+        await selectProject(preferredRouteProjectId)
+      }
+      return projects.value
+    }
+    if (pendingProjectsLoad) {
+      const loaded = await pendingProjectsLoad
+      if (
+        preferredRouteProjectId !== undefined &&
+        preferredRouteProjectId !== null &&
+        preferredRouteProjectId !== activeProjectId.value &&
+        loaded.some((project) => project.id === preferredRouteProjectId)
+      ) {
+        await selectProject(preferredRouteProjectId)
+      }
+      return loaded
+    }
+
+    isLoadingProjectsState.value = true
+    pendingProjectsLoad = (async () => {
+      try {
+        const page = await projectsApi.listProjects({ limit: 100 })
+        const mapped = page.items.map(toProjectDetails)
+        projects.value = mapped
+        projectsLoadedState.value = true
+
+        const hasRouteProject =
+          preferredRouteProjectId !== undefined &&
+          preferredRouteProjectId !== null &&
+          mapped.some((p) => p.id === preferredRouteProjectId)
+
+        const preferredId = hasRouteProject
+          ? preferredRouteProjectId
+          : activeProjectId.value && mapped.some((p) => p.id === activeProjectId.value)
+            ? activeProjectId.value
+            : defaultProjectId.value && mapped.some((p) => p.id === defaultProjectId.value)
+              ? defaultProjectId.value
+              : (mapped[0]?.id ?? null)
+
+        activeProjectId.value = preferredId
+
+        if (preferredId !== null) {
+          await loadProjectChats(preferredId, force)
+        }
+
+        return mapped
+      } finally {
+        isLoadingProjectsState.value = false
+        pendingProjectsLoad = null
+      }
+    })()
+
+    return pendingProjectsLoad
+  }
+
+  async function ensureWorkspaceInitialized(
+    preferredRouteProjectId?: number | null,
+  ): Promise<void> {
+    if (!isAuthenticated.value) {
+      return
+    }
+    if (projectsLoadedState.value) {
+      if (
+        preferredRouteProjectId !== undefined &&
+        preferredRouteProjectId !== null &&
+        preferredRouteProjectId !== activeProjectId.value &&
+        projects.value.some((project) => project.id === preferredRouteProjectId)
+      ) {
+        await selectProject(preferredRouteProjectId)
       }
       return
     }
-    selectedWorkflow.value = null
+    await loadProjects(false, preferredRouteProjectId)
   }
 
-  function selectProject(projectId: string): ProjectDetailsItem | null {
+  async function selectProject(projectId: number): Promise<ProjectDetailsItem | null> {
     const found = projects.value.find((project) => project.id === projectId) ?? null
     if (!found) {
       return null
     }
+    const isSameProject = activeProjectId.value === found.id
     activeProjectId.value = found.id
-    profile.value = {
-      ...profile.value,
-      role: found.role,
-      workspace: found.name,
+    if (!isSameProject) {
+      activeThreadId.value = null
     }
-    const nextThread = threads.value.find((thread) => thread.projectId === found.id) ?? null
-    activeThreadId.value = nextThread?.id ?? null
-    syncWorkflowFromThread(nextThread)
+    await loadProjectChats(found.id)
     return found
   }
 
-  function createProject(payload: {
-    name: string
-    description?: string
-    role?: string
-  }): ProjectDetailsItem {
-    const cleanName = payload.name.trim()
-    const slugBase = cleanName
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 24)
-    const id = slugBase ? `${slugBase}-${idSequence + 1}` : nextWorkspaceId('proj')
-    idSequence += 1
-
-    const newProject: ProjectDetailsItem = {
-      id,
-      name: cleanName,
-      role: payload.role?.trim() || 'Administradora',
-      icon: 'folder',
-      description:
-        payload.description?.trim() || 'Novo projeto configurado no ecossistema local Prismon.',
-      createdAt: 'Agora',
-      owner: profile.value.username,
-      membersCount: 1,
-      documentsCount: 0,
-      workflowsCount: 5,
+  async function syncFromRoute(params: SyncWorkspaceRouteParams): Promise<void> {
+    if (!isAuthenticated.value) {
+      return
     }
 
-    projects.value = [...projects.value, newProject]
-    activeProjectId.value = newProject.id
-    profile.value = {
-      ...profile.value,
-      role: newProject.role,
-      workspace: newProject.name,
+    const { projectId, chatId } = params
+
+    if (!projectsLoadedState.value) {
+      await loadProjects(false, projectId)
     }
-    activeThreadId.value = null
-    selectedWorkflow.value = null
-    return newProject
+
+    let resolvedProjectId: number | null = activeProjectId.value
+
+    if (projectId !== undefined && projectId !== null) {
+      const matched = projects.value.find((project) => project.id === projectId) ?? null
+      if (matched) {
+        if (activeProjectId.value !== matched.id) {
+          await selectProject(matched.id)
+        } else {
+          await loadProjectChats(matched.id)
+        }
+        resolvedProjectId = matched.id
+      }
+    } else if (resolvedProjectId !== null) {
+      await loadProjectChats(resolvedProjectId)
+    }
+
+    if (chatId === null) {
+      activeThreadId.value = null
+      return
+    }
+
+    if (chatId !== undefined) {
+      const matchingThread = threads.value.find(
+        (thread) =>
+          thread.id === chatId &&
+          (resolvedProjectId === null || thread.projectId === resolvedProjectId),
+      )
+      if (matchingThread) {
+        await selectThread(matchingThread.id)
+      } else {
+        activeThreadId.value = null
+      }
+    }
   }
 
-  function selectThread(threadId: string) {
-    const found = threads.value.find((thread) => thread.id === threadId) ?? null
+  async function createProject(input: CreateProjectInput): Promise<ProjectDetailsItem> {
+    const created = await projectsApi.createProject(input)
+    const detailed = toProjectDetails(created)
+    projects.value = [...projects.value, detailed]
+    activeProjectId.value = detailed.id
+    activeThreadId.value = null
+    loadedChatProjects.add(detailed.id)
+    return detailed
+  }
+
+  async function updateProject(
+    projectId: number,
+    input: UpdateProjectInput,
+  ): Promise<ProjectDetailsItem> {
+    const updated = await projectsApi.updateProject(projectId, input)
+    const detailed = toProjectDetails(updated)
+    projects.value = projects.value.map((item) => (item.id === projectId ? detailed : item))
+    return detailed
+  }
+
+  async function deleteProject(projectId: number): Promise<void> {
+    await projectsApi.deleteProject(projectId)
+    projects.value = projects.value.filter((item) => item.id !== projectId)
+    threads.value = threads.value.filter((thread) => thread.projectId !== projectId)
+    loadedChatProjects.delete(projectId)
+
+    if (defaultProjectId.value === projectId) {
+      setDefaultProjectId(null)
+    }
+
+    if (activeProjectId.value === projectId) {
+      const nextProject = projects.value[0] ?? null
+      activeProjectId.value = nextProject?.id ?? null
+      activeThreadId.value = null
+      if (nextProject) {
+        await loadProjectChats(nextProject.id)
+      }
+    }
+  }
+
+  async function refreshThreadMessages(chatId: number): Promise<ChatMessageItem[]> {
+    isLoadingMessagesState.value = true
+    try {
+      const page = await chatsApi.listChatMessages(chatId, { limit: 100 })
+      const ordered = [...page.items].sort((a, b) => {
+        const diff = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        return diff !== 0 ? diff : a.id - b.id
+      })
+      threads.value = threads.value.map((thread) =>
+        thread.id === chatId ? { ...thread, messages: ordered, messagesLoaded: true } : thread,
+      )
+      return ordered
+    } finally {
+      isLoadingMessagesState.value = false
+    }
+  }
+
+  async function selectThread(chatId: number): Promise<void> {
+    const found = threads.value.find((thread) => thread.id === chatId) ?? null
     if (!found) {
       return
     }
@@ -695,108 +385,225 @@ export function useWorkspaceState() {
       activeProjectId.value = found.projectId
     }
     activeThreadId.value = found.id
-    syncWorkflowFromThread(found)
+    if (!found.messagesLoaded) {
+      await refreshThreadMessages(found.id)
+    }
   }
 
-  function startNewChat() {
+  function startNewChat(): void {
     activeThreadId.value = null
-    selectedWorkflow.value = null
   }
 
-  function renameThread(threadId: string, nextTitle: string): boolean {
-    const cleanTitle = nextTitle.trim().toLowerCase()
+  async function renameThread(chatId: number, nextTitle: string): Promise<ChatSummary | null> {
+    const cleanTitle = nextTitle.trim()
     if (!cleanTitle) {
-      return false
+      return null
     }
+    const updated = await chatsApi.updateChatTitle(chatId, cleanTitle)
     threads.value = threads.value.map((thread) =>
-      thread.id === threadId ? { ...thread, title: cleanTitle } : thread,
+      thread.id === chatId
+        ? {
+            ...thread,
+            title: updated.title,
+            updatedAt: updated.updatedAt,
+            updatedAtLabel: updated.updatedAtLabel,
+          }
+        : thread,
     )
-    return true
+    return updated
   }
 
-  function deleteThread(threadId: string) {
-    threads.value = threads.value.filter((thread) => thread.id !== threadId)
-    if (activeThreadId.value === threadId) {
-      const nextThread =
-        threads.value.find((thread) => thread.projectId === activeProject.value.id) ?? null
-      activeThreadId.value = nextThread?.id ?? null
-      syncWorkflowFromThread(nextThread)
+  async function deleteThread(chatId: number): Promise<void> {
+    await chatsApi.deleteChat(chatId)
+    threads.value = threads.value.filter((thread) => thread.id !== chatId)
+    if (activeThreadId.value === chatId) {
+      activeThreadId.value = null
     }
   }
 
-  function ensureActiveThread(): ChatThread {
-    if (activeThread.value) {
-      return activeThread.value
+  async function sendChatMessage(params: {
+    text: string
+    apiKeyId: number
+  }): Promise<SendChatMessageResult> {
+    const projectId = activeProject.value?.id ?? null
+    const existingChatId = activeThreadId.value
+    const previousChatIds = new Set(projectThreads.value.map((thread) => thread.id))
+    const serializedConfig = serializeWorkflowConfigPayload(selectedWorkflowState.value?.config)
+
+    pendingUserMessageState.value = params.text
+    streamingAssistantTextState.value = ''
+
+    let streamedChatId: number | null = null
+
+    try {
+      const result = await chatsApi.sendMessage(
+        {
+          chatId: existingChatId,
+          projectId,
+          apiKeyId: params.apiKeyId,
+          text: params.text,
+          ...(serializedConfig ? { config: serializedConfig } : {}),
+        },
+        {
+          onStreamUpdate: (partial) => {
+            if (partial.chatId !== null) {
+              streamedChatId = partial.chatId
+            }
+            if (partial.chat && !threads.value.some((thread) => thread.id === partial.chat!.id)) {
+              threads.value = [
+                {
+                  ...partial.chat,
+                  messages: [],
+                  messagesLoaded: false,
+                },
+                ...threads.value,
+              ]
+              if (existingChatId === null) {
+                activeThreadId.value = partial.chat.id
+              }
+            }
+
+            const assistantMsg = [...partial.messages]
+              .reverse()
+              .find((message) => message.role === 'ai' && message.content.length > 0)
+            if (assistantMsg) {
+              streamingAssistantTextState.value = assistantMsg.content
+            }
+          },
+        },
+      )
+
+      let resolvedChatId = result.chatId ?? streamedChatId ?? existingChatId
+
+      if (projectId !== null) {
+        const reloadedThreads = await loadProjectChats(projectId, true)
+        if (resolvedChatId === null) {
+          const newlyCreated =
+            reloadedThreads.find((thread) => !previousChatIds.has(thread.id)) ??
+            [...reloadedThreads].sort((a, b) => {
+              const diff = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+              return diff !== 0 ? diff : b.id - a.id
+            })[0] ??
+            null
+          resolvedChatId = newlyCreated?.id ?? null
+        }
+      }
+
+      if (resolvedChatId !== null) {
+        activeThreadId.value = resolvedChatId
+        const fetchedMessages = await refreshThreadMessages(resolvedChatId)
+        if (fetchedMessages.length === 0 && result.messages.length > 0) {
+          threads.value = threads.value.map((thread) =>
+            thread.id === resolvedChatId
+              ? { ...thread, messages: result.messages, messagesLoaded: true }
+              : thread,
+          )
+        }
+      }
+
+      return result
+    } catch (error) {
+      if (existingChatId === null && streamedChatId !== null && projectId !== null) {
+        try {
+          await loadProjectChats(projectId, true)
+          activeThreadId.value = streamedChatId
+          await refreshThreadMessages(streamedChatId)
+        } catch {
+          // Preserve original send error if recovery refresh also fails
+        }
+      }
+      throw error
+    } finally {
+      pendingUserMessageState.value = null
+      streamingAssistantTextState.value = ''
     }
-    const newThread: ChatThread = {
-      id: nextWorkspaceId('thread'),
-      projectId: activeProject.value.id,
-      title: 'nova conversa',
-      group: 'today',
-      workflowId: selectedWorkflow.value?.id ?? null,
-      workflowName: selectedWorkflow.value?.name ?? null,
-      workflowEffort: selectedWorkflow.value?.effort ?? null,
-      messages: [],
-    }
-    threads.value = [newThread, ...threads.value]
-    activeThreadId.value = newThread.id
-    return newThread
   }
 
-  function updateProfile(payload: { username: string; email: string; workspace: string }) {
-    const matchedProject = projects.value.find((project) => project.name === payload.workspace)
-    if (matchedProject) {
-      activeProjectId.value = matchedProject.id
-    }
-    profile.value = {
-      ...profile.value,
-      username: payload.username,
-      email: payload.email,
-      workspace: payload.workspace,
-      role: matchedProject ? matchedProject.role : profile.value.role,
-    }
+  function setDefaultProjectId(projectId: number | null): void {
+    defaultProjectIdState.value = projectId
+    writeStoredDefaultProjectId(projectId)
+  }
+
+  function setSelectedWorkflow(workflow: SelectedWorkflow | null): void {
+    selectedWorkflow.value = workflow
+  }
+
+  function resetWorkspace(): void {
+    projectsState.value = []
+    activeProjectIdState.value = null
+    isLoadingProjectsState.value = false
+    projectsLoadedState.value = false
+    threadsState.value = []
+    activeThreadIdState.value = null
+    threadSearchState.value = ''
+    isLoadingChatsState.value = false
+    isLoadingMessagesState.value = false
+    pendingUserMessageState.value = null
+    streamingAssistantTextState.value = ''
+    selectedWorkflowState.value = null
+    isNavCollapsedState.value = false
+    isProjectsCollapsedState.value = true
+    loadedChatProjects.clear()
+    pendingProjectsLoad = null
   }
 
   return {
     projects,
     activeProjectId,
+    defaultProjectId,
     activeProject,
     profile,
+    isLoadingProjects,
+    projectsLoaded,
     threads,
     projectThreads,
     filteredThreads,
-    todayThreads,
-    weekThreads,
     activeThreadId,
     activeThread,
     threadSearch,
+    isLoadingChats,
+    isLoadingMessages,
+    pendingUserMessage,
+    streamingAssistantText,
     selectedWorkflow,
+    isNavCollapsed,
+    isProjectsCollapsed,
+    loadProjects,
+    ensureWorkspaceInitialized,
     selectProject,
+    syncFromRoute,
     createProject,
+    updateProject,
+    deleteProject,
+    loadProjectChats,
     selectThread,
+    refreshThreadMessages,
     startNewChat,
     renameThread,
     deleteThread,
-    ensureActiveThread,
-    updateProfile,
+    sendChatMessage,
+    setDefaultProjectId,
+    setSelectedWorkflow,
+    resetWorkspace,
   }
 }
 
-export function _resetWorkspaceForTesting() {
-  idSequence = 200
-  projectsState.value = INITIAL_PROJECT_DETAILS.map((item) => ({ ...item }))
-  activeProjectIdState.value = INITIAL_PROJECT_DETAILS[0]!.id
-  profileState.value = {
-    ...DEFAULT_USER_PROFILE,
-    role: INITIAL_PROJECT_DETAILS[0]!.role,
-    workspace: INITIAL_PROJECT_DETAILS[0]!.name,
-  }
-  threadsState.value = buildInitialThreads()
-  activeThreadIdState.value = 'thread-1'
+export function _resetWorkspaceForTesting(): void {
+  projectsState.value = []
+  activeProjectIdState.value = null
+  defaultProjectIdState.value = null
+  isLoadingProjectsState.value = false
+  projectsLoadedState.value = false
+  threadsState.value = []
+  activeThreadIdState.value = null
   threadSearchState.value = ''
-  selectedWorkflowState.value = {
-    id: 'wf-analise-critica',
-    name: 'análise crítica',
-    effort: 'Médio',
-  }
+  isLoadingChatsState.value = false
+  isLoadingMessagesState.value = false
+  pendingUserMessageState.value = null
+  streamingAssistantTextState.value = ''
+  selectedWorkflowState.value = null
+  isNavCollapsedState.value = false
+  isProjectsCollapsedState.value = true
+  loadedChatProjects.clear()
+  pendingProjectsLoad = null
 }

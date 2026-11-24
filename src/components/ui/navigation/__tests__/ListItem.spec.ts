@@ -94,6 +94,26 @@ describe('ListItem', () => {
     expect(wrapper.find('[data-testid="trailing-slot"]').text()).toBe('3')
   })
 
+  it('renders an anchor link when href is provided and intercepts unmodified left-click for SPA navigation', async () => {
+    const wrapper = mount(ListItem, {
+      props: {
+        label: 'Repertório',
+        href: '/projetos/1/repertorio',
+      },
+    })
+
+    const trigger = wrapper.find('a.list-item__trigger')
+    expect(trigger.exists()).toBe(true)
+    expect(trigger.attributes('href')).toBe('/projetos/1/repertorio')
+    expect(trigger.attributes('type')).toBeUndefined()
+
+    await trigger.trigger('click', { ctrlKey: true })
+    expect(wrapper.emitted('click')).toBeUndefined()
+
+    await trigger.trigger('click', { button: 0 })
+    expect(wrapper.emitted('click')).toHaveLength(1)
+  })
+
   it('masks overflowing label and translates to end after 300ms hover when marqueeOnHover is true', async () => {
     vi.useFakeTimers()
     const wrapper = mount(ListItem, {

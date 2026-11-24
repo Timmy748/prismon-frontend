@@ -157,4 +157,29 @@ describe('AiPromptInput', () => {
     await cards[1]!.find('.file-attachment-card__remove').trigger('click')
     expect(wrapper.emitted('remove-attachment')).toEqual([['att-2']])
   })
+
+  it('allows typing while submitDisabled is true, and blocks submit via click and Enter', async () => {
+    const wrapper = mount(AiPromptInput, {
+      props: {
+        modelValue: 'Próxima pergunta',
+        submitDisabled: true,
+      },
+    })
+
+    const textarea = wrapper.find('textarea')
+    expect(textarea.attributes('disabled')).toBeUndefined()
+    expect(wrapper.classes()).not.toContain('ai-prompt-input--disabled')
+
+    await textarea.setValue('Próxima pergunta editada')
+    expect(wrapper.emitted('update:modelValue')).toEqual([['Próxima pergunta editada']])
+
+    const buttons = wrapper.findAllComponents(IconButton)
+    const sendButton = buttons[2]
+    expect(sendButton?.props('disabled')).toBe(true)
+
+    await sendButton?.trigger('click')
+    await textarea.trigger('keydown', { key: 'Enter', shiftKey: false })
+
+    expect(wrapper.emitted('submit')).toBeUndefined()
+  })
 })

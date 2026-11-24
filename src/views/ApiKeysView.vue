@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { AppShell } from '@/components/shell'
 import {
   Button,
   ConfirmDialog,
   DataTable,
-  IconButton,
   Modal,
-  Notification,
   Select,
   TextInput,
   toast,
@@ -15,63 +13,25 @@ import {
   type DataTableColumn,
   type SelectOption,
 } from '@/components/ui'
+import { getApiErrorMessage } from '@/api/errors'
+import { useApiKeysApi } from '@/composables/api'
+import { useWorkspaceState } from '@/stores/workspaceState'
+import type { ApiKeyItem, ApiKeyProvider } from '@/types/apiKeys'
 
 type ApiKeyType = 'projeto' | 'membro'
 
-type ApiKeyRow = {
-  id: string
-  hint: string
-  createdAt: string
-}
-
-type CreatedKeyBanner = {
-  fullKey: string
-  alias: string
-  typeLabel: string
-}
-
 type PendingRevokeTarget = {
   type: ApiKeyType
-  ids: string[]
+  ids: number[]
 }
 
 const PAGE_SIZE = 10
 
-const INITIAL_PROJECT_KEYS: ApiKeyRow[] = [
-  {
-    id: 'key_proj_ci_4a9f',
-    hint: 'pk_proj_••••4a9f',
-    createdAt: '10/01/2026',
-  },
-  {
-    id: 'key_proj_wf_3c9a',
-    hint: 'pk_proj_••••3c9a',
-    createdAt: '28/01/2026',
-  },
-  {
-    id: 'key_proj_sync_7b20',
-    hint: 'pk_proj_••••7b20',
-    createdAt: '14/02/2026',
-  },
-]
-
-const INITIAL_MEMBER_KEYS: ApiKeyRow[] = [
-  {
-    id: 'key_user_cli_8c21',
-    hint: 'pk_user_••••8c21',
-    createdAt: '02/03/2026',
-  },
-  {
-    id: 'key_user_dev_19de',
-    hint: 'pk_user_••••19de',
-    createdAt: '15/03/2026',
-  },
-]
-
 const columns: DataTableColumn[] = [
   { key: 'id', label: 'id' },
+  { key: 'provider', label: 'provedor' },
   { key: 'hint', label: 'hint' },
-  { key: 'createdAt', label: 'criada em' },
+  { key: 'createdAtLabel', label: 'criada em' },
 ]
 
 const keyTypeOptions: SelectOption[] = [
@@ -79,22 +39,33 @@ const keyTypeOptions: SelectOption[] = [
   { label: 'Membro logado', value: 'membro' },
 ]
 
+const providerOptions: SelectOption[] = [{ label: 'OpenRouter', value: 'openrouter' }]
+
 const batchActions: BatchAction[] = [{ id: 'revoke', label: 'revogar', icon: 'delete' }]
 
-const projectKeys = ref<ApiKeyRow[]>(INITIAL_PROJECT_KEYS.map((item) => ({ ...item })))
-const memberKeys = ref<ApiKeyRow[]>(INITIAL_MEMBER_KEYS.map((item) => ({ ...item })))
+const { activeProjectId } = useWorkspaceState()
+const apiKeysApi = useApiKeysApi()
 
-const selectedProjectKeys = ref<string[]>([])
-const selectedMemberKeys = ref<string[]>([])
+const projectKeys = ref<ApiKeyItem[]>([])
+const memberKeys = ref<ApiKeyItem[]>([])
+
+const isLoadingProjectKeys = ref(false)
+const isLoadingMemberKeys = ref(false)
+const isSubmittingCreate = ref(false)
+const isSubmittingRevoke = ref(false)
+let latestProjectRequestId = 0
+let latestMemberRequestId = 0
+
+const selectedProjectKeys = ref<number[]>([])
+const selectedMemberKeys = ref<number[]>([])
 
 const projectPage = ref(1)
 const memberPage = ref(1)
 
-const newlyCreatedKey = ref<CreatedKeyBanner | null>(null)
-
 const isCreateModalOpen = ref(false)
 const newKeyType = ref<ApiKeyType>('projeto')
-const newKeyAlias = ref('')
+const newKeyProvider = ref<ApiKeyProvider>('openrouter')
+const newKeySecret = ref('')
 const newKeyError = ref('')
 
 const isRevokeDialogOpen = ref(false)
@@ -110,14 +81,89 @@ const paginatedMemberKeys = computed(() => {
   return memberKeys.value.slice(start, start + PAGE_SIZE)
 })
 
+const projectTableRows = computed<Array<Record<string, unknown>>>(() =>
+  paginatedProjectKeys.value.map((item) => ({ ...item })),
+)
+
+const memberTableRows = computed<Array<Record<string, unknown>>>(() =>
+  paginatedMemberKeys.value.map((item) => ({ ...item })),
+)
+
 const canProjectPrevious = computed(() => projectPage.value > 1)
 const canProjectNext = computed(() => projectPage.value * PAGE_SIZE < projectKeys.value.length)
 
 const canMemberPrevious = computed(() => memberPage.value > 1)
 const canMemberNext = computed(() => memberPage.value * PAGE_SIZE < memberKeys.value.length)
 
+async function loadProjectKeys(projectId: number): Promise<void> {
+  const requestId = ++latestProjectRequestId
+  isLoadingProjectKeys.value = true
+
+  try {
+    const page = await apiKeysApi.listProjectApiKeys(projectId, { limit: 100 })
+    if (requestId === latestProjectRequestId && activeProjectId.value === projectId) {
+      projectKeys.value = page.items
+    }
+  } catch (error) {
+    if (requestId === latestProjectRequestId) {
+      toast.error(getApiErrorMessage(error, 'Não foi possível carregar as chaves do projeto.'))
+    }
+  } finally {
+    if (requestId === latestProjectRequestId) {
+      isLoadingProjectKeys.value = false
+    }
+  }
+}
+
+async function loadMemberKeys(projectId: number): Promise<void> {
+  const requestId = ++latestMemberRequestId
+  isLoadingMemberKeys.value = true
+
+  try {
+    const page = await apiKeysApi.listMemberApiKeys(projectId, { limit: 100 })
+    if (requestId === latestMemberRequestId && activeProjectId.value === projectId) {
+      memberKeys.value = page.items
+    }
+  } catch (error) {
+    if (requestId === latestMemberRequestId) {
+      toast.error(getApiErrorMessage(error, 'Não foi possível carregar as chaves pessoais.'))
+    }
+  } finally {
+    if (requestId === latestMemberRequestId) {
+      isLoadingMemberKeys.value = false
+    }
+  }
+}
+
+watch(
+  activeProjectId,
+  (projectId) => {
+    selectedProjectKeys.value = []
+    selectedMemberKeys.value = []
+    projectPage.value = 1
+    memberPage.value = 1
+
+    if (projectId === null) {
+      latestProjectRequestId += 1
+      latestMemberRequestId += 1
+      projectKeys.value = []
+      memberKeys.value = []
+      isLoadingProjectKeys.value = false
+      isLoadingMemberKeys.value = false
+      return
+    }
+
+    void Promise.all([loadProjectKeys(projectId), loadMemberKeys(projectId)])
+  },
+  { immediate: true },
+)
+
 function toggleSelect(type: ApiKeyType, rowKey: string | number) {
-  const key = String(rowKey)
+  const key = Number(rowKey)
+  if (!Number.isFinite(key)) {
+    return
+  }
+
   const targetSelection = type === 'projeto' ? selectedProjectKeys : selectedMemberKeys
 
   if (targetSelection.value.includes(key)) {
@@ -141,40 +187,60 @@ function handleBatchAction(type: ApiKeyType, actionId: string) {
   isRevokeDialogOpen.value = true
 }
 
-function confirmRevokeKeys() {
+async function confirmRevokeKeys() {
+  const projectId = activeProjectId.value
   const target = pendingRevokeTarget.value
-  if (!target || target.ids.length === 0) {
+  if (projectId === null || !target || target.ids.length === 0) {
     isRevokeDialogOpen.value = false
     pendingRevokeTarget.value = null
     return
   }
 
-  const targetIds = new Set(target.ids)
-  const count = targetIds.size
-
-  if (target.type === 'projeto') {
-    projectKeys.value = projectKeys.value.filter((item) => !targetIds.has(item.id))
-    selectedProjectKeys.value = selectedProjectKeys.value.filter((id) => !targetIds.has(id))
-  } else {
-    memberKeys.value = memberKeys.value.filter((item) => !targetIds.has(item.id))
-    selectedMemberKeys.value = selectedMemberKeys.value.filter((id) => !targetIds.has(id))
+  if (isSubmittingRevoke.value) {
+    return
   }
 
-  pendingRevokeTarget.value = null
-  isRevokeDialogOpen.value = false
-  toast.success(`${count} chave(s) revogada(s) localmente.`)
+  isSubmittingRevoke.value = true
+  try {
+    await Promise.all(
+      target.ids.map((apiKeyId) => apiKeysApi.deleteProjectApiKey(projectId, apiKeyId)),
+    )
+
+    if (target.type === 'projeto') {
+      await loadProjectKeys(projectId)
+      selectedProjectKeys.value = []
+    } else {
+      await loadMemberKeys(projectId)
+      selectedMemberKeys.value = []
+    }
+
+    toast.success(`${target.ids.length} chave(s) revogada(s) com sucesso.`)
+    pendingRevokeTarget.value = null
+    isRevokeDialogOpen.value = false
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível revogar as chaves selecionadas.'))
+  } finally {
+    isSubmittingRevoke.value = false
+  }
 }
 
 function openCreateModal(type: ApiKeyType) {
+  if (activeProjectId.value === null) {
+    toast.error('Selecione um projeto ativo antes de cadastrar uma chave.')
+    return
+  }
+
   newKeyType.value = type
-  newKeyAlias.value = ''
+  newKeyProvider.value = 'openrouter'
+  newKeySecret.value = ''
   newKeyError.value = ''
   isCreateModalOpen.value = true
 }
 
 function resetCreateForm() {
   newKeyType.value = 'projeto'
-  newKeyAlias.value = ''
+  newKeyProvider.value = 'openrouter'
+  newKeySecret.value = ''
   newKeyError.value = ''
 }
 
@@ -183,74 +249,57 @@ function closeCreateModal() {
   resetCreateForm()
 }
 
-function buildKeySlug(alias: string): string {
-  return alias
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 12)
-}
-
-function generateSimulatedToken(
-  type: ApiKeyType,
-  alias: string,
-): { id: string; hint: string; fullKey: string } {
-  const randomCode = Math.random().toString(36).slice(2, 10).padEnd(8, '0')
-  const tail = randomCode.slice(-4)
-  const prefix = type === 'projeto' ? 'pk_proj' : 'pk_user'
-  const idPrefix = type === 'projeto' ? 'key_proj' : 'key_user'
-  const slug = buildKeySlug(alias)
-
-  return {
-    id: slug ? `${idPrefix}_${slug}_${tail}` : `${idPrefix}_${randomCode.slice(0, 6)}`,
-    hint: `${prefix}_••••${tail}`,
-    fullKey: `${prefix}_sim_${randomCode}`,
+function handleProviderChange(value: string) {
+  if (value === 'openrouter') {
+    newKeyProvider.value = value
   }
 }
 
-function handleCreateKey() {
-  const alias = newKeyAlias.value.trim()
-  if (!alias) {
-    newKeyError.value = 'Informe uma identificação para a chave.'
-    toast.error('Informe a identificação da nova chave antes de gerar.')
+async function handleCreateKey() {
+  const projectId = activeProjectId.value
+  if (projectId === null) {
+    toast.error('Selecione um projeto ativo antes de cadastrar uma chave.')
+    return
+  }
+
+  const secret = newKeySecret.value.trim()
+  if (!secret) {
+    newKeyError.value = 'Informe a chave de API.'
+    toast.error('Informe a chave de API antes de salvar.')
+    return
+  }
+
+  if (isSubmittingCreate.value) {
     return
   }
 
   const targetType = newKeyType.value
-  const { id, hint, fullKey } = generateSimulatedToken(targetType, alias)
-  const createdEntry: ApiKeyRow = {
-    id,
-    hint,
-    createdAt: 'agora',
+  const payload = {
+    provider: newKeyProvider.value,
+    apiKey: secret,
   }
 
-  if (targetType === 'projeto') {
-    projectKeys.value = [createdEntry, ...projectKeys.value]
-    projectPage.value = 1
-  } else {
-    memberKeys.value = [createdEntry, ...memberKeys.value]
-    memberPage.value = 1
-  }
-
-  newlyCreatedKey.value = {
-    fullKey,
-    alias,
-    typeLabel: targetType === 'projeto' ? 'Projeto' : 'Membro logado',
-  }
-  closeCreateModal()
-  toast.success(`Chave simulada "${alias}" gerada localmente.`)
-}
-
-async function copyKey(value: string) {
+  isSubmittingCreate.value = true
   try {
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(value)
+    if (targetType === 'projeto') {
+      await apiKeysApi.createProjectApiKey(projectId, payload)
+      await loadProjectKeys(projectId)
+      projectPage.value = 1
+      toast.success('Chave do projeto cadastrada com sucesso.')
+    } else {
+      await apiKeysApi.createMemberApiKey(projectId, payload)
+      await loadMemberKeys(projectId)
+      memberPage.value = 1
+      toast.success('Chave pessoal cadastrada com sucesso.')
     }
-    toast.success('Valor copiado para a área de transferência (simulado).')
-  } catch {
-    toast.info(`Copie manualmente: ${value}`)
+
+    closeCreateModal()
+  } catch (error) {
+    const message = getApiErrorMessage(error, 'Não foi possível cadastrar a chave de API.')
+    newKeyError.value = message
+    toast.error(message)
+  } finally {
+    isSubmittingCreate.value = false
   }
 }
 </script>
@@ -258,51 +307,13 @@ async function copyKey(value: string) {
 <template>
   <AppShell title="chaves de api" active-nav="api-keys">
     <div class="api-keys-view">
-      <Notification
-        variant="default"
-        icon="api-keys"
-        title="Ambiente de demonstração local"
-        message="As chaves abaixo são simuladas localmente no navegador e não executam chamadas de API."
-      />
-
-      <div
-        v-if="newlyCreatedKey"
-        class="api-keys-view__created-banner"
-        role="region"
-        aria-label="Nova chave gerada"
-      >
-        <Notification
-          variant="default"
-          icon="api-keys"
-          title="Nova chave gerada"
-          :message="`Chave &quot;${newlyCreatedKey.alias}&quot; (${newlyCreatedKey.typeLabel}) — copie agora: ${newlyCreatedKey.fullKey} (exibição única simulada).`"
-        />
-        <div class="api-keys-view__created-actions">
-          <Button
-            variant="secondary"
-            size="sm"
-            icon="repeat"
-            @click="copyKey(newlyCreatedKey.fullKey)"
-          >
-            Copiar chave
-          </Button>
-          <IconButton
-            variant="ghost"
-            size="sm"
-            icon="close"
-            ariaLabel="Fechar aviso de nova chave"
-            @click="newlyCreatedKey = null"
-          />
-        </div>
-      </div>
-
       <div class="api-keys-view__sections">
         <section class="api-keys-view__section" aria-label="APIs do Projeto">
           <DataTable
             title="apis do projeto"
             description="chaves vinculadas ao projeto ativo para integrações e workflows"
             :columns="columns"
-            :rows="paginatedProjectKeys"
+            :rows="projectTableRows"
             :selectable="true"
             :selected-row-keys="selectedProjectKeys"
             :show-pagination="true"
@@ -327,7 +338,15 @@ async function copyKey(value: string) {
             </template>
           </DataTable>
 
-          <p v-if="projectKeys.length === 0" class="api-keys-view__empty" role="status">
+          <p v-if="isLoadingProjectKeys" class="api-keys-view__empty" role="status">
+            Carregando chaves do projeto...
+          </p>
+
+          <p v-else-if="activeProjectId === null" class="api-keys-view__empty" role="status">
+            Selecione um projeto para visualizar as chaves de API.
+          </p>
+
+          <p v-else-if="projectKeys.length === 0" class="api-keys-view__empty" role="status">
             Nenhuma chave de projeto cadastrada.
           </p>
         </section>
@@ -337,7 +356,7 @@ async function copyKey(value: string) {
             title="minhas apis (membro logado)"
             description="chaves pessoais vinculadas à sua conta de usuário"
             :columns="columns"
-            :rows="paginatedMemberKeys"
+            :rows="memberTableRows"
             :selectable="true"
             :selected-row-keys="selectedMemberKeys"
             :show-pagination="true"
@@ -362,7 +381,15 @@ async function copyKey(value: string) {
             </template>
           </DataTable>
 
-          <p v-if="memberKeys.length === 0" class="api-keys-view__empty" role="status">
+          <p v-if="isLoadingMemberKeys" class="api-keys-view__empty" role="status">
+            Carregando chaves pessoais...
+          </p>
+
+          <p v-else-if="activeProjectId === null" class="api-keys-view__empty" role="status">
+            Selecione um projeto para visualizar as chaves pessoais.
+          </p>
+
+          <p v-else-if="memberKeys.length === 0" class="api-keys-view__empty" role="status">
             Nenhuma chave pessoal cadastrada.
           </p>
         </section>
@@ -371,9 +398,9 @@ async function copyKey(value: string) {
 
     <Modal
       v-model:open="isCreateModalOpen"
-      size="lg"
+      size="md"
       title="nova chave de api"
-      subtitle="Gere uma chave simulada vinculada ao projeto ou à sua conta."
+      subtitle="Cadastre uma chave de provedor vinculada ao projeto ou à sua conta."
       @close="resetCreateForm"
     >
       <div class="api-keys-view__modal-fields">
@@ -383,26 +410,38 @@ async function copyKey(value: string) {
           name="api-key-type"
           :options="keyTypeOptions"
         />
+        <Select
+          :model-value="newKeyProvider"
+          label="provedor"
+          name="api-key-provider"
+          :options="providerOptions"
+          @update:model-value="handleProviderChange"
+        />
         <TextInput
-          v-model="newKeyAlias"
-          label="identificação / apelido"
-          name="api-key-alias"
-          placeholder="Ex.: Pipeline Produção"
+          v-model="newKeySecret"
+          type="password"
+          label="chave de api"
+          name="api-key-secret"
+          placeholder="sk-or-v1-..."
           :error="newKeyError"
           @update:model-value="newKeyError = ''"
         />
       </div>
 
       <template #footer>
-        <Button variant="tertiary" @click="closeCreateModal">Cancelar</Button>
-        <Button variant="primary" @click="handleCreateKey">Gerar chave</Button>
+        <Button variant="tertiary" :disabled="isSubmittingCreate" @click="closeCreateModal">
+          Cancelar
+        </Button>
+        <Button variant="primary" :disabled="isSubmittingCreate" @click="handleCreateKey">
+          Salvar chave
+        </Button>
       </template>
     </Modal>
 
     <ConfirmDialog
       v-model:open="isRevokeDialogOpen"
       title="revogar chaves selecionadas"
-      :description="`Confirmar revogação local de ${pendingRevokeTarget?.ids.length ?? 0} chave(s)?`"
+      :description="`Confirmar revogação de ${pendingRevokeTarget?.ids.length ?? 0} chave(s)? Esta ação não pode ser desfeita.`"
       confirm-label="Revogar"
       confirm-variant="danger"
       @confirm="confirmRevokeKeys"
@@ -420,12 +459,6 @@ async function copyKey(value: string) {
   --api-keys-view-sections-gap: var(--spacing-7);
   --api-keys-view-section-gap: var(--spacing-4);
   --api-keys-view-modal-gap: var(--spacing-4);
-  --api-keys-view-actions-gap: var(--spacing-2);
-  --api-keys-view-banner-gap: var(--spacing-3);
-  --api-keys-view-banner-bg: var(--surface-brand-subtle);
-  --api-keys-view-banner-border-color: var(--border-brand-subtle);
-  --api-keys-view-banner-border-width: var(--border-width-thin);
-  --api-keys-view-banner-padding: var(--spacing-3);
   --api-keys-view-code-bg: var(--surface-subtle);
   --api-keys-view-code-border-color: var(--border-subtle-1);
   --api-keys-view-code-border-width: var(--border-width-thin);
@@ -443,6 +476,11 @@ async function copyKey(value: string) {
   --api-keys-view-empty-font-size: var(--type-body-01-font-size);
   --api-keys-view-empty-line-height: var(--type-body-01-line-height);
   --api-keys-view-empty-font-weight: var(--type-body-01-font-weight);
+  --api-keys-view-helper-color: var(--text-helper);
+  --api-keys-view-helper-font-family: var(--type-body-compact-01-font-family);
+  --api-keys-view-helper-font-size: var(--type-body-compact-01-font-size);
+  --api-keys-view-helper-line-height: var(--type-body-compact-01-line-height);
+  --api-keys-view-helper-font-weight: var(--type-body-compact-01-font-weight);
 
   display: flex;
   flex-direction: column;
@@ -452,22 +490,6 @@ async function copyKey(value: string) {
   margin: var(--spacing-0) auto;
   padding: var(--api-keys-view-padding);
   box-sizing: border-box;
-}
-
-.api-keys-view__created-banner {
-  display: flex;
-  flex-direction: column;
-  gap: var(--api-keys-view-banner-gap);
-  padding: var(--api-keys-view-banner-padding);
-  background-color: var(--api-keys-view-banner-bg);
-  border: var(--api-keys-view-banner-border-width) solid var(--api-keys-view-banner-border-color);
-}
-
-.api-keys-view__created-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--api-keys-view-actions-gap);
 }
 
 .api-keys-view__sections {

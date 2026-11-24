@@ -199,4 +199,30 @@ describe('DataTable', () => {
     expect(wrapper.emitted('batch-action')).toEqual([['delete']])
     expect(wrapper.emitted('clear-selection')).toHaveLength(1)
   })
+
+  it('positions batch wrapper inside container below table wrapper and toggles on selection changes', async () => {
+    const wrapper = mount(DataTable, {
+      props: {
+        columns: COLUMNS,
+        rows: ROWS,
+        selectable: true,
+        selectedRowKeys: [],
+        batchActions: BATCH_ACTIONS,
+      },
+    })
+
+    const container = wrapper.find('.data-table__container')
+    expect(container.exists()).toBe(true)
+    expect(container.find('.data-table__table-wrapper').exists()).toBe(true)
+    expect(container.find('.data-table__batch-wrapper').exists()).toBe(false)
+
+    await wrapper.setProps({ selectedRowKeys: ['u1'] })
+    const batchWrapper = container.find('.data-table__batch-wrapper')
+    expect(batchWrapper.exists()).toBe(true)
+    expect(batchWrapper.find('.data-table__batch-inner').exists()).toBe(true)
+    expect(batchWrapper.findComponent(BatchActionBar).props('selectedCount')).toBe(1)
+
+    await wrapper.setProps({ selectedRowKeys: [] })
+    expect(container.find('.data-table__batch-wrapper').exists()).toBe(false)
+  })
 })

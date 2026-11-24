@@ -4,6 +4,7 @@ import { Badge, Icon, IconButton, ScrollContainer, Tag, type IconName } from '@/
 export interface DocumentCardTag {
   id: string
   label: string
+  color?: string
 }
 
 interface Props {
@@ -86,6 +87,7 @@ function handleDownload() {
             v-for="tag in tags"
             :key="tag.id"
             :label="tag.label"
+            :color="tag.color"
             :dismissible="false"
             @dismiss="emit('remove-tag', id, tag.id)"
           />

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { getApiErrorMessage } from '@/api/errors'
 import {
   Button,
   ConfirmDialog,
@@ -9,7 +10,6 @@ import {
   IconButton,
   ListItem,
   Modal,
-  NavList,
   ScrollContainer,
   SearchInput,
   TextInput,
@@ -37,6 +37,7 @@ const route = useRoute()
 const router = useRouter()
 
 const {
+  activeProjectId,
   filteredThreads,
   activeThreadId,
   threadSearch,
@@ -54,33 +55,108 @@ const threadMenuItems: DropdownItem[] = [
 ]
 
 const isRenameModalOpen = ref(false)
-const pendingRenameThreadId = ref<string | null>(null)
+const pendingRenameThreadId = ref<number | null>(null)
 const renameTitleInput = ref('')
 const renameError = ref('')
+const isRenaming = ref(false)
 
 const isDeleteConfirmOpen = ref(false)
-const pendingDeleteThreadId = ref<string | null>(null)
+const pendingDeleteThreadId = ref<number | null>(null)
+const isDeleting = ref(false)
 
 const pendingDeleteThreadTitle = computed(() => {
   const found = filteredThreads.value.find((item) => item.id === pendingDeleteThreadId.value)
   return found?.title ?? ''
 })
 
-async function handleSelectThread(threadId: string) {
-  selectThread(threadId)
-  emit('thread-selected')
+function hasProjectScopedRoute(routeName: string): boolean {
+  if (!router.hasRoute(routeName)) {
+    return false
+  }
+  return router
+    .getRoutes()
+    .some((record) => record.name === routeName && record.path.includes(':projectId'))
+}
+
+function getThreadHref(thread: ChatThread): string | undefined {
+  const targetProjectId = thread.projectId ?? activeProjectId.value ?? null
+  if (targetProjectId !== null && hasProjectScopedRoute('chat-thread')) {
+    try {
+      return router.resolve({
+        name: 'chat-thread',
+        params: { projectId: String(targetProjectId), chatId: String(thread.id) },
+      }).href
+    } catch {
+      return undefined
+    }
+  }
+  if (router.hasRoute('chat')) {
+    try {
+      return router.resolve('/chat').href
+    } catch {
+      return '/chat'
+    }
+  }
+  return undefined
+}
+
+async function navigateToThread(threadId: number, projectId: number | null) {
+  if (projectId !== null && hasProjectScopedRoute('chat-thread')) {
+    const target = {
+      name: 'chat-thread',
+      params: { projectId: String(projectId), chatId: String(threadId) },
+    }
+    const resolved = router.resolve(target)
+    if (route?.fullPath !== resolved.fullPath) {
+      await router.push(target)
+    }
+    return
+  }
   if (route?.path !== '/chat' && router.hasRoute('chat')) {
     await router.push('/chat')
+  }
+}
+
+async function navigateToChatIndex(projectId: number | null) {
+  if (projectId !== null && hasProjectScopedRoute('chat')) {
+    const target = {
+      name: 'chat',
+      params: { projectId: String(projectId) },
+    }
+    const resolved = router.resolve(target)
+    if (route?.fullPath !== resolved.fullPath) {
+      await router.push(target)
+    }
+    return
+  }
+  if (route?.path !== '/chat' && router.hasRoute('chat')) {
+    await router.push('/chat')
+  }
+}
+
+async function handleSelectThread(threadId: number) {
+  try {
+    await selectThread(threadId)
+    emit('thread-selected')
+    const targetProjectId =
+      filteredThreads.value.find((item) => item.id === threadId)?.projectId ??
+      activeProjectId.value ??
+      null
+    await navigateToThread(threadId, targetProjectId)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível carregar a conversa.'))
   }
 }
 
 async function handleStartNewChat() {
   startNewChat()
   emit('new-chat')
-  if (route?.path !== '/chat' && router.hasRoute('chat')) {
-    await router.push('/chat')
-  }
+  await navigateToChatIndex(activeProjectId.value ?? null)
 }
+
+defineExpose({
+  handleStartNewChat,
+})
 
 function openRenameModal(thread: ChatThread) {
   pendingRenameThreadId.value = thread.id
@@ -90,39 +166,78 @@ function openRenameModal(thread: ChatThread) {
 }
 
 function closeRenameModal() {
+  if (isRenaming.value) {
+    return
+  }
   isRenameModalOpen.value = false
   pendingRenameThreadId.value = null
   renameTitleInput.value = ''
   renameError.value = ''
 }
 
-function handleSaveRename() {
+async function handleSaveRename() {
+  if (isRenaming.value) {
+    return
+  }
   const targetId = pendingRenameThreadId.value
   const cleanTitle = renameTitleInput.value.trim()
   if (!cleanTitle) {
     renameError.value = 'Informe um nome para a conversa.'
     return
   }
-  if (targetId && renameThread(targetId, cleanTitle)) {
-    toast.success('Nome da conversa atualizado.')
+  if (targetId === null) {
+    closeRenameModal()
+    return
   }
-  closeRenameModal()
+
+  isRenaming.value = true
+  try {
+    const updated = await renameThread(targetId, cleanTitle)
+    if (updated) {
+      toast.success('Nome da conversa atualizado.')
+    }
+    isRenaming.value = false
+    closeRenameModal()
+  } catch (error) {
+    const message = getApiErrorMessage(error, 'Não foi possível renomear a conversa.')
+    renameError.value = message
+    toast.error(message)
+  } finally {
+    isRenaming.value = false
+  }
 }
 
-function askDeleteThread(threadId: string) {
+function askDeleteThread(threadId: number) {
   pendingDeleteThreadId.value = threadId
   isDeleteConfirmOpen.value = true
 }
 
-function confirmDeleteThread() {
-  const targetId = pendingDeleteThreadId.value
-  isDeleteConfirmOpen.value = false
-  pendingDeleteThreadId.value = null
-  if (!targetId) {
+async function confirmDeleteThread() {
+  if (isDeleting.value) {
     return
   }
-  deleteThread(targetId)
-  toast.info('Conversa removida da lista local.')
+  const targetId = pendingDeleteThreadId.value
+  if (targetId === null) {
+    isDeleteConfirmOpen.value = false
+    return
+  }
+
+  isDeleting.value = true
+  try {
+    const wasActiveThread = activeThreadId.value === targetId
+    const targetProjectId = activeProjectId.value ?? null
+    await deleteThread(targetId)
+    isDeleteConfirmOpen.value = false
+    pendingDeleteThreadId.value = null
+    toast.info('Conversa removida.')
+    if (wasActiveThread) {
+      await navigateToChatIndex(targetProjectId)
+    }
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível remover a conversa.'))
+  } finally {
+    isDeleting.value = false
+  }
 }
 
 function handleThreadMenuAction(thread: ChatThread, actionId: string) {
@@ -137,10 +252,13 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
 </script>
 
 <template>
-  <div :class="['chat-threads', inDrawer ? 'chat-threads--drawer' : undefined]">
+  <div
+    v-if="!collapsed || inDrawer"
+    :class="['chat-threads', inDrawer ? 'chat-threads--drawer' : undefined]"
+  >
     <div v-if="!inDrawer" class="chat-threads__divider" aria-hidden="true" />
 
-    <div v-if="!collapsed" class="chat-threads__content">
+    <div class="chat-threads__content">
       <div class="chat-threads__header">
         <h2 class="chat-threads__title">conversas</h2>
       </div>
@@ -160,7 +278,7 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
           :aria-expanded="isTodayOpen"
           @click="isTodayOpen = !isTodayOpen"
         >
-          <span class="chat-threads__group-title">hoje</span>
+          <span class="chat-threads__group-title">Meus chats</span>
           <span
             :class="[
               'chat-threads__group-chevron',
@@ -184,6 +302,7 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
             v-for="thread in filteredThreads"
             :key="thread.id"
             :label="thread.title"
+            :href="getThreadHref(thread)"
             :active="thread.id === activeThreadId"
             :marquee-on-hover="true"
             @click="handleSelectThread(thread.id)"
@@ -212,43 +331,15 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
           </ListItem>
 
           <p v-if="filteredThreads.length === 0" class="chat-threads__empty">
-            Nenhuma conversa encontrada.
+            nenhuma conversa encontrada
           </p>
         </div>
       </ScrollContainer>
     </div>
 
-    <div v-else class="chat-threads__collapsed">
-      <IconButton
-        variant="primary"
-        size="sm"
-        icon="plus"
-        ariaLabel="Nova conversa"
-        @click="handleStartNewChat"
-      />
-      <ScrollContainer
-        direction="vertical"
-        gap="none"
-        class="chat-threads__collapsed-scroll"
-        ariaLabel="Conversas"
-      >
-        <NavList>
-          <ListItem
-            v-for="thread in filteredThreads"
-            :key="thread.id"
-            :label="thread.title"
-            icon="chat"
-            :collapsed="true"
-            :active="thread.id === activeThreadId"
-            @click="handleSelectThread(thread.id)"
-          />
-        </NavList>
-      </ScrollContainer>
-    </div>
-
     <Modal
       v-model:open="isRenameModalOpen"
-      size="lg"
+      size="md"
       title="renomear conversa"
       subtitle="Defina um novo título para localizar esta conversa facilmente."
       @close="closeRenameModal"
@@ -256,6 +347,7 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
       <form
         id="rename-thread-form"
         class="chat-threads__rename-form"
+        novalidate
         @submit.prevent="handleSaveRename"
       >
         <TextInput
@@ -263,14 +355,19 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
           label="Nome da conversa"
           name="thread-title"
           placeholder="Ex.: revisão de contrato q4"
+          :disabled="isRenaming"
           :error="renameError"
           @update:model-value="renameError = ''"
         />
       </form>
 
       <template #footer>
-        <Button variant="tertiary" @click="closeRenameModal">Cancelar</Button>
-        <Button type="submit" form="rename-thread-form" variant="primary">Salvar nome</Button>
+        <Button variant="tertiary" :disabled="isRenaming" @click="closeRenameModal">
+          Cancelar
+        </Button>
+        <Button type="submit" form="rename-thread-form" variant="primary" :disabled="isRenaming">
+          {{ isRenaming ? 'Salvando...' : 'Salvar nome' }}
+        </Button>
       </template>
     </Modal>
 
@@ -279,10 +376,10 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
       title="remover conversa"
       :description="
         pendingDeleteThreadTitle
-          ? `Remover &quot;${pendingDeleteThreadTitle}&quot; da lista local de conversas?`
-          : 'Esta conversa simulada será removida da lista local.'
+          ? `Remover &quot;${pendingDeleteThreadTitle}&quot; permanentemente?`
+          : 'Esta conversa será removida permanentemente.'
       "
-      confirm-label="Remover"
+      :confirm-label="isDeleting ? 'Removendo...' : 'Remover'"
       confirm-variant="danger"
       @confirm="confirmDeleteThread"
     />
@@ -442,23 +539,6 @@ function handleThreadMenuAction(thread: ChatThread, actionId: string) {
   font-size: var(--chat-threads-empty-font-size);
   line-height: var(--chat-threads-empty-line-height);
   font-weight: var(--chat-threads-empty-font-weight);
-}
-
-.chat-threads__collapsed {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1 1 0;
-  min-height: var(--spacing-0);
-  gap: var(--spacing-3);
-  width: 100%;
-  overflow: hidden;
-}
-
-.chat-threads__collapsed-scroll {
-  flex: 1 1 0;
-  min-height: var(--spacing-0);
-  width: 100%;
 }
 
 .chat-threads__rename-form {

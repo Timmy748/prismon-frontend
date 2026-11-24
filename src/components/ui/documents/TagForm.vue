@@ -6,11 +6,14 @@ import { TextArea, TextInput } from '../forms'
 export interface TagFormPayload {
   name: string
   description: string
+  color?: string
 }
 
 interface Props {
   name?: string
   description?: string
+  color?: string
+  showColor?: boolean
   nameLabel?: string
   namePlaceholder?: string
   nameHelpText?: string
@@ -19,6 +22,8 @@ interface Props {
   descriptionPlaceholder?: string
   descriptionHelpText?: string
   descriptionError?: string | boolean
+  colorLabel?: string
+  colorError?: string | boolean
   cancelLabel?: string
   submitLabel?: string
   disabled?: boolean
@@ -28,8 +33,11 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   name: '',
   description: '',
+  color: '#f33ff0',
+  showColor: false,
   nameLabel: 'Nome',
   descriptionLabel: 'Descrição',
+  colorLabel: 'Cor (Hex)',
   cancelLabel: 'Cancelar',
   submitLabel: 'Salvar',
   disabled: false,
@@ -39,12 +47,14 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'update:name': [value: string]
   'update:description': [value: string]
+  'update:color': [value: string]
   submit: [payload: TagFormPayload]
   cancel: []
 }>()
 
 const localName = ref(props.name)
 const localDescription = ref(props.description)
+const localColor = ref(props.color)
 
 watch(
   () => props.name,
@@ -60,6 +70,13 @@ watch(
   },
 )
 
+watch(
+  () => props.color,
+  (newValue) => {
+    localColor.value = newValue
+  },
+)
+
 function handleNameUpdate(value: string) {
   localName.value = value
   emit('update:name', value)
@@ -70,14 +87,23 @@ function handleDescriptionUpdate(value: string) {
   emit('update:description', value)
 }
 
+function handleColorUpdate(value: string) {
+  localColor.value = value
+  emit('update:color', value)
+}
+
 function handleSubmit() {
   if (props.disabled || props.submitDisabled) {
     return
   }
-  emit('submit', {
+  const payload: TagFormPayload = {
     name: localName.value,
     description: localDescription.value,
-  })
+  }
+  if (props.showColor) {
+    payload.color = localColor.value
+  }
+  emit('submit', payload)
 }
 </script>
 
@@ -102,6 +128,32 @@ function handleSubmit() {
         :disabled="disabled"
         @update:model-value="handleDescriptionUpdate"
       />
+      <div v-if="showColor" class="tag-form__color-row">
+        <label class="tag-form__color-label" for="tag-form-color-picker">
+          {{ colorLabel }}
+        </label>
+        <div class="tag-form__color-controls">
+          <input
+            id="tag-form-color-picker"
+            type="color"
+            class="tag-form__color-picker"
+            :value="localColor"
+            :disabled="disabled"
+            aria-label="Selecionar cor da tag"
+            @input="handleColorUpdate(($event.target as HTMLInputElement).value)"
+          />
+          <div class="tag-form__color-hex">
+            <TextInput
+              :model-value="localColor"
+              placeholder="#f33ff0"
+              :error="colorError"
+              :disabled="disabled"
+              aria-label="Código hexadecimal da cor"
+              @update:model-value="handleColorUpdate"
+            />
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="tag-form__actions">
@@ -121,6 +173,13 @@ function handleSubmit() {
   --tag-form-gap: var(--spacing-6);
   --tag-form-fields-gap: var(--spacing-5);
   --tag-form-actions-gap: var(--spacing-0);
+  --tag-form-color-label-color: var(--text-primary);
+  --tag-form-color-label-font-family: var(--type-label-01-font-family);
+  --tag-form-color-label-font-size: var(--type-label-01-font-size);
+  --tag-form-color-label-line-height: var(--type-label-01-line-height);
+  --tag-form-color-label-font-weight: var(--type-label-01-font-weight);
+  --tag-form-picker-border-color: var(--border-subtle-1);
+  --tag-form-picker-border-width: var(--border-width-thin);
 
   display: flex;
   flex-direction: column;
@@ -133,6 +192,41 @@ function handleSubmit() {
   display: flex;
   flex-direction: column;
   gap: var(--tag-form-fields-gap);
+}
+
+.tag-form__color-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.tag-form__color-label {
+  color: var(--tag-form-color-label-color);
+  font-family: var(--tag-form-color-label-font-family);
+  font-size: var(--tag-form-color-label-font-size);
+  line-height: var(--tag-form-color-label-line-height);
+  font-weight: var(--tag-form-color-label-font-weight);
+}
+
+.tag-form__color-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-3);
+}
+
+.tag-form__color-picker {
+  width: 44px;
+  height: 40px;
+  padding: var(--spacing-1);
+  border: var(--tag-form-picker-border-width) solid var(--tag-form-picker-border-color);
+  background-color: var(--surface-elevated);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tag-form__color-hex {
+  flex: 1;
+  min-width: var(--spacing-0);
 }
 
 .tag-form__actions {

@@ -2,13 +2,21 @@
 import { computed } from 'vue'
 import { Icon } from '../icons'
 
+const HEX_COLOR_REGEX = /^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/
+const RGB_COLOR_REGEX =
+  /^rgba?\(\s*\d{1,3}%?(?:\s*,\s*|\s+)\d{1,3}%?(?:\s*,\s*|\s+)\d{1,3}%?(?:\s*[,/]\s*(?:0|1|0?\.\d+|\d{1,3}%))?\s*\)$/i
+const HSL_COLOR_REGEX =
+  /^hsla?\(\s*\d{1,3}(?:deg|rad|grad|turn)?(?:\s*,\s*|\s+)\d{1,3}%(?:\s*,\s*|\s+)\d{1,3}%(?:\s*[,/]\s*(?:0|1|0?\.\d+|\d{1,3}%))?\s*\)$/i
+
 interface Props {
   label?: string
+  color?: string
   dismissible?: boolean
   dismissLabel?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  color: undefined,
   dismissible: false,
   dismissLabel: 'Remover tag',
 })
@@ -17,11 +25,39 @@ const emit = defineEmits<{
   dismiss: []
 }>()
 
-const tagClasses = computed(() => ['tag', props.dismissible ? 'tag--dismissible' : undefined])
+const resolvedColor = computed(() => {
+  const candidate = props.color?.trim()
+  if (!candidate) {
+    return undefined
+  }
+  if (
+    HEX_COLOR_REGEX.test(candidate) ||
+    RGB_COLOR_REGEX.test(candidate) ||
+    HSL_COLOR_REGEX.test(candidate)
+  ) {
+    return candidate
+  }
+  return undefined
+})
+
+const tagClasses = computed(() => [
+  'tag',
+  props.dismissible ? 'tag--dismissible' : undefined,
+  resolvedColor.value ? 'tag--colored' : undefined,
+])
+
+const tagStyle = computed<Record<string, string> | undefined>(() => {
+  if (!resolvedColor.value) {
+    return undefined
+  }
+  return {
+    '--tag-dot-bg': resolvedColor.value,
+  }
+})
 </script>
 
 <template>
-  <span :class="tagClasses">
+  <span :class="tagClasses" :style="tagStyle">
     <span class="tag__dot" aria-hidden="true" />
     <span class="tag__label">
       <slot>{{ label }}</slot>

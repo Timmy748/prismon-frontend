@@ -14,6 +14,7 @@ interface Props {
   modelValue?: string
   placeholder?: string
   disabled?: boolean
+  submitDisabled?: boolean
   attachments?: AiAttachmentItem[]
   attachLabel?: string
   workflowLabel?: string
@@ -25,6 +26,7 @@ const props = withDefaults(defineProps<Props>(), {
   modelValue: '',
   placeholder: 'Digite sua mensagem',
   disabled: false,
+  submitDisabled: false,
   attachments: () => [],
   attachLabel: 'Anexar arquivo',
   workflowLabel: 'Selecionar workflow',
@@ -45,7 +47,9 @@ const containerClasses = computed(() => [
   props.disabled ? 'ai-prompt-input--disabled' : undefined,
 ])
 
-const isSendDisabled = computed(() => props.disabled || !props.modelValue.trim())
+const isSendDisabled = computed(
+  () => props.disabled || props.submitDisabled || !props.modelValue.trim(),
+)
 
 function handleInput(event: Event) {
   const target = event.target as HTMLTextAreaElement

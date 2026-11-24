@@ -102,13 +102,18 @@ const tabItemClasses = computed(() => [
 @media (prefers-reduced-motion: reduce) {
   .tab-item {
     --tab-item-press-scale: 1;
+    transition: none;
+  }
+
+  .tab-item__label {
+    transition: none;
   }
 }
 
 .tab-item--active {
   --tab-item-bg: var(--surface-elevated);
   --tab-item-bg-hover: var(--surface-elevated);
-  --tab-item-color: var(--text-primary);
+  --tab-item-color: var(--text-brand);
   --tab-item-border-color: var(--border-brand);
 }
 

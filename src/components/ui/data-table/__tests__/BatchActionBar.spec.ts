@@ -106,4 +106,28 @@ describe('BatchActionBar', () => {
     expect(wrapper.find('[data-testid="custom-action"]').exists()).toBe(true)
     expect(wrapper.findAllComponents(Icon)).toHaveLength(0)
   })
+
+  it('renders multiple batch actions alongside cancel inside wrapping actions container', async () => {
+    const manyActions: BatchAction[] = [
+      ...ACTIONS,
+      { id: 'archive', label: 'arquivar' },
+      { id: 'duplicate', label: 'duplicar' },
+    ]
+    const wrapper = mount(BatchActionBar, {
+      props: {
+        selectedCount: 12,
+        actions: manyActions,
+      },
+    })
+
+    const actionsContainer = wrapper.find('.batch-action-bar__actions')
+    expect(actionsContainer.exists()).toBe(true)
+
+    const buttons = actionsContainer.findAll('button.batch-action-bar__button')
+    expect(buttons).toHaveLength(5)
+    expect(buttons[4]!.classes()).toContain('batch-action-bar__button--cancel')
+
+    await buttons[2]!.trigger('click')
+    expect(wrapper.emitted('action')).toEqual([['archive']])
+  })
 })

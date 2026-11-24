@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Button, Modal, TextInput, toast } from '@/components/ui'
+import { parseApiError } from '@/api/errors'
+import { Button, TextInput, toast } from '@/components/ui'
+import { useAuthState } from '@/stores/authState'
 import heroRobotImg from '@/assets/images/2da21ad867bb41c5bb1b67c4a94cdda9ac4949e1.jpg'
 
 export type AuthMode = 'login' | 'register'
@@ -16,6 +18,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const route = useRoute()
 const router = useRouter()
+const { login, register } = useAuthState()
 
 function resolveModeFromRoute(): AuthMode | null {
   if (route?.name === 'register' || route?.path === '/cadastro') {
@@ -28,6 +31,7 @@ function resolveModeFromRoute(): AuthMode | null {
 }
 
 const mode = ref<AuthMode>(resolveModeFromRoute() ?? props.initialMode ?? 'register')
+const isSubmitting = ref(false)
 
 const form = reactive({
   username: '',
@@ -40,10 +44,6 @@ const errors = reactive({
   email: '',
   password: '',
 })
-
-const forgotModalOpen = ref(false)
-const recoveryEmail = ref('')
-const recoveryError = ref('')
 
 const isRegister = computed(() => mode.value === 'register')
 
@@ -114,22 +114,56 @@ function validateForm(): boolean {
   return valid
 }
 
-function handleSubmit() {
+async function handleSubmit() {
+  if (isSubmitting.value) {
+    return
+  }
+
   if (!validateForm()) {
     toast.error('Revise os campos obrigatórios antes de continuar.')
     return
   }
 
-  if (isRegister.value) {
-    toast.success('Conta criada com sucesso! Bem-vindo ao prismon.')
-  } else {
-    toast.success('Login realizado com sucesso!')
-  }
+  isSubmitting.value = true
+  try {
+    if (isRegister.value) {
+      await register({
+        username: form.username.trim(),
+        email: form.email.trim(),
+        password: form.password,
+      })
+      toast.success('Conta criada com sucesso! Bem-vindo ao prismon.')
+    } else {
+      await login({
+        email: form.email.trim(),
+        password: form.password,
+      })
+      toast.success('Login realizado com sucesso!')
+    }
 
-  void router.push('/chat')
+    await router.push('/chat')
+  } catch (error) {
+    const parsed = parseApiError(error)
+    if (parsed.fieldErrors.username) {
+      errors.username = parsed.fieldErrors.username
+    }
+    if (parsed.fieldErrors.email) {
+      errors.email = parsed.fieldErrors.email
+    }
+    const passwordFieldError = parsed.fieldErrors.password ?? parsed.fieldErrors.password_hash ?? ''
+    if (passwordFieldError) {
+      errors.password = passwordFieldError
+    }
+    toast.error(parsed.message)
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 function toggleMode() {
+  if (isSubmitting.value) {
+    return
+  }
   const nextMode: AuthMode = isRegister.value ? 'login' : 'register'
   mode.value = nextMode
   clearErrors()
@@ -139,38 +173,6 @@ function toggleMode() {
   if (hasTargetRoute && route.path !== targetPath) {
     void router.push(targetPath)
   }
-}
-
-function handleExploreUiKit() {
-  void router.push('/ui-kit')
-}
-
-function openForgotModal() {
-  recoveryEmail.value = form.email.trim()
-  recoveryError.value = ''
-  forgotModalOpen.value = true
-}
-
-function resetForgotModal() {
-  recoveryEmail.value = ''
-  recoveryError.value = ''
-}
-
-function closeForgotModal() {
-  forgotModalOpen.value = false
-  resetForgotModal()
-}
-
-function handleForgotSubmit() {
-  const trimmed = recoveryEmail.value.trim()
-  if (trimmed.length === 0 || !isValidEmail(trimmed)) {
-    recoveryError.value = 'Informe um email válido contendo @.'
-    toast.error('Informe um email válido para recuperação.')
-    return
-  }
-
-  toast.info(`Enviamos um link de recuperação para ${trimmed}.`)
-  closeForgotModal()
 }
 </script>
 
@@ -195,6 +197,7 @@ function handleForgotSubmit() {
                   placeholder="Digite seu nome"
                   help-text="Use seu nome ou apelido público"
                   autocomplete="username"
+                  :disabled="isSubmitting"
                   :error="errors.username"
                   @update:model-value="errors.username = ''"
                 />
@@ -207,6 +210,7 @@ function handleForgotSubmit() {
                   placeholder="Digite seu email"
                   :help-text="isRegister ? 'Enviaremos avisos do workspace' : undefined"
                   autocomplete="email"
+                  :disabled="isSubmitting"
                   :error="errors.email"
                   @update:model-value="errors.email = ''"
                 />
@@ -219,25 +223,33 @@ function handleForgotSubmit() {
                   placeholder="Digite sua senha"
                   :help-text="isRegister ? 'Mínimo de 6 caracteres' : undefined"
                   :autocomplete="isRegister ? 'new-password' : 'current-password'"
+                  :disabled="isSubmitting"
                   :error="errors.password"
                   @update:model-value="errors.password = ''"
                 />
               </div>
 
-              <div v-if="!isRegister" class="auth-view__forgot-row">
-                <button type="button" class="auth-view__forgot-link" @click="openForgotModal">
-                  esqueci minha senha
-                </button>
-              </div>
-
               <div class="auth-view__actions">
-                <Button type="submit" variant="primary" size="md" :full-width="true">
-                  {{ submitLabel }}
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  :full-width="true"
+                  :disabled="isSubmitting"
+                >
+                  {{
+                    isSubmitting ? (isRegister ? 'criando conta...' : 'entrando...') : submitLabel
+                  }}
                 </Button>
 
                 <p class="auth-view__switch">
                   <span class="auth-view__switch-text">{{ switchPrompt }}</span>
-                  <button type="button" class="auth-view__switch-link" @click="toggleMode">
+                  <button
+                    type="button"
+                    class="auth-view__switch-link"
+                    :disabled="isSubmitting"
+                    @click="toggleMode"
+                  >
                     {{ switchActionLabel }}
                   </button>
                 </p>
@@ -245,49 +257,12 @@ function handleForgotSubmit() {
             </form>
           </div>
         </Transition>
-
-        <div class="auth-view__explore">
-          <Button variant="ghost" size="sm" @click="handleExploreUiKit"> Explorar UI Kit </Button>
-        </div>
       </div>
     </section>
 
     <aside class="auth-view__media" aria-label="Ilustração Prismon">
       <img :src="heroRobotImg" alt="Ilustração do robô Prismon" class="auth-view__image" />
     </aside>
-
-    <Modal
-      v-model:open="forgotModalOpen"
-      size="lg"
-      title="recuperar senha"
-      subtitle="Informe seu email para receber as instruções de acesso."
-      @close="resetForgotModal"
-    >
-      <form
-        id="auth-forgot-form"
-        class="auth-view__modal-form"
-        novalidate
-        @submit.prevent="handleForgotSubmit"
-      >
-        <TextInput
-          v-model="recoveryEmail"
-          label="email"
-          name="recovery-email"
-          type="email"
-          placeholder="Digite seu email"
-          autocomplete="email"
-          :error="recoveryError"
-          @update:model-value="recoveryError = ''"
-        />
-      </form>
-
-      <template #footer>
-        <Button variant="tertiary" size="sm" @click="closeForgotModal">cancelar</Button>
-        <Button type="submit" form="auth-forgot-form" variant="primary" size="sm">
-          enviar link
-        </Button>
-      </template>
-    </Modal>
   </main>
 </template>
 
@@ -407,13 +382,6 @@ function handleForgotSubmit() {
   gap: var(--auth-view-fields-gap);
 }
 
-.auth-view__forgot-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: calc(var(--spacing-3) * -1);
-}
-
-.auth-view__forgot-link,
 .auth-view__switch-link {
   padding: var(--spacing-0);
   border: var(--border-width-none);
@@ -430,15 +398,18 @@ function handleForgotSubmit() {
     transform var(--auth-view-transition-duration) var(--auth-view-switch-easing);
 }
 
-.auth-view__forgot-link:focus-visible,
 .auth-view__switch-link:focus-visible {
   outline: none;
   box-shadow: var(--auth-view-focus-ring);
 }
 
-.auth-view__forgot-link:active,
-.auth-view__switch-link:active {
+.auth-view__switch-link:active:not(:disabled) {
   transform: scale(var(--auth-view-press-scale));
+}
+
+.auth-view__switch-link:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
 }
 
 .auth-view__actions {
@@ -460,11 +431,6 @@ function handleForgotSubmit() {
   font-weight: var(--auth-view-meta-font-weight);
 }
 
-.auth-view__explore {
-  display: flex;
-  justify-content: center;
-}
-
 .auth-view__media {
   position: relative;
   min-width: var(--spacing-0);
@@ -483,15 +449,8 @@ function handleForgotSubmit() {
   object-fit: cover;
 }
 
-.auth-view__modal-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-4);
-}
-
 @media (hover: hover) and (pointer: fine) {
-  .auth-view__forgot-link:hover,
-  .auth-view__switch-link:hover {
+  .auth-view__switch-link:hover:not(:disabled) {
     color: var(--auth-view-link-color-hover);
     text-decoration: underline;
   }

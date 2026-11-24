@@ -1,71 +1,137 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { getApiErrorMessage } from '@/api/errors'
 import {
   AiPromptInput,
   Badge,
+  Button,
   ChatMessage,
-  FileAttachmentCard,
   Icon,
   IconButton,
+  MarkdownRenderer,
+  Notification,
   ScrollContainer,
+  Select,
   Tag,
   WorkflowStepsAccordion,
   toast,
-  type AiAttachmentItem,
+  type AiCitationPayload,
+  type SelectOption,
 } from '@/components/ui'
 import { AppShell } from '@/components/shell'
 import WorkflowConfigModal, {
   type WorkflowConfigApplyPayload,
 } from '@/components/chat/WorkflowConfigModal.vue'
-import {
-  nextWorkspaceId,
-  useWorkspaceState,
-  type ChatThreadMessage,
-  type ChatWorkflowStep,
-  type SelectedWorkflow,
-} from '@/stores/workspaceState'
+import { useApiKeysApi } from '@/composables/api'
+import { useRepertoryState } from '@/stores/repertoryState'
+import { useWorkspaceState, type SelectedWorkflow } from '@/stores/workspaceState'
+import type { ApiKeyItem } from '@/types/apiKeys'
+import type { ChatMessageItem, ChatWorkflowStep } from '@/types/chats'
 
-interface PromptSuggestion {
-  id: string
-  label: string
-  prompt: string
-}
-
-const MOCK_ATTACHMENTS: Array<{ filename: string; fileSize: string }> = [
-  { filename: 'especificacao-v2.pdf', fileSize: '420 KB' },
-  { filename: 'contrato-revisao.docx', fileSize: '184 KB' },
-  { filename: 'dados-q4.csv', fileSize: '96 KB' },
-]
-
-const PROMPT_SUGGESTIONS: PromptSuggestion[] = [
-  {
-    id: 'sug-1',
-    label: 'revisar cláusulas de contrato',
-    prompt: 'Revise os principais riscos contratuais e prazos de SLA deste documento.',
-  },
-  {
-    id: 'sug-2',
-    label: 'resumir especificação técnica',
-    prompt: 'Gere um resumo executivo com requisitos críticos e pontos em aberto.',
-  },
-  {
-    id: 'sug-3',
-    label: 'consultar repertório interno',
-    prompt: 'Compare esta proposta com as diretrizes internas do repertório Prismon.',
-  },
-]
-
-const { activeThread, selectedWorkflow, ensureActiveThread, startNewChat } = useWorkspaceState()
+const route = useRoute()
+const router = useRouter()
+const {
+  activeProject,
+  activeProjectId,
+  activeThread,
+  activeThreadId,
+  isLoadingMessages,
+  pendingUserMessage,
+  streamingAssistantText,
+  selectedWorkflow,
+  startNewChat,
+  sendChatMessage,
+  setSelectedWorkflow,
+} = useWorkspaceState()
+const { getDocumentsState, getAssetsState } = useRepertoryState()
+const { listProjectApiKeys, listMemberApiKeys } = useApiKeysApi()
 
 const messagesScrollRef = ref<InstanceType<typeof ScrollContainer> | null>(null)
 const draftMessage = ref('')
-const pendingAttachments = ref<AiAttachmentItem[]>([])
-const mockAttachCursor = ref(0)
+
+const apiKeys = ref<ApiKeyItem[]>([])
+const isLoadingApiKeys = ref(false)
+const apiKeysError = ref('')
+const selectedApiKeyIdString = ref('')
+let apiKeysRequestSeq = 0
 
 const isWorkflowModalOpen = ref(false)
 const isGenerating = ref(false)
 
-const pendingTimers = new Set<ReturnType<typeof setTimeout>>()
+const resolvedProjectId = computed<number | null>(
+  () => activeProjectId.value ?? activeProject.value?.id ?? null,
+)
+
+function buildTitleMap<T extends { id: number; title: string }>(items: T[]): Record<number, string> {
+  const map: Record<number, string> = {}
+  for (const item of items) {
+    if (item.title) {
+      map[item.id] = item.title
+    }
+  }
+  return map
+}
+
+const cachedDocumentTitles = computed<Record<number, string>>(() => {
+  if (resolvedProjectId.value === null) {
+    return {}
+  }
+  return buildTitleMap(getDocumentsState(resolvedProjectId.value).items)
+})
+
+const cachedAssetTitles = computed<Record<number, string>>(() => {
+  if (resolvedProjectId.value === null) {
+    return {}
+  }
+  return buildTitleMap(getAssetsState(resolvedProjectId.value).items)
+})
+
+const apiKeyOptions = computed<SelectOption[]>(() =>
+  apiKeys.value.map((key) => ({
+    value: String(key.id),
+    label: `${key.provider} • ${key.hint} (${key.scope === 'project' ? 'projeto' : 'membro'})`,
+  })),
+)
+
+const displayedMessages = computed<ChatMessageItem[]>(() => {
+  const base = activeThread.value?.messages ?? []
+  if (!isGenerating.value) {
+    return base
+  }
+
+  const next: ChatMessageItem[] = [...base]
+  const pendingText = pendingUserMessage.value
+  const lastMsg = base[base.length - 1]
+
+  if (pendingText && !(lastMsg?.role === 'human' && lastMsg.content === pendingText)) {
+    next.push({
+      id: -101,
+      chatId: activeThread.value?.id ?? 0,
+      parentId: null,
+      role: 'human',
+      content: pendingText,
+      payload: {},
+      metaData: {},
+      createdAt: '',
+    })
+  }
+
+  if (streamingAssistantText.value) {
+    next.push({
+      id: -102,
+      chatId: activeThread.value?.id ?? 0,
+      parentId: null,
+      role: 'ai',
+      content: streamingAssistantText.value,
+      payload: {},
+      metaData: {},
+      createdAt: '',
+    })
+  }
+
+  return next
+})
 
 function scrollMessagesToBottom() {
   void nextTick(() => {
@@ -73,164 +139,240 @@ function scrollMessagesToBottom() {
   })
 }
 
+async function loadApiKeysForProject(projectId: number | null) {
+  const requestId = ++apiKeysRequestSeq
+  if (projectId === null) {
+    apiKeys.value = []
+    apiKeysError.value = ''
+    selectedApiKeyIdString.value = ''
+    isLoadingApiKeys.value = false
+    return
+  }
+
+  isLoadingApiKeys.value = true
+  apiKeysError.value = ''
+
+  try {
+    const [projectResult, memberResult] = await Promise.allSettled([
+      listProjectApiKeys(projectId, { limit: 100 }),
+      listMemberApiKeys(projectId, { limit: 100 }),
+    ])
+    if (requestId !== apiKeysRequestSeq) {
+      return
+    }
+
+    if (projectResult.status === 'rejected' && memberResult.status === 'rejected') {
+      apiKeys.value = []
+      selectedApiKeyIdString.value = ''
+      apiKeysError.value = getApiErrorMessage(
+        projectResult.reason,
+        'Não foi possível carregar as chaves de API.',
+      )
+      return
+    }
+
+    const projectItems = projectResult.status === 'fulfilled' ? projectResult.value.items : []
+    const memberItems = memberResult.status === 'fulfilled' ? memberResult.value.items : []
+
+    const deduped = new Map<number, ApiKeyItem>()
+    for (const item of [...projectItems, ...memberItems]) {
+      if (!deduped.has(item.id)) {
+        deduped.set(item.id, item)
+      }
+    }
+
+    const mergedKeys = Array.from(deduped.values())
+    apiKeys.value = mergedKeys
+
+    const currentId = Number(selectedApiKeyIdString.value)
+    const hasSelected =
+      selectedApiKeyIdString.value !== '' && mergedKeys.some((item) => item.id === currentId)
+    if (!hasSelected) {
+      selectedApiKeyIdString.value = mergedKeys.length > 0 ? String(mergedKeys[0]!.id) : ''
+    }
+  } catch (error) {
+    if (requestId !== apiKeysRequestSeq) {
+      return
+    }
+    apiKeys.value = []
+    selectedApiKeyIdString.value = ''
+    apiKeysError.value = getApiErrorMessage(error, 'Não foi possível carregar as chaves de API.')
+  } finally {
+    if (requestId === apiKeysRequestSeq) {
+      isLoadingApiKeys.value = false
+    }
+  }
+}
+
 watch(
-  () => [activeThread.value?.id, activeThread.value?.messages.length ?? 0, isGenerating.value],
+  resolvedProjectId,
+  (projectId) => {
+    void loadApiKeysForProject(projectId)
+  },
+  { immediate: true },
+)
+
+watch(
+  () => [
+    activeThread.value?.id,
+    displayedMessages.value.length,
+    streamingAssistantText.value,
+    isGenerating.value,
+    isLoadingMessages.value,
+  ],
   ([threadId, count], [prevThreadId, prevCount]) => {
-    if (threadId && (threadId !== prevThreadId || count !== prevCount)) {
+    if (
+      (threadId && threadId !== prevThreadId) ||
+      count !== prevCount ||
+      streamingAssistantText.value
+    ) {
       scrollMessagesToBottom()
     }
   },
 )
 
 function handleCreateNewChat() {
-  startNewChat()
   draftMessage.value = ''
-  pendingAttachments.value = []
-}
-
-function handleAttachMockFile() {
-  const sample = MOCK_ATTACHMENTS[mockAttachCursor.value % MOCK_ATTACHMENTS.length]!
-  mockAttachCursor.value += 1
-
-  const attachment: AiAttachmentItem = {
-    id: nextWorkspaceId('att'),
-    filename: sample.filename,
-    fileSize: sample.fileSize,
+  startNewChat()
+  if (resolvedProjectId.value !== null && router.hasRoute('chat')) {
+    const targetProjectId = String(resolvedProjectId.value)
+    if (route.name !== 'chat' || route.params.projectId !== targetProjectId) {
+      void router.push({ name: 'chat', params: { projectId: targetProjectId } })
+    }
   }
-  pendingAttachments.value = [...pendingAttachments.value, attachment]
-  toast.info(`Arquivo "${sample.filename}" anexado ao prompt.`)
 }
 
-function removeAttachment(attachmentId: string) {
-  pendingAttachments.value = pendingAttachments.value.filter((item) => item.id !== attachmentId)
+function handleAttachUnavailable() {
+  toast.info('Anexos no chat estarão disponíveis em breve na API.')
 }
 
 function handleApplyWorkflow(payload: WorkflowConfigApplyPayload) {
   const applied: SelectedWorkflow = {
     id: payload.workflowId,
     name: payload.workflowName,
-    effort: payload.summaryEffort,
-    iterations: payload.iterations,
-    nodesConfig: payload.nodesConfig,
+    version: payload.version,
+    description: payload.description,
+    config: payload.config,
   }
-  selectedWorkflow.value = applied
-
-  if (activeThread.value) {
-    activeThread.value.workflowId = payload.workflowId
-    activeThread.value.workflowName = payload.workflowName
-    activeThread.value.workflowEffort = payload.summaryEffort
-  }
-
-  toast.success(`Workflow "${payload.workflowName}" (${payload.version}) aplicado.`)
+  setSelectedWorkflow(applied)
+  toast.success(`Workflow "${payload.workflowName}" (${payload.version}) configurado.`)
 }
 
 function clearWorkflow() {
-  selectedWorkflow.value = null
-  if (activeThread.value) {
-    activeThread.value.workflowId = null
-    activeThread.value.workflowName = null
-    activeThread.value.workflowEffort = null
-  }
+  setSelectedWorkflow(null)
 }
 
-function buildThreadTitle(prompt: string): string {
-  const normalized = prompt.trim().toLowerCase()
-  if (normalized.length <= 36) {
-    return normalized
+function goToApiKeys() {
+  if (resolvedProjectId.value !== null && router.hasRoute('api-keys')) {
+    void router.push({
+      name: 'api-keys',
+      params: { projectId: String(resolvedProjectId.value) },
+    })
+    return
   }
-  return `${normalized.slice(0, 36).trim()}...`
+  void router.push('/api-keys')
 }
 
-function buildSimulatedAiResponse(
-  prompt: string,
-  workflow: SelectedWorkflow | null,
-  attachments: AiAttachmentItem[],
-): ChatThreadMessage {
-  const workflowLabel = workflow ? `${workflow.name} (${workflow.effort})` : 'fluxo padrão Prismon'
-  const attachmentNote =
-    attachments.length > 0
-      ? ` considerando ${attachments.map((item) => item.filename).join(', ')}`
-      : ''
-  const pipelineNote = workflow?.nodesConfig
-    ? ` (${Object.values(workflow.nodesConfig)
-        .map((node) => `${node.label} [${node.model}]`)
-        .join(' → ')})`
-    : ''
-
-  return {
-    id: nextWorkspaceId('msg'),
-    role: 'ai',
-    steps: [
-      {
-        id: nextWorkspaceId('step'),
-        title: 'Analisando contexto',
-        summary: `Solicitação interpretada com foco em: "${prompt.slice(0, 60)}${prompt.length > 60 ? '...' : ''}".`,
+function handleCitationClick(payload: AiCitationPayload) {
+  const targetRouteName =
+    payload.kind === 'asset' ? 'repertory-asset-detail' : 'repertory-document-detail'
+  if (resolvedProjectId.value !== null && router.hasRoute(targetRouteName)) {
+    void router.push({
+      name: targetRouteName,
+      params: {
+        projectId: String(resolvedProjectId.value),
+        itemId: String(payload.targetId),
       },
-      {
-        id: nextWorkspaceId('step'),
-        title: 'Consultando repertório',
-        summary: `Referências cruzadas no repertório utilizando ${workflowLabel}${pipelineNote}${attachmentNote}.`,
-      },
-      {
-        id: nextWorkspaceId('step'),
-        title: 'Gerando resposta estruturada',
-        summary: 'Síntese final validada e formatada para leitura rápida.',
-      },
-    ],
-    content: `Análise concluída via ${workflowLabel}${attachmentNote}. Os principais pontos levantados para "${prompt}" foram organizados com recomendações objetivas e critérios de verificação prontos para revisão.`,
-  }
-}
-
-function handleSendMessage(value: string) {
-  const trimmed = value.trim()
-  if (!trimmed) {
+    })
     return
   }
 
-  const targetThread = ensureActiveThread()
-  const attachmentsSnapshot = [...pendingAttachments.value]
-  const workflowSnapshot = selectedWorkflow.value ? { ...selectedWorkflow.value } : null
-
-  if (targetThread.messages.length === 0 && targetThread.title === 'nova conversa') {
-    targetThread.title = buildThreadTitle(trimmed)
+  if (router.hasRoute('repertory')) {
+    const repertoryRoute = router.getRoutes().find((entry) => entry.name === 'repertory')
+    if (resolvedProjectId.value !== null && repertoryRoute?.path.includes(':projectId')) {
+      void router.push({
+        name: 'repertory',
+        params: { projectId: String(resolvedProjectId.value) },
+      })
+      return
+    }
+    void router.push({ name: 'repertory' })
+    return
   }
 
-  targetThread.messages.push({
-    id: nextWorkspaceId('msg'),
-    role: 'human',
-    content: trimmed,
-    attachments: attachmentsSnapshot.length > 0 ? attachmentsSnapshot : undefined,
-  })
-
-  draftMessage.value = ''
-  pendingAttachments.value = []
-  isGenerating.value = true
-
-  const timer = setTimeout(() => {
-    pendingTimers.delete(timer)
-    targetThread.messages.push(
-      buildSimulatedAiResponse(trimmed, workflowSnapshot, attachmentsSnapshot),
-    )
-    isGenerating.value = false
-  }, 450)
-
-  pendingTimers.add(timer)
+  void router.push('/repertorio')
 }
 
-function applyPromptSuggestion(prompt: string) {
-  handleSendMessage(prompt)
+async function handleSendMessage(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed || isGenerating.value) {
+    return
+  }
+
+  const apiKeyId = Number(selectedApiKeyIdString.value)
+  if (!selectedApiKeyIdString.value || !Number.isFinite(apiKeyId) || apiKeyId <= 0) {
+    toast.error('Selecione ou cadastre uma chave de API em Chaves de API antes de enviar.')
+    return
+  }
+
+  const wasNewChat = activeThreadId.value === null
+  draftMessage.value = ''
+  isGenerating.value = true
+  try {
+    await sendChatMessage({ text: trimmed, apiKeyId })
+  } catch (error) {
+    if (draftMessage.value.length === 0) {
+      draftMessage.value = trimmed
+    }
+    toast.error(getApiErrorMessage(error, 'Não foi possível enviar a mensagem.'))
+  } finally {
+    if (
+      wasNewChat &&
+      activeThreadId.value !== null &&
+      resolvedProjectId.value !== null &&
+      router.hasRoute('chat-thread')
+    ) {
+      await router.replace({
+        name: 'chat-thread',
+        params: {
+          projectId: String(resolvedProjectId.value),
+          chatId: String(activeThreadId.value),
+        },
+      })
+    }
+    isGenerating.value = false
+  }
+}
+
+function getMessageSteps(msg: ChatMessageItem): ChatWorkflowStep[] {
+  if (msg.steps && msg.steps.length > 0) {
+    return msg.steps
+  }
+
+  const rawSteps = Array.isArray(msg.payload?.steps)
+    ? msg.payload.steps
+    : Array.isArray(msg.metaData?.steps)
+      ? msg.metaData.steps
+      : []
+
+  return rawSteps
+    .filter(
+      (item): item is { id?: string | number; title: string; summary: string } =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as Record<string, unknown>).title === 'string' &&
+        typeof (item as Record<string, unknown>).summary === 'string',
+    )
+    .map((item, idx) => ({
+      id: item.id !== undefined && String(item.id).trim() ? String(item.id) : `step-${idx + 1}`,
+      title: item.title,
+      summary: item.summary,
+    }))
 }
 
 function getStepSummary(steps: ChatWorkflowStep[] | undefined, stepId: string): string {
   return steps?.find((item) => item.id === stepId)?.summary ?? ''
 }
-
-onBeforeUnmount(() => {
-  for (const timer of pendingTimers) {
-    clearTimeout(timer)
-  }
-  pendingTimers.clear()
-})
 </script>
 
 <template>
@@ -239,7 +381,7 @@ onBeforeUnmount(() => {
       <header class="chat-view__header">
         <div class="chat-view__header-main">
           <h1 class="chat-view__title">{{ activeThread?.title ?? 'novo chat' }}</h1>
-          <Badge v-if="activeThread?.workflowName" :label="activeThread.workflowName" />
+          <Badge v-if="selectedWorkflow" :label="selectedWorkflow.name" />
         </div>
         <IconButton
           variant="ghost"
@@ -256,82 +398,113 @@ onBeforeUnmount(() => {
         class="chat-view__messages"
         ariaLabel="Mensagens da conversa"
       >
-        <div v-if="!activeThread || activeThread.messages.length === 0" class="chat-view__empty">
+        <div
+          v-if="isLoadingMessages && displayedMessages.length === 0"
+          class="chat-view__loading"
+          role="status"
+        >
+          <Icon name="robot" size="xl" color="brand" />
+          <p class="chat-view__loading-text">Carregando mensagens da conversa...</p>
+        </div>
+
+        <div v-else-if="displayedMessages.length === 0 && !isGenerating" class="chat-view__empty">
           <Icon name="robot" size="2xl" color="brand" />
           <div class="chat-view__empty-copy">
             <h2 class="chat-view__empty-title">como posso ajudar hoje?</h2>
             <p class="chat-view__empty-subtitle">
-              Escolha um workflow de IA ou envie uma pergunta com documentos de apoio.
+              Escolha uma chave de API, selecione um workflow ou envie sua pergunta abaixo.
             </p>
-          </div>
-          <div class="chat-view__suggestions">
-            <button
-              v-for="suggestion in PROMPT_SUGGESTIONS"
-              :key="suggestion.id"
-              type="button"
-              class="chat-view__suggestion-btn"
-              @click="applyPromptSuggestion(suggestion.prompt)"
-            >
-              <Tag :label="suggestion.label" />
-            </button>
           </div>
         </div>
 
         <div v-else class="chat-view__feed">
-          <ChatMessage v-for="msg in activeThread.messages" :key="msg.id" :role="msg.role">
+          <ChatMessage v-for="msg in displayedMessages" :key="msg.id" :role="msg.role">
             <div class="chat-view__message-body">
-              <div
-                v-if="msg.role === 'human' && msg.attachments && msg.attachments.length > 0"
-                class="chat-view__message-attachments"
-              >
-                <FileAttachmentCard
-                  v-for="att in msg.attachments"
-                  :key="att.id"
-                  :filename="att.filename"
-                  :file-size="att.fileSize"
-                />
-              </div>
-
               <WorkflowStepsAccordion
-                v-if="msg.role === 'ai' && msg.steps && msg.steps.length > 0"
-                :steps="msg.steps"
+                v-if="msg.role === 'ai' && getMessageSteps(msg).length > 0"
+                :steps="getMessageSteps(msg)"
                 class="chat-view__message-steps"
               >
                 <template #step="{ step }">
                   <p class="chat-view__step-summary">
-                    {{ getStepSummary(msg.steps, step.id) }}
+                    {{ getStepSummary(getMessageSteps(msg), step.id) }}
                   </p>
                 </template>
               </WorkflowStepsAccordion>
 
-              <p class="chat-view__message-text">{{ msg.content }}</p>
+              <MarkdownRenderer
+                v-if="msg.role === 'ai'"
+                :content="msg.content"
+                :document-titles="cachedDocumentTitles"
+                :asset-titles="cachedAssetTitles"
+                @citation-click="handleCitationClick"
+              />
+              <p v-else class="chat-view__message-text">{{ msg.content }}</p>
             </div>
           </ChatMessage>
 
-          <ChatMessage v-if="isGenerating" role="ai">
-            <p class="chat-view__generating">Processando etapas do workflow...</p>
+          <ChatMessage v-if="isGenerating && !streamingAssistantText" role="ai">
+            <p class="chat-view__generating">Processando resposta...</p>
+          </ChatMessage>
+          <ChatMessage v-else-if="isLoadingMessages" role="ai">
+            <p class="chat-view__generating">Carregando mensagens...</p>
           </ChatMessage>
         </div>
       </ScrollContainer>
 
       <div class="chat-view__composer-wrap">
         <div class="chat-view__composer">
-          <div v-if="selectedWorkflow" class="chat-view__workflow-chip">
-            <Tag
-              :label="`workflow: ${selectedWorkflow.name} (${selectedWorkflow.effort})`"
-              :dismissible="true"
-              dismiss-label="Remover workflow selecionado"
-              @dismiss="clearWorkflow"
-            />
+          <Notification
+            v-if="apiKeysError"
+            variant="danger"
+            icon="exclamation"
+            title="Erro ao carregar chaves de API"
+            :message="apiKeysError"
+          />
+
+          <Notification
+            v-else-if="!isLoadingApiKeys && resolvedProjectId !== null && apiKeys.length === 0"
+            icon="api-keys"
+            title="Nenhuma chave de API cadastrada"
+          >
+            <span class="chat-view__api-key-warning">
+              <span>
+                Cadastre uma chave de API para este projeto ou membro antes de enviar mensagens.
+              </span>
+              <Button variant="tertiary" size="sm" @click="goToApiKeys">
+                Ir para Chaves de API
+              </Button>
+            </span>
+          </Notification>
+
+          <div class="chat-view__composer-controls">
+            <div class="chat-view__api-key-control">
+              <Select
+                v-model="selectedApiKeyIdString"
+                variant="inline"
+                aria-label="Selecionar chave de API"
+                :options="apiKeyOptions"
+                :placeholder="isLoadingApiKeys ? 'Carregando chaves...' : 'Nenhuma chave de API'"
+                :disabled="isLoadingApiKeys || apiKeys.length === 0 || isGenerating"
+              />
+            </div>
+
+            <div v-if="selectedWorkflow" class="chat-view__workflow-chip">
+              <Tag
+                :label="`workflow: ${selectedWorkflow.name} (v${selectedWorkflow.version})`"
+                :dismissible="true"
+                dismiss-label="Remover workflow selecionado"
+                @dismiss="clearWorkflow"
+              />
+            </div>
           </div>
 
           <AiPromptInput
             v-model="draftMessage"
-            :attachments="pendingAttachments"
+            :submit-disabled="isGenerating"
             placeholder="Digite sua mensagem"
-            @attach="handleAttachMockFile"
+            @attach="handleAttachUnavailable"
             @select-workflow="isWorkflowModalOpen = true"
-            @remove-attachment="removeAttachment"
             @submit="handleSendMessage"
           />
         </div>
@@ -341,6 +514,7 @@ onBeforeUnmount(() => {
     <WorkflowConfigModal
       v-model:open="isWorkflowModalOpen"
       :selected-workflow-id="selectedWorkflow?.id ?? null"
+      :selected-workflow-config="selectedWorkflow?.config ?? null"
       @apply="handleApplyWorkflow"
     />
   </AppShell>
@@ -390,10 +564,6 @@ onBeforeUnmount(() => {
   --chat-view-step-line-height: var(--type-body-compact-01-line-height);
   --chat-view-step-font-weight: var(--type-body-compact-01-font-weight);
   --chat-view-generating-color: var(--text-helper);
-  --chat-view-shadow-focus: var(--shadow-focus-ring);
-  --chat-view-transition-duration: var(--duration-fast);
-  --chat-view-transition-easing: var(--easing-out);
-  --chat-view-press-scale: var(--scale-press);
 
   display: flex;
   flex-direction: column;
@@ -442,6 +612,7 @@ onBeforeUnmount(() => {
   min-height: var(--spacing-0);
 }
 
+.chat-view__loading,
 .chat-view__empty {
   display: flex;
   flex-direction: column;
@@ -454,6 +625,15 @@ onBeforeUnmount(() => {
   gap: var(--chat-view-empty-gap);
   box-sizing: border-box;
   text-align: center;
+}
+
+.chat-view__loading-text {
+  margin: var(--spacing-0);
+  color: var(--chat-view-empty-subtitle-color);
+  font-family: var(--chat-view-empty-subtitle-font-family);
+  font-size: var(--chat-view-empty-subtitle-font-size);
+  line-height: var(--chat-view-empty-subtitle-line-height);
+  font-weight: var(--chat-view-empty-subtitle-font-weight);
 }
 
 .chat-view__empty-copy {
@@ -479,36 +659,6 @@ onBeforeUnmount(() => {
   font-size: var(--chat-view-empty-subtitle-font-size);
   line-height: var(--chat-view-empty-subtitle-line-height);
   font-weight: var(--chat-view-empty-subtitle-font-weight);
-}
-
-.chat-view__suggestions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--spacing-3);
-}
-
-.chat-view__suggestion-btn {
-  padding: var(--spacing-0);
-  border: var(--border-width-none) solid var(--border-transparent);
-  background-color: var(--surface-transparent);
-  cursor: pointer;
-  transition: transform var(--chat-view-transition-duration) var(--chat-view-transition-easing);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .chat-view__suggestion-btn:hover {
-    transform: translateY(calc(var(--spacing-1) * -1));
-  }
-}
-
-.chat-view__suggestion-btn:active {
-  transform: scale(var(--chat-view-press-scale));
-}
-
-.chat-view__suggestion-btn:focus-visible {
-  outline: none;
-  box-shadow: var(--chat-view-shadow-focus);
 }
 
 .chat-view__feed {
@@ -538,13 +688,6 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-4);
-}
-
-.chat-view__message-attachments {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--spacing-3);
 }
 
 .chat-view__message-steps {
@@ -586,6 +729,26 @@ onBeforeUnmount(() => {
   gap: var(--chat-view-composer-gap);
 }
 
+.chat-view__composer-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+}
+
+.chat-view__api-key-control {
+  display: flex;
+  align-items: center;
+}
+
+.chat-view__api-key-warning {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+}
+
 .chat-view__workflow-chip {
   display: flex;
   align-items: center;
@@ -596,6 +759,7 @@ onBeforeUnmount(() => {
     padding: var(--spacing-3) var(--spacing-4);
   }
 
+  .chat-view__loading,
   .chat-view__empty,
   .chat-view__feed {
     padding: var(--spacing-5) var(--spacing-4);
@@ -603,16 +767,6 @@ onBeforeUnmount(() => {
 
   .chat-view__composer-wrap {
     padding: var(--spacing-3) var(--spacing-4) var(--spacing-4);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .chat-view__suggestion-btn {
-    transition: none;
-  }
-
-  .chat-view__suggestion-btn:active {
-    transform: none;
   }
 }
 </style>

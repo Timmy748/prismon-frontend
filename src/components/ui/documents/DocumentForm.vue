@@ -83,6 +83,19 @@ function handleFilesSelect(files: File[]) {
   emit('select-files', files)
 }
 
+function handleFilesClear() {
+  if (selectedFiles.value.length === 0) {
+    return
+  }
+  selectedFiles.value = []
+  emit('select-files', [])
+}
+
+function handleFileRemove(index: number) {
+  selectedFiles.value = selectedFiles.value.filter((_, itemIndex) => itemIndex !== index)
+  emit('select-files', selectedFiles.value)
+}
+
 function handleSubmit() {
   if (props.disabled || props.submitDisabled) {
     return
@@ -104,7 +117,10 @@ function handleSubmit() {
         :hint="fileHint"
         :error="fileError"
         :disabled="disabled"
+        :files="selectedFiles"
         @select="handleFilesSelect"
+        @clear="handleFilesClear"
+        @remove="handleFileRemove"
       />
       <TextInput
         :model-value="localTitle"

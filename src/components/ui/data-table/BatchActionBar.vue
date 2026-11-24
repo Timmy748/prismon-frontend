@@ -97,9 +97,12 @@ const resolvedSelectionLabel = computed(
   --batch-action-bar-button-cursor: pointer;
 
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: var(--batch-action-bar-min-height);
   box-sizing: border-box;
   background-color: var(--batch-action-bar-bg);
@@ -107,6 +110,7 @@ const resolvedSelectionLabel = computed(
 }
 
 .batch-action-bar__count {
+  min-width: 0;
   padding: var(--batch-action-bar-count-padding);
   font-family: var(--batch-action-bar-font-family);
   font-size: var(--batch-action-bar-font-size);
@@ -116,8 +120,11 @@ const resolvedSelectionLabel = computed(
 }
 
 .batch-action-bar__actions {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
   gap: var(--batch-action-bar-actions-gap);
 }
 
@@ -126,6 +133,8 @@ const resolvedSelectionLabel = computed(
   align-items: center;
   justify-content: center;
   gap: var(--batch-action-bar-button-gap);
+  min-width: 0;
+  max-width: 100%;
   min-height: var(--batch-action-bar-button-min-height);
   padding: var(--batch-action-bar-button-padding);
   box-sizing: border-box;
@@ -178,5 +187,27 @@ const resolvedSelectionLabel = computed(
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  .batch-action-bar {
+    align-items: stretch;
+  }
+
+  .batch-action-bar__count {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .batch-action-bar__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .batch-action-bar__button {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+  }
 }
 </style>

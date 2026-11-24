@@ -14,6 +14,7 @@ import { Icon, type IconName } from '../icons'
 interface Props {
   label: string
   icon?: IconName
+  href?: string
   collapsed?: boolean
   active?: boolean
   hasTrailingAction?: boolean
@@ -22,6 +23,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  href: undefined,
   collapsed: false,
   active: false,
   hasTrailingAction: false,
@@ -169,6 +171,17 @@ onBeforeUnmount(() => {
 function handleTrailingClick(event: MouseEvent) {
   emit('trailing-click', event)
 }
+
+function handleTriggerClick(event: MouseEvent) {
+  if (!props.href) {
+    return
+  }
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+    event.stopPropagation()
+    return
+  }
+  event.preventDefault()
+}
 </script>
 
 <template>
@@ -177,11 +190,14 @@ function handleTrailingClick(event: MouseEvent) {
     @pointerenter="handlePointerEnter"
     @pointerleave="handlePointerLeave"
   >
-    <button
-      type="button"
+    <component
+      :is="href ? 'a' : 'button'"
+      :href="href || undefined"
+      :type="href ? undefined : 'button'"
       class="list-item__trigger"
       :aria-label="collapsed ? label : undefined"
       :aria-current="active ? 'page' : undefined"
+      @click="handleTriggerClick"
     >
       <span v-if="icon" class="list-item__icon">
         <Icon :name="icon" size="md" />
@@ -197,7 +213,7 @@ function handleTrailingClick(event: MouseEvent) {
         </span>
         <slot v-else>{{ label }}</slot>
       </span>
-    </button>
+    </component>
     <span
       v-if="!collapsed && $slots.trailing"
       class="list-item__trailing"
@@ -278,6 +294,7 @@ function handleTrailingClick(event: MouseEvent) {
   line-height: var(--list-item-line-height);
   font-weight: var(--list-item-font-weight);
   text-transform: var(--list-item-text-transform);
+  text-decoration: none;
   text-align: left;
   cursor: pointer;
 }

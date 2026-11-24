@@ -159,4 +159,38 @@ describe('DocumentForm', () => {
     await submitDisabledWrapper.find('form').trigger('submit')
     expect(submitDisabledWrapper.emitted('submit')).toBeUndefined()
   })
+
+  it('displays uploaded file state and clears selectedFiles when removed', async () => {
+    const file = new File(['conteudo'], 'documento.pdf', { type: 'application/pdf' })
+    const wrapper = mount(DocumentForm)
+
+    const fileInput = wrapper.find('input[type="file"]')
+    Object.defineProperty(fileInput.element, 'files', {
+      value: [file],
+      configurable: true,
+    })
+    await fileInput.trigger('change')
+
+    const upload = wrapper.findComponent(FileUpload)
+    expect(upload.props('files')).toEqual([file])
+    expect(wrapper.find('.file-upload--uploaded').exists()).toBe(true)
+    expect(wrapper.find('.file-upload__uploaded-name').text()).toBe('documento.pdf')
+
+    await wrapper.find('.file-upload__action-btn--remove').trigger('click')
+
+    expect(upload.props('files')).toEqual([])
+    expect(wrapper.find('.file-upload--uploaded').exists()).toBe(false)
+    expect(wrapper.emitted('select-files')).toEqual([[[file]], [[]]])
+
+    await wrapper.find('form').trigger('submit')
+    expect(wrapper.emitted('submit')).toEqual([
+      [
+        {
+          title: '',
+          description: '',
+          files: [],
+        },
+      ],
+    ])
+  })
 })

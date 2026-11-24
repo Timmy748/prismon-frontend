@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, useSlots, watch } from 'vue'
+import { computed, onMounted, ref, useSlots, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { getApiErrorMessage } from '@/api/errors'
 import {
   Button,
   Drawer,
@@ -12,18 +13,24 @@ import {
   Sidebar,
   toast,
 } from '@/components/ui'
+import { useAuthState } from '@/stores/authState'
 import { useWorkspaceState, type ProjectDetailsItem } from '@/stores/workspaceState'
 import ChatThreadsPanel from './ChatThreadsPanel.vue'
 import CreateProjectModal from './CreateProjectModal.vue'
 import ProfileSettingsModal from './ProfileSettingsModal.vue'
 import ProjectInfoModal from './ProjectInfoModal.vue'
-import { PRIMARY_NAV_ITEMS, type AppNavItem, type ProjectItem } from './navigationConfig'
+import {
+  PRIMARY_NAV_ITEMS,
+  type AppNavItem,
+  type AppNavRouteName,
+  type ProjectItem,
+} from './navigationConfig'
 
 interface Props {
   title?: string
   showTopbar?: boolean
   activeNav?: string
-  activeProjectId?: string
+  activeProjectId?: number
   defaultCollapsed?: boolean
 }
 
@@ -42,31 +49,148 @@ const slots = useSlots()
 const route = useRoute()
 const router = useRouter()
 
+const { logout } = useAuthState()
 const {
   projects,
+  projectsLoaded,
   activeProjectId: storeActiveProjectId,
   activeProject,
   profile,
+  isNavCollapsed,
+  isProjectsCollapsed,
+  ensureWorkspaceInitialized,
   selectProject: storeSelectProject,
+  syncFromRoute,
   createProject: storeCreateProject,
+  updateProject: storeUpdateProject,
+  deleteProject: storeDeleteProject,
   startNewChat,
-  updateProfile,
+  resetWorkspace,
 } = useWorkspaceState()
 
-const isProjectsCollapsed = ref(true)
-const isNavCollapsed = ref(props.defaultCollapsed ?? false)
 const isMobileNavOpen = ref(false)
 const mobileDrawerView = ref<'project' | 'projects'>('project')
 const isSettingsOpen = ref(false)
 const isCreateProjectOpen = ref(false)
 const isProjectInfoOpen = ref(false)
-const infoTargetProject = ref<ProjectDetailsItem | null>(null)
+const infoTargetProjectId = ref<number | null>(null)
+const isProjectMutating = ref(false)
+
+const infoTargetProject = computed<ProjectDetailsItem | null>(() => {
+  if (infoTargetProjectId.value === null) {
+    return null
+  }
+  return projects.value.find((project) => project.id === infoTargetProjectId.value) ?? null
+})
+
+function parsePositiveRouteParam(raw: unknown): number | null {
+  const value = Array.isArray(raw) ? raw[0] : raw
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) {
+    return null
+  }
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+function hasProjectScopedRoute(routeName: string): boolean {
+  if (!router.hasRoute(routeName)) {
+    return false
+  }
+  return router
+    .getRoutes()
+    .some((record) => record.name === routeName && record.path.includes(':projectId'))
+}
+
+function buildSectionLocation(
+  routeName: AppNavRouteName | string,
+  fallbackPath: string,
+  projectId: number | null,
+) {
+  if (projectId !== null && hasProjectScopedRoute(routeName)) {
+    return {
+      name: routeName,
+      params: { projectId: String(projectId) },
+    }
+  }
+  return fallbackPath
+}
+
+function resolveProjectSwitchTarget(projectId: number) {
+  const routeName = typeof route?.name === 'string' ? route.name : ''
+  let targetRouteName = routeName
+
+  if (routeName === 'chat-thread' || routeName === 'legacy-chat') {
+    targetRouteName = 'chat'
+  } else if (
+    routeName === 'repertory-document-detail' ||
+    routeName === 'repertory-asset-detail' ||
+    routeName === 'legacy-repertory'
+  ) {
+    targetRouteName = 'repertory'
+  } else if (routeName === 'legacy-members') {
+    targetRouteName = 'members'
+  } else if (routeName === 'legacy-api-keys') {
+    targetRouteName = 'api-keys'
+  }
+
+  if (targetRouteName && hasProjectScopedRoute(targetRouteName)) {
+    return {
+      name: targetRouteName,
+      params: { projectId: String(projectId) },
+    }
+  }
+  return null
+}
+
+async function syncRouteWorkspace() {
+  const routeProjectId = parsePositiveRouteParam(route?.params?.projectId)
+  const routeChatId = parsePositiveRouteParam(route?.params?.chatId)
+  await ensureWorkspaceInitialized(routeProjectId)
+  if (routeProjectId !== null || routeChatId !== null) {
+    await syncFromRoute({
+      projectId: routeProjectId,
+      chatId: route?.name === 'chat' ? null : (routeChatId ?? undefined),
+    })
+  }
+}
+
+watch(
+  () => props.defaultCollapsed,
+  (nextCollapsed) => {
+    if (nextCollapsed !== undefined) {
+      isNavCollapsed.value = nextCollapsed
+    }
+  },
+  { immediate: true },
+)
+
+onMounted(async () => {
+  try {
+    await syncRouteWorkspace()
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível carregar os projetos.'))
+  }
+})
+
+watch(
+  () => [route?.name, route?.params?.projectId, route?.params?.chatId] as const,
+  () => {
+    if (!projectsLoaded.value) {
+      return
+    }
+    void syncRouteWorkspace().catch((error) => {
+      toast.error(getApiErrorMessage(error, 'Não foi possível sincronizar o projeto.'))
+    })
+  },
+)
 
 watch(
   () => props.activeProjectId,
   (nextId) => {
-    if (nextId) {
-      storeSelectProject(nextId)
+    if (nextId !== undefined) {
+      void storeSelectProject(nextId).catch((error) => {
+        toast.error(getApiErrorMessage(error, 'Não foi possível selecionar o projeto.'))
+      })
     }
   },
   { immediate: true },
@@ -78,14 +202,16 @@ watch(isMobileNavOpen, (isOpen) => {
   }
 })
 
-const currentActiveProject = computed<ProjectDetailsItem>(() => {
-  if (props.activeProjectId) {
+const currentActiveProject = computed<ProjectDetailsItem | null>(() => {
+  if (props.activeProjectId !== undefined) {
     return (
       projects.value.find((project) => project.id === props.activeProjectId) ?? activeProject.value
     )
   }
   return activeProject.value
 })
+
+const activeProjectName = computed(() => currentActiveProject.value?.name ?? 'sem projeto')
 
 const shouldShowTopbar = computed(() => {
   if (props.showTopbar === false) {
@@ -110,6 +236,29 @@ function isItemActive(item: AppNavItem): boolean {
   if (props.activeNav) {
     return props.activeNav === item.id || props.activeNav === item.to
   }
+  const routeName = typeof route?.name === 'string' ? route.name : ''
+  if (routeName) {
+    if (
+      item.id === 'chat' &&
+      (routeName === 'chat' || routeName === 'chat-thread' || routeName === 'legacy-chat')
+    ) {
+      return true
+    }
+    if (
+      item.id === 'repertory' &&
+      (routeName === 'repertory' ||
+        routeName.startsWith('repertory-') ||
+        routeName === 'legacy-repertory')
+    ) {
+      return true
+    }
+    if (item.id === 'members' && (routeName === 'members' || routeName === 'legacy-members')) {
+      return true
+    }
+    if (item.id === 'api-keys' && (routeName === 'api-keys' || routeName === 'legacy-api-keys')) {
+      return true
+    }
+  }
   const currentPath = route?.path ?? ''
   if (!currentPath) {
     return false
@@ -117,11 +266,22 @@ function isItemActive(item: AppNavItem): boolean {
   return currentPath === item.to || currentPath.startsWith(`${item.to}/`)
 }
 
-function selectProject(project: ProjectDetailsItem) {
-  storeSelectProject(project.id)
-  emit('project-change', project)
-  if (mobileDrawerView.value === 'projects') {
-    mobileDrawerView.value = 'project'
+async function selectProject(project: ProjectDetailsItem) {
+  try {
+    await storeSelectProject(project.id)
+    emit('project-change', project)
+    if (mobileDrawerView.value === 'projects') {
+      mobileDrawerView.value = 'project'
+    }
+    const nextLocation = resolveProjectSwitchTarget(project.id)
+    if (nextLocation) {
+      const resolved = router.resolve(nextLocation)
+      if (route?.fullPath !== resolved.fullPath) {
+        await router.push(nextLocation)
+      }
+    }
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível carregar o projeto.'))
   }
 }
 
@@ -130,8 +290,37 @@ async function handleNavClick(item: AppNavItem) {
   if (item.id === 'chat') {
     startNewChat()
   }
-  if (route?.path !== item.to) {
-    await router.push(item.to)
+  const projectId = currentActiveProject.value?.id ?? storeActiveProjectId.value ?? null
+  const target = buildSectionLocation(item.routeName, item.to, projectId)
+  const resolvedTarget = router.resolve(target)
+  if (route?.fullPath !== resolvedTarget.fullPath) {
+    await router.push(target)
+  }
+}
+
+function getNavHref(item: AppNavItem): string {
+  const projectId = currentActiveProject.value?.id ?? storeActiveProjectId.value ?? null
+  const target = buildSectionLocation(item.routeName, item.to, projectId)
+  if (typeof target === 'string') {
+    return target
+  }
+  try {
+    return router.resolve(target).href
+  } catch {
+    return item.to
+  }
+}
+
+function getProjectHref(projectId: number): string | undefined {
+  const target =
+    resolveProjectSwitchTarget(projectId) ?? buildSectionLocation('chat', '/chat', projectId)
+  if (typeof target === 'string') {
+    return router.hasRoute('chat') || router.hasRoute('legacy-chat') ? target : undefined
+  }
+  try {
+    return router.resolve(target).href
+  } catch {
+    return undefined
   }
 }
 
@@ -145,28 +334,82 @@ function openCreateProjectModal() {
   isCreateProjectOpen.value = true
 }
 
-function openProjectInfo(project: ProjectDetailsItem) {
-  infoTargetProject.value = project
+function openProjectInfo(project: ProjectDetailsItem | null) {
+  if (!project) {
+    return
+  }
+  infoTargetProjectId.value = project.id
   isMobileNavOpen.value = false
   isProjectInfoOpen.value = true
 }
 
-function handleCreateProject(payload: { name: string; description: string; role: string }) {
-  const created = storeCreateProject(payload)
-  emit('project-change', created)
+async function handleCreateProject(payload: { name: string }) {
+  isProjectMutating.value = true
+  try {
+    const created = await storeCreateProject(payload)
+    isCreateProjectOpen.value = false
+    emit('project-change', created)
+    const nextLocation = resolveProjectSwitchTarget(created.id)
+    if (nextLocation) {
+      await router.push(nextLocation)
+    }
+    toast.success(`Projeto "${created.name}" criado e selecionado.`)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível criar o projeto.'))
+  } finally {
+    isProjectMutating.value = false
+  }
 }
 
-function handleSaveProfile(payload: { username: string; email: string; workspace: string }) {
-  updateProfile(payload)
+async function handleRenameProject(projectId: number, name: string) {
+  isProjectMutating.value = true
+  try {
+    const updated = await storeUpdateProject(projectId, { name })
+    toast.success(`Projeto renomeado para "${updated.name}".`)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível renomear o projeto.'))
+  } finally {
+    isProjectMutating.value = false
+  }
 }
 
-function handleLogout() {
+async function handleDeleteProject(projectId: number) {
+  isProjectMutating.value = true
+  try {
+    await storeDeleteProject(projectId)
+    isProjectInfoOpen.value = false
+    infoTargetProjectId.value = null
+    if (storeActiveProjectId.value !== null) {
+      const nextLocation = resolveProjectSwitchTarget(storeActiveProjectId.value)
+      if (nextLocation) {
+        const resolved = router.resolve(nextLocation)
+        if (route?.fullPath !== resolved.fullPath) {
+          await router.push(nextLocation)
+        }
+      }
+    }
+    toast.info('Projeto excluído.')
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível excluir o projeto.'))
+  } finally {
+    isProjectMutating.value = false
+  }
+}
+
+async function handleLogout() {
   isMobileNavOpen.value = false
   isSettingsOpen.value = false
-  emit('logout')
-  toast.info('Sessão encerrada localmente (modo demonstração).')
-  if (route?.path !== '/login' && router.hasRoute('login')) {
-    void router.push('/login')
+  try {
+    await logout()
+    toast.info('Sessão encerrada.')
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Erro ao encerrar a sessão.'))
+  } finally {
+    resetWorkspace()
+    emit('logout')
+    if (route?.path !== '/login' && router.hasRoute('login')) {
+      await router.push('/login')
+    }
   }
 }
 </script>
@@ -185,21 +428,25 @@ function handleLogout() {
             :key="project.id"
             :label="project.name"
             :icon="project.icon"
+            :href="getProjectHref(project.id)"
             :collapsed="isProjectsCollapsed"
-            :active="project.id === currentActiveProject.id"
+            :active="project.id === currentActiveProject?.id"
             @click="selectProject(project)"
           >
             <template v-if="!isProjectsCollapsed" #trailing>
               <IconButton
                 variant="ghost"
                 size="sm"
-                icon="exclamation"
+                icon="info"
                 :ariaLabel="`Informações do projeto ${project.name}`"
                 @click.stop="openProjectInfo(project)"
               />
             </template>
           </ListItem>
         </NavList>
+        <p v-if="projects.length === 0 && !isProjectsCollapsed" class="app-shell__empty-projects">
+          sem projeto
+        </p>
 
         <template #footer>
           <div v-if="!isProjectsCollapsed" class="app-shell__projects-footer">
@@ -215,9 +462,10 @@ function handleLogout() {
           </div>
           <div v-else class="app-shell__collapsed-actions">
             <IconButton
+              v-if="currentActiveProject"
               variant="ghost"
               size="md"
-              icon="exclamation"
+              icon="info"
               :ariaLabel="`Informações do projeto ${currentActiveProject.name}`"
               @click="openProjectInfo(currentActiveProject)"
             />
@@ -236,16 +484,30 @@ function handleLogout() {
     <div :class="navSidebarClasses">
       <Sidebar
         v-model:collapsed="isNavCollapsed"
-        :title="currentActiveProject.name"
+        :title="activeProjectName"
         toggle-label="Alternar menu do projeto"
       >
         <div class="app-shell__nav-groups">
+          <div v-if="!currentActiveProject && !isNavCollapsed" class="app-shell__no-project">
+            <p class="app-shell__no-project-text">sem projeto</p>
+            <Button
+              variant="tertiary"
+              size="sm"
+              icon="plus"
+              :full-width="true"
+              @click="openCreateProjectModal"
+            >
+              criar projeto
+            </Button>
+          </div>
+
           <NavList :title="isNavCollapsed ? undefined : 'navegação'" class="app-shell__primary-nav">
             <ListItem
               v-for="item in PRIMARY_NAV_ITEMS"
               :key="item.id"
               :label="item.label"
               :icon="item.icon"
+              :href="getNavHref(item)"
               :collapsed="isNavCollapsed"
               :active="isItemActive(item)"
               @click="handleNavClick(item)"
@@ -267,7 +529,7 @@ function handleLogout() {
           <ProfileCard
             v-if="!isNavCollapsed"
             :username="profile.username"
-            :role="profile.role"
+            :role="profile.email || profile.workspace"
             @settings-click="openSettings"
           />
           <div v-else class="app-shell__collapsed-footer">
@@ -292,12 +554,13 @@ function handleLogout() {
           ariaLabel="Abrir navegação"
           @click="isMobileNavOpen = true"
         />
-        <span class="app-shell__mobile-title">{{ title || currentActiveProject.name }}</span>
+        <span class="app-shell__mobile-title">{{ title || activeProjectName }}</span>
         <div class="app-shell__mobile-actions">
           <IconButton
+            v-if="currentActiveProject"
             variant="ghost"
             size="md"
-            icon="exclamation"
+            icon="info"
             :ariaLabel="`Informações do projeto ${currentActiveProject.name}`"
             @click="openProjectInfo(currentActiveProject)"
           />
@@ -336,11 +599,12 @@ function handleLogout() {
                 <span>Projetos</span>
               </span>
             </Button>
-            <span class="app-shell__brand">{{ currentActiveProject.name }}</span>
+            <span class="app-shell__brand">{{ activeProjectName }}</span>
             <IconButton
+              v-if="currentActiveProject"
               variant="ghost"
               size="sm"
-              icon="exclamation"
+              icon="info"
               :ariaLabel="`Informações do projeto ${currentActiveProject.name}`"
               @click="openProjectInfo(currentActiveProject)"
             />
@@ -361,6 +625,19 @@ function handleLogout() {
       </template>
 
       <div v-if="mobileDrawerView === 'project'" class="app-shell__mobile-project-body">
+        <div v-if="!currentActiveProject" class="app-shell__no-project">
+          <p class="app-shell__no-project-text">sem projeto</p>
+          <Button
+            variant="tertiary"
+            size="sm"
+            icon="plus"
+            :full-width="true"
+            @click="openCreateProjectModal"
+          >
+            criar projeto
+          </Button>
+        </div>
+
         <div class="app-shell__mobile-horizontal-nav" data-drawer-no-drag>
           <NavList title="navegação" orientation="horizontal">
             <ListItem
@@ -368,6 +645,7 @@ function handleLogout() {
               :key="item.id"
               :label="item.label"
               :icon="item.icon"
+              :href="getNavHref(item)"
               :active="isItemActive(item)"
               @click="handleNavClick(item)"
             />
@@ -388,27 +666,29 @@ function handleLogout() {
             :key="project.id"
             :label="project.name"
             :icon="project.icon"
-            :active="project.id === currentActiveProject.id"
+            :href="getProjectHref(project.id)"
+            :active="project.id === currentActiveProject?.id"
             @click="selectProject(project)"
           >
             <template #trailing>
               <IconButton
                 variant="ghost"
                 size="sm"
-                icon="exclamation"
+                icon="info"
                 :ariaLabel="`Informações do projeto ${project.name}`"
                 @click.stop="openProjectInfo(project)"
               />
             </template>
           </ListItem>
         </NavList>
+        <p v-if="projects.length === 0" class="app-shell__empty-projects">sem projeto</p>
       </div>
 
       <template #footer>
         <ProfileCard
           v-if="mobileDrawerView === 'project'"
           :username="profile.username"
-          :role="profile.role"
+          :role="profile.email || profile.workspace"
           @settings-click="openSettings"
         />
         <div v-else class="app-shell__mobile-projects-footer">
@@ -429,19 +709,24 @@ function handleLogout() {
       v-model:open="isSettingsOpen"
       :username="profile.username"
       :email="profile.email"
-      :role="profile.role"
       :workspace="profile.workspace"
-      @save="handleSaveProfile"
       @logout="handleLogout"
     />
 
-    <CreateProjectModal v-model:open="isCreateProjectOpen" @create="handleCreateProject" />
+    <CreateProjectModal
+      v-model:open="isCreateProjectOpen"
+      :submitting="isProjectMutating"
+      @create="handleCreateProject"
+    />
 
     <ProjectInfoModal
       v-model:open="isProjectInfoOpen"
       :project="infoTargetProject"
       :is-active-project="infoTargetProject?.id === storeActiveProjectId"
+      :submitting="isProjectMutating"
       @select="selectProject"
+      @rename="handleRenameProject"
+      @delete="handleDeleteProject"
     />
   </div>
 </template>
@@ -527,6 +812,33 @@ function handleLogout() {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-2);
+}
+
+.app-shell__empty-projects {
+  margin: var(--spacing-0);
+  padding: var(--spacing-2) var(--spacing-3);
+  color: var(--text-helper);
+  font-family: var(--type-body-compact-01-font-family);
+  font-size: var(--type-body-compact-01-font-size);
+  line-height: var(--type-body-compact-01-line-height);
+}
+
+.app-shell__no-project {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  margin: var(--spacing-0) var(--spacing-3);
+  padding: var(--spacing-3);
+  background-color: var(--surface-base);
+  border: var(--app-shell-border-width) solid var(--app-shell-border-color);
+}
+
+.app-shell__no-project-text {
+  margin: var(--spacing-0);
+  color: var(--text-helper);
+  font-family: var(--type-body-compact-01-font-family);
+  font-size: var(--type-body-compact-01-font-size);
+  line-height: var(--type-body-compact-01-line-height);
 }
 
 .app-shell__collapsed-actions,

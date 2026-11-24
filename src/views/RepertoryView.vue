@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { AppShell } from '@/components/shell'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { getApiErrorMessage } from '@/api/errors'
+import type { DocumentStatusApi } from '@/api/types/repertory'
 import DocumentCard from '@/components/repertory/DocumentCard.vue'
-import heroRobotImg from '@/assets/images/2da21ad867bb41c5bb1b67c4a94cdda9ac4949e1.jpg'
+import { AppShell } from '@/components/shell'
 import {
   Badge,
   Button,
@@ -19,6 +21,8 @@ import {
   Tabs,
   Tag,
   TagForm,
+  TextArea,
+  TextInput,
   toast,
   type BatchAction,
   type DataTableColumn,
@@ -29,120 +33,35 @@ import {
   type TabOption,
   type TagFormPayload,
 } from '@/components/ui'
+import { useRepertoryApi } from '@/composables/api'
+import { useRepertoryState, type CachedRepertoryPreview } from '@/stores/repertoryState'
+import { useWorkspaceState } from '@/stores/workspaceState'
+import type {
+  RepertoryAsset,
+  RepertoryDocument,
+  RepertoryHistoryEntry,
+  RepertoryItemTagRef,
+  RepertoryTag,
+} from '@/types/repertory'
 
 type RepertoryTab = 'documents' | 'assets' | 'tags'
 type RepertoryItemKind = 'document' | 'asset'
-type DocumentFormat = 'PDF' | 'DOCX' | 'MD'
-type AssetFormat = 'PNG' | 'JPG' | 'WEBP' | 'SVG'
 type ItemTagModalTab = 'existing' | 'create'
-type ConfirmTarget = 'tags' | null
+type ConfirmTarget = 'tags' | 'document' | 'asset' | null
 
-interface RepertoryDocument {
-  id: string
-  title: string
-  description: string
-  status: 'publicado' | 'em revisão' | 'rascunho'
-  format: DocumentFormat
-  meta: string
-  excerpt: string
-  thumbnailUrl?: string
-  tags: RepertoryItemTag[]
-  history: RepertoryItemHistoryEntry[]
-}
-
-interface RepertoryAsset {
-  id: string
-  title: string
-  description: string
-  format: AssetFormat
-  meta: string
-  thumbnailUrl: string
-  tags: RepertoryItemTag[]
-  history: RepertoryItemHistoryEntry[]
-}
-
-interface RepertoryTag {
-  id: string
-  name: string
-  category: string
-  description: string
-  documentsCount: number
-  createdAt: string
-}
-
-type SvgThumbnailVariant = 'diagram' | 'grid' | 'brand' | 'contrast' | 'flow'
-
-function createPrismonSvgDataUri(
-  title: string,
-  badge: string,
-  variant: SvgThumbnailVariant,
-): string {
-  const safeTitle = title.replace(/[<>&"']/g, '')
-  const safeBadge = badge.replace(/[<>&"']/g, '')
-
-  const shapesByVariant: Record<SvgThumbnailVariant, string> = {
-    diagram: `
-      <rect x="44" y="48" width="128" height="72" fill="#1b181a" stroke="#f33ff0" stroke-width="2" />
-      <rect x="228" y="48" width="128" height="72" fill="#1b181a" stroke="#4f4a4f" stroke-width="2" />
-      <rect x="412" y="48" width="144" height="72" fill="#1b181a" stroke="#fb6af9" stroke-width="2" />
-      <path d="M172 84 H228 M356 84 H412" stroke="#f33ff0" stroke-width="2" stroke-dasharray="4 4" />
-      <circle cx="200" cy="84" r="4" fill="#f33ff0" />
-      <circle cx="384" cy="84" r="4" fill="#fb6af9" />
-    `,
-    grid: `
-      <g stroke="#353134" stroke-width="1">
-        <line x1="48" y1="32" x2="48" y2="210" />
-        <line x1="168" y1="32" x2="168" y2="210" />
-        <line x1="288" y1="32" x2="288" y2="210" />
-        <line x1="408" y1="32" x2="408" y2="210" />
-        <line x1="528" y1="32" x2="528" y2="210" />
-        <line x1="32" y1="64" x2="568" y2="64" />
-        <line x1="32" y1="128" x2="568" y2="128" />
-        <line x1="32" y1="192" x2="568" y2="192" />
-      </g>
-      <rect x="48" y="64" width="240" height="64" fill="#f33ff0" fill-opacity="0.18" stroke="#f33ff0" stroke-width="2" />
-      <rect x="312" y="64" width="216" height="128" fill="#1b181a" stroke="#837c83" stroke-width="1.5" />
-    `,
-    brand: `
-      <circle cx="460" cy="110" r="78" fill="#f33ff0" fill-opacity="0.22" />
-      <circle cx="460" cy="110" r="46" fill="#fb6af9" fill-opacity="0.35" stroke="#fb6af9" stroke-width="2" />
-      <rect x="44" y="54" width="280" height="16" fill="#ffffff" />
-      <rect x="44" y="84" width="210" height="10" fill="#837c83" />
-      <rect x="44" y="106" width="160" height="10" fill="#4f4a4f" />
-    `,
-    contrast: `
-      <rect x="44" y="48" width="120" height="112" fill="#ffffff" />
-      <rect x="176" y="48" width="120" height="112" fill="#f33ff0" />
-      <rect x="308" y="48" width="120" height="112" fill="#353134" />
-      <rect x="440" y="48" width="116" height="112" fill="#080708" stroke="#4f4a4f" stroke-width="1.5" />
-      <text x="64" y="112" fill="#080708" font-family="sans-serif" font-size="18" font-weight="700">AA 18:1</text>
-      <text x="198" y="112" fill="#ffffff" font-family="sans-serif" font-size="18" font-weight="700">BRAND</text>
-    `,
-    flow: `
-      <path d="M48 160 C150 60, 240 180, 340 90 S480 60, 552 120" fill="none" stroke="#f33ff0" stroke-width="3" />
-      <circle cx="48" cy="160" r="7" fill="#ffffff" stroke="#f33ff0" stroke-width="3" />
-      <circle cx="216" cy="126" r="7" fill="#ffffff" stroke="#f33ff0" stroke-width="3" />
-      <circle cx="386" cy="84" r="7" fill="#ffffff" stroke="#f33ff0" stroke-width="3" />
-      <circle cx="552" cy="120" r="7" fill="#f33ff0" />
-    `,
-  }
-
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 320" width="600" height="320">
-      <rect width="600" height="320" fill="#080708" />
-      <rect x="16" y="16" width="568" height="288" fill="#1b181a" stroke="#353134" stroke-width="1.5" />
-      ${shapesByVariant[variant]}
-      <rect x="44" y="236" width="68" height="24" rx="12" fill="#60065e" />
-      <text x="78" y="252" text-anchor="middle" fill="#fde7fd" font-family="sans-serif" font-size="11" font-weight="600">${safeBadge}</text>
-      <text x="128" y="253" fill="#ffffff" font-family="sans-serif" font-size="16" font-weight="600">${safeTitle}</text>
-      <text x="44" y="282" fill="#b5b0b5" font-family="sans-serif" font-size="12">prismon media repertory</text>
-    </svg>
-  `.trim()
-
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+interface PreviewState {
+  kind: 'idle' | 'loading' | CachedRepertoryPreview['kind']
+  url?: string
+  text?: string
+  note?: string
+  isObjectUrl?: boolean
 }
 
 const PAGE_SIZE = 5
+const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/
+const IMAGE_FORMATS = new Set(['PNG', 'JPG', 'JPEG', 'WEBP', 'SVG', 'GIF', 'AVIF', 'BMP', 'ICO'])
+const TEXT_FORMATS = new Set(['MD', 'MARKDOWN', 'TXT', 'CSV', 'JSON', 'XML', 'YAML', 'YML'])
+const MAX_TEXT_PREVIEW_CHARS = 8000
 
 const tabItems: TabOption[] = [
   { id: 'documents', label: 'documents' },
@@ -155,370 +74,121 @@ const itemTagTabOptions: TabOption[] = [
   { id: 'create', label: 'criar nova tag' },
 ]
 
+const statusFilterOptions: SelectOption[] = [
+  { label: 'todos os status', value: 'todos' },
+  { label: 'Publicado', value: 'published' },
+  { label: 'Pendente', value: 'pending' },
+  { label: 'Rascunho', value: 'draft' },
+  { label: 'Enviando', value: 'uploading' },
+  { label: 'Falha', value: 'failed' },
+  { label: 'Arquivado', value: 'archived' },
+]
+
+const tagColumns: DataTableColumn[] = [
+  { key: 'label', label: 'Nome' },
+  { key: 'color', label: 'Cor' },
+  { key: 'description', label: 'Descrição' },
+]
+
+const route = useRoute()
+const router = useRouter()
+const { activeProjectId } = useWorkspaceState()
+const repertoryApi = useRepertoryApi()
+const repertoryState = useRepertoryState()
+
+function parsePositiveIntParam(raw: unknown): number | null {
+  const value = Array.isArray(raw) ? raw[0] : raw
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) {
+    return null
+  }
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+const routeProjectId = computed(() => parsePositiveIntParam(route.params.projectId))
+const resolvedProjectId = computed(() => routeProjectId.value ?? activeProjectId.value)
+
 const activeTab = ref<RepertoryTab>('documents')
 
-const documents = ref<RepertoryDocument[]>([
-  {
-    id: 'doc-1',
-    title: 'Manual de Identidade Prismon',
-    description:
-      'Diretrizes visuais, uso de tipografia Funnel Display e Noto Sans, contrastes e regras de composição do ecossistema Prismon.',
-    status: 'publicado',
-    format: 'PDF',
-    meta: 'PDF • 2,4 MB • 14 páginas',
-    excerpt:
-      '1. Princípios visuais\nA identidade Prismon equilibra superfícies neutras de alto contraste com acentos cromáticos pontuais (--interactive-brand). Títulos editoriais utilizam Funnel Display em caixa baixa; textos operacionais e tabelas utilizam Noto Sans para máxima legibilidade.',
-    tags: [
-      { id: 't-1', label: 'design system' },
-      { id: 't-2', label: 'marca' },
-      { id: 't-3', label: 'tokens' },
-      { id: 't-4', label: 'tipografia' },
-      { id: 't-5', label: 'diretrizes' },
-    ],
-    history: [
-      {
-        id: 'h-1',
-        title: 'Revisão de tokens semânticos',
-        summary: 'Atualização das superfícies neutras e estados de foco.',
-        author: 'Ana Paula',
-        date: '18 nov 2026',
-      },
-      {
-        id: 'h-2',
-        title: 'Publicação inicial do manual',
-        summary: 'Estrutura base de identidade e grid editorial.',
-        author: 'Lucas Andrade',
-        date: '04 nov 2026',
-      },
-    ],
-  },
-  {
-    id: 'doc-2',
-    title: 'Playbook de Workflows IA',
-    description:
-      'Padrões de orquestração multiagente, gatilhos de revisão humana e boas práticas para fluxos automatizados de análise documental.',
-    status: 'publicado',
-    format: 'MD',
-    meta: 'MD • 128 KB • 6 min de leitura',
-    excerpt:
-      '## Orquestração de agentes\nCada etapa do workflow recebe um contrato explícito de entrada e saída. Operações críticas (exclusão de repertório ou envio externo) exigem checkpoint de aprovação humana antes da execução final.',
-    tags: [
-      { id: 't-6', label: 'workflows' },
-      { id: 't-7', label: 'automação' },
-      { id: 't-8', label: 'agentes' },
-    ],
-    history: [
-      {
-        id: 'h-3',
-        title: 'Inclusão de etapa de validação',
-        summary: 'Adicionado checklist de aprovação antes do disparo final.',
-        author: 'Mariana Costa',
-        date: '19 nov 2026',
-      },
-    ],
-  },
-  {
-    id: 'doc-3',
-    title: 'Especificação de Tokens Semânticos',
-    description:
-      'Mapeamento completo entre tokens primitivos e semânticos para superfícies, bordas, ícones, espaçamentos e animações.',
-    status: 'em revisão',
-    format: 'MD',
-    meta: 'MD • 96 KB • 5 min de leitura',
-    excerpt:
-      '# Arquitetura de tokens\nNenhum componente consome cores hexadecimais ou tokens `--color-*` diretamente. Toda estilização deve expor variáveis `--<bloco>-*` apontando exclusivamente para tokens semânticos de superfície, texto, borda e movimento.',
-    tags: [
-      { id: 't-3', label: 'tokens' },
-      { id: 't-1', label: 'design system' },
-      { id: 't-9', label: 'arquitetura' },
-    ],
-    history: [
-      {
-        id: 'h-4',
-        title: 'Padronização de durações',
-        summary: 'Definidos tokens de transição para modais, sheets e drawers.',
-        author: 'Ana Paula',
-        date: '15 nov 2026',
-      },
-    ],
-  },
-  {
-    id: 'doc-4',
-    title: 'Guia de Prompts Corporativos',
-    description:
-      'Biblioteca de prompts validados para triagem de contratos, síntese executiva e resposta assistida no chatbot Prismon.',
-    status: 'publicado',
-    format: 'DOCX',
-    meta: 'DOCX • 1,1 MB • 9 páginas',
-    excerpt:
-      'Template 04 — Síntese Executiva\nContexto: Atue como analista de governança do Prismon. Extraia riscos contratuais, prazos de renovação automática e obrigações de confidencialidade em tópicos objetivos.',
-    tags: [
-      { id: 't-10', label: 'prompts' },
-      { id: 't-11', label: 'chatbot' },
-      { id: 't-12', label: 'governança' },
-    ],
-    history: [
-      {
-        id: 'h-5',
-        title: 'Novos templates jurídicos',
-        summary: 'Adicionados prompts para extração de cláusulas críticas.',
-        author: 'Rafael Souza',
-        date: '12 nov 2026',
-      },
-    ],
-  },
-  {
-    id: 'doc-5',
-    title: 'Checklist de Acessibilidade UI',
-    description:
-      'Critérios WCAG AA de navegação por teclado, atributos ARIA, foco visível e suporte a prefers-reduced-motion nos componentes.',
-    status: 'em revisão',
-    format: 'PDF',
-    meta: 'PDF • 1,8 MB • 11 páginas',
-    excerpt:
-      'Critério 2.4.7 — Foco visível\nTodos os controles interativos exibem `--shadow-focus-ring` em `:focus-visible`. Overlays (Modal, Sheet, Drawer) suportam fechamento via Escape e respeitam `prefers-reduced-motion: reduce`.',
-    tags: [
-      { id: 't-13', label: 'acessibilidade' },
-      { id: 't-1', label: 'design system' },
-      { id: 't-14', label: 'qualidade' },
-    ],
-    history: [
-      {
-        id: 'h-6',
-        title: 'Auditoria de DataTable e Sheet',
-        summary: 'Validada leitura em leitores de tela e atalho Escape.',
-        author: 'Clara Mendes',
-        date: '10 nov 2026',
-      },
-    ],
-  },
-  {
-    id: 'doc-6',
-    title: 'Arquitetura de Repertório & Assets',
-    description:
-      'Definição do ciclo de vida de documentos, versionamento de anexos e taxonomia compartilhada entre repertório e chatbot.',
-    status: 'rascunho',
-    format: 'DOCX',
-    meta: 'DOCX • 840 KB • 7 páginas',
-    excerpt:
-      '3. Taxonomia unificada\nDocumentos textuais (PDF, DOCX, MD) e ativos visuais (PNG, JPG, WEBP, SVG) compartilham o mesmo catálogo de tags, permitindo filtragem cruzada e rastreamento completo no histórico de modificações.',
-    tags: [
-      { id: 't-9', label: 'arquitetura' },
-      { id: 't-15', label: 'repertório' },
-      { id: 't-12', label: 'governança' },
-    ],
-    history: [
-      {
-        id: 'h-7',
-        title: 'Rascunho inicial',
-        summary: 'Esboço do modelo de vínculo entre documentos e assets.',
-        author: 'Lucas Andrade',
-        date: '21 nov 2026',
-      },
-    ],
-  },
-])
+const emptyDocumentsSlice = {
+  items: [] as RepertoryDocument[],
+  loaded: false,
+  nextCursor: null as string | null,
+  hasMore: false,
+  isLoading: false,
+  isLoadingMore: false,
+  error: null as string | null,
+}
 
-const assets = ref<RepertoryAsset[]>([
-  {
-    id: 'asset-1',
-    title: 'Ilustração Hero Robô Prismon',
-    description:
-      'Arte principal do assistente Prismon utilizada na página inicial, onboarding e apresentações institucionais de produto.',
-    format: 'JPG',
-    meta: 'JPG • 1376×768 px • 896 KB',
-    thumbnailUrl: heroRobotImg,
-    tags: [
-      { id: 'at-1', label: 'marca' },
-      { id: 'at-2', label: 'chatbot' },
-      { id: 'at-3', label: 'diretrizes' },
-    ],
-    history: [
-      {
-        id: 'ah-1',
-        title: 'Exportação final em alta resolução',
-        summary: 'Versão otimizada para exibição hero em 16:9.',
-        author: 'Ana Paula',
-        date: '20 nov 2026',
-      },
-    ],
-  },
-  {
-    id: 'asset-2',
-    title: 'Diagrama de Arquitetura Multiagente',
-    description:
-      'Esquema vetorial ilustrando a troca de contexto entre o agente de triagem, o buscador semântico e o validador humano.',
-    format: 'SVG',
-    meta: 'SVG • 1200×640 px • 42 KB',
-    thumbnailUrl: createPrismonSvgDataUri('Arquitetura Multiagente', 'SVG', 'diagram'),
-    tags: [
-      { id: 'at-4', label: 'workflows' },
-      { id: 'at-5', label: 'arquitetura' },
-      { id: 'at-6', label: 'agentes' },
-    ],
-    history: [
-      {
-        id: 'ah-2',
-        title: 'Atualização dos nós de validação',
-        summary: 'Ajustadas conexões pontilhadas e legenda de estados.',
-        author: 'Mariana Costa',
-        date: '19 nov 2026',
-      },
-    ],
-  },
-  {
-    id: 'asset-3',
-    title: 'Grid Editorial e Espaçamentos UI',
-    description:
-      'Prancha de referência demonstrando colunas responsivas, escala de espaçamentos e proporções de cards no repertório.',
-    format: 'PNG',
-    meta: 'PNG • 1920×1080 px • 1,4 MB',
-    thumbnailUrl: createPrismonSvgDataUri('Grid Editorial UI', 'PNG', 'grid'),
-    tags: [
-      { id: 'at-7', label: 'design system' },
-      { id: 'at-8', label: 'tokens' },
-    ],
-    history: [
-      {
-        id: 'ah-3',
-        title: 'Publicação da prancha v2',
-        summary: 'Incluídos breakpoints de 767px para adaptação mobile.',
-        author: 'Lucas Andrade',
-        date: '17 nov 2026',
-      },
-    ],
-  },
-  {
-    id: 'asset-4',
-    title: 'Capa Institucional Onboarding IA',
-    description:
-      'Banner leve em WebP para fluxos de boas-vindas e materiais de treinamento interno das equipes operacionais.',
-    format: 'WEBP',
-    meta: 'WEBP • 1600×900 px • 540 KB',
-    thumbnailUrl: createPrismonSvgDataUri('Onboarding Prismon IA', 'WEBP', 'brand'),
-    tags: [
-      { id: 'at-9', label: 'marca' },
-      { id: 'at-10', label: 'prompts' },
-    ],
-    history: [
-      {
-        id: 'ah-4',
-        title: 'Conversão para WebP',
-        summary: 'Redução de 48% no peso mantendo nitidez de borda.',
-        author: 'Rafael Souza',
-        date: '14 nov 2026',
-      },
-    ],
-  },
-  {
-    id: 'asset-5',
-    title: 'Paleta Semântica e Contrastes WCAG',
-    description:
-      'Guia visual de combinações aprovadas entre superfícies neutras, texto primário e destaque de marca.',
-    format: 'SVG',
-    meta: 'SVG • 960×540 px • 28 KB',
-    thumbnailUrl: createPrismonSvgDataUri('Contrastes WCAG AA', 'SVG', 'contrast'),
-    tags: [
-      { id: 'at-11', label: 'acessibilidade' },
-      { id: 'at-12', label: 'tokens' },
-      { id: 'at-13', label: 'design system' },
-    ],
-    history: [
-      {
-        id: 'ah-5',
-        title: 'Validação de contraste 18:1',
-        summary: 'Aprovado em auditoria interna de acessibilidade.',
-        author: 'Clara Mendes',
-        date: '11 nov 2026',
-      },
-    ],
-  },
-  {
-    id: 'asset-6',
-    title: 'Fluxo Visual de Triagem Documental',
-    description:
-      'Representação gráfica das etapas de ingestão, indexação vetorial e revisão de tags no repertório corporativo.',
-    format: 'PNG',
-    meta: 'PNG • 1440×810 px • 1,1 MB',
-    thumbnailUrl: createPrismonSvgDataUri('Triagem Documental', 'PNG', 'flow'),
-    tags: [
-      { id: 'at-14', label: 'workflows' },
-      { id: 'at-15', label: 'repertório' },
-      { id: 'at-16', label: 'automação' },
-    ],
-    history: [
-      {
-        id: 'ah-6',
-        title: 'Revisão com time de produto',
-        summary: 'Simplificados rótulos das etapas intermediárias.',
-        author: 'Ana Paula',
-        date: '09 nov 2026',
-      },
-    ],
-  },
-])
+const emptyAssetsSlice = {
+  items: [] as RepertoryAsset[],
+  loaded: false,
+  nextCursor: null as string | null,
+  hasMore: false,
+  isLoading: false,
+  isLoadingMore: false,
+  error: null as string | null,
+}
 
-const tagsList = ref<RepertoryTag[]>([
-  {
-    id: 'tag-1',
-    name: 'design system',
-    category: 'Design',
-    description: 'Componentes, tokens e padrões visuais do Prismon.',
-    documentsCount: 3,
-    createdAt: '02 nov 2026',
-  },
-  {
-    id: 'tag-2',
-    name: 'tokens',
-    category: 'Design',
-    description: 'Variáveis semânticas de cor, tipografia e movimento.',
-    documentsCount: 2,
-    createdAt: '04 nov 2026',
-  },
-  {
-    id: 'tag-3',
-    name: 'workflows',
-    category: 'IA',
-    description: 'Fluxos multiagente e rotinas de automação.',
-    documentsCount: 1,
-    createdAt: '06 nov 2026',
-  },
-  {
-    id: 'tag-4',
-    name: 'prompts',
-    category: 'IA',
-    description: 'Instruções reutilizáveis e guias de contexto.',
-    documentsCount: 1,
-    createdAt: '08 nov 2026',
-  },
-  {
-    id: 'tag-5',
-    name: 'governança',
-    category: 'Produto',
-    description: 'Políticas de revisão, auditoria e controle de acesso.',
-    documentsCount: 2,
-    createdAt: '11 nov 2026',
-  },
-  {
-    id: 'tag-6',
-    name: 'acessibilidade',
-    category: 'Qualidade',
-    description: 'Conformidade WCAG e testes de navegação assistiva.',
-    documentsCount: 1,
-    createdAt: '14 nov 2026',
-  },
-])
+const emptyTagsSlice = {
+  items: [] as RepertoryTag[],
+  loaded: false,
+  isLoading: false,
+  error: null as string | null,
+}
 
-// Documents tab filters & modals
+const documentsState = computed(() =>
+  resolvedProjectId.value
+    ? repertoryState.getDocumentsState(resolvedProjectId.value)
+    : emptyDocumentsSlice,
+)
+const assetsState = computed(() =>
+  resolvedProjectId.value
+    ? repertoryState.getAssetsState(resolvedProjectId.value)
+    : emptyAssetsSlice,
+)
+const tagsState = computed(() =>
+  resolvedProjectId.value ? repertoryState.getTagsState(resolvedProjectId.value) : emptyTagsSlice,
+)
+
+const documents = computed(() => documentsState.value.items)
+const assets = computed(() => assetsState.value.items)
+const tagsList = computed(() => tagsState.value.items)
+
+const isLoadingData = computed(() => {
+  if (!resolvedProjectId.value) return false
+  if (activeTab.value === 'documents') {
+    return !documentsState.value.loaded && documentsState.value.isLoading
+  }
+  if (activeTab.value === 'assets') {
+    return !assetsState.value.loaded && assetsState.value.isLoading
+  }
+  return !tagsState.value.loaded && tagsState.value.isLoading
+})
+
+const loadError = computed(() => {
+  if (!resolvedProjectId.value) return null
+  if (activeTab.value === 'documents') {
+    return !documentsState.value.loaded ? documentsState.value.error : null
+  }
+  if (activeTab.value === 'assets') {
+    return !assetsState.value.loaded ? assetsState.value.error : null
+  }
+  return !tagsState.value.loaded ? tagsState.value.error : null
+})
+
+// Documents tab filters & modal
 const docSearch = ref('')
 const selectedTagFilter = ref('')
-const selectedStatusFilter = ref('')
+const selectedStatusFilter = ref<DocumentStatusApi | 'todos' | ''>('')
 const activeTagFilters = ref<string[]>([])
 
 const isNewDocModalOpen = ref(false)
 const newDocTitleError = ref('')
+const newDocFileError = ref('')
+const isCreatingDoc = ref(false)
 
-// Assets tab filters & modals
+// Assets tab filters & modal
 const assetSearch = ref('')
 const selectedAssetTagFilter = ref('')
 const selectedAssetFormatFilter = ref('')
@@ -526,25 +196,50 @@ const activeAssetTagFilters = ref<string[]>([])
 
 const isNewAssetModalOpen = ref(false)
 const newAssetTitleError = ref('')
+const newAssetFileError = ref('')
+const isCreatingAsset = ref(false)
 
-// Shared Details Sheet & Item Tag modal
+// Shared Details Sheet state
 const isDetailsSheetOpen = ref(false)
-const activeItemId = ref<string | null>(null)
+const activeItemId = ref<number | null>(null)
 const activeItemKind = ref<RepertoryItemKind>('document')
+const activeItemHistory = ref<RepertoryHistoryEntry[]>([])
+const isLoadingHistory = ref(false)
+const previewState = ref<PreviewState>({ kind: 'idle' })
 
+// Edit Metadata Modal state (document or asset)
+const isEditItemModalOpen = ref(false)
+const editItemTitle = ref('')
+const editItemDescription = ref('')
+const editItemType = ref('')
+const editItemTitleError = ref('')
+const isUpdatingItem = ref(false)
+
+// Item Tag Modal state
 const isItemTagModalOpen = ref(false)
 const itemTagModalTab = ref<ItemTagModalTab>('existing')
-const selectedExistingTagName = ref('')
+const selectedExistingTagId = ref('')
 const existingTagSelectError = ref('')
 const itemTagNameError = ref('')
+const itemTagColorError = ref('')
+const isSubmittingItemTag = ref(false)
 
 // Tags tab state
 const tagPage = ref(1)
 const selectedTagKeys = ref<Array<string | number>>([])
 const isNewTagModalOpen = ref(false)
 const newTagNameError = ref('')
+const newTagColorError = ref('')
+const isCreatingTag = ref(false)
+
+const isEditTagModalOpen = ref(false)
+const editingTag = ref<RepertoryTag | null>(null)
+const editTagNameError = ref('')
+const editTagColorError = ref('')
+const isUpdatingTag = ref(false)
 
 // Shared confirm dialog state
+const isDeleting = ref(false)
 const confirmState = ref<{
   open: boolean
   target: ConfirmTarget
@@ -559,10 +254,86 @@ const confirmState = ref<{
   confirmLabel: 'Remover',
 })
 
-function collectUniqueTagOptions(items: Array<{ tags: RepertoryItemTag[] }>): SelectOption[] {
+let projectLoadSeq = 0
+let sheetLoadSeq = 0
+let detailRouteSeq = 0
+let isUnmounted = false
+
+function createObjectUrl(blob: Blob): string | null {
+  if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+    return null
+  }
+  try {
+    return URL.createObjectURL(blob)
+  } catch {
+    return null
+  }
+}
+
+async function readBlobAsText(blob: Blob): Promise<string> {
+  if (typeof blob.text === 'function') {
+    return blob.text()
+  }
+  if (typeof Response !== 'undefined') {
+    return new Response(blob).text()
+  }
+  return ''
+}
+
+function getFileBasename(filePath: string | null | undefined): string {
+  if (!filePath) return 'Arquivo sem nome'
+  return filePath.split('/').pop()?.trim() || filePath
+}
+
+function isImageAsset(asset: RepertoryAsset): boolean {
+  if (asset.type.toLowerCase() === 'image') return true
+  if (asset.contentType?.toLowerCase().startsWith('image/')) return true
+  return IMAGE_FORMATS.has(asset.format.toUpperCase())
+}
+
+function toUiTags(tags: RepertoryItemTagRef[]): RepertoryItemTag[] {
+  return tags.map((tag) => ({
+    id: String(tag.id),
+    label: tag.label,
+    color: tag.color,
+  }))
+}
+
+function getTagColorByLabel(label: string): string | undefined {
+  const normalized = label.trim().toLowerCase()
+  const projectTag = tagsList.value.find((tag) => tag.label.toLowerCase() === normalized)
+  if (projectTag?.color) {
+    return projectTag.color
+  }
+  for (const doc of documents.value) {
+    const match = doc.tags.find((tag) => tag.label.toLowerCase() === normalized)
+    if (match?.color) {
+      return match.color
+    }
+  }
+  for (const asset of assets.value) {
+    const match = asset.tags.find((tag) => tag.label.toLowerCase() === normalized)
+    if (match?.color) {
+      return match.color
+    }
+  }
+  return undefined
+}
+
+function toUiHistory(entries: RepertoryHistoryEntry[]): RepertoryItemHistoryEntry[] {
+  return entries.map((entry) => ({
+    id: String(entry.id),
+    title: entry.title,
+    summary: entry.summary,
+    author: entry.author,
+    date: entry.date,
+  }))
+}
+
+function collectUniqueTagOptions(items: Array<{ tags: RepertoryItemTagRef[] }>): SelectOption[] {
   const uniqueLabels = new Set<string>()
   for (const tag of tagsList.value) {
-    uniqueLabels.add(tag.name)
+    uniqueLabels.add(tag.label)
   }
   for (const item of items) {
     for (const tag of item.tags) {
@@ -578,30 +349,22 @@ const tagFilterOptions = computed<SelectOption[]>(() => collectUniqueTagOptions(
 
 const assetTagFilterOptions = computed<SelectOption[]>(() => collectUniqueTagOptions(assets.value))
 
-const statusFilterOptions: SelectOption[] = [
-  { label: 'todos os status', value: 'todos' },
-  { label: 'publicado', value: 'publicado' },
-  { label: 'em revisão', value: 'em revisão' },
-  { label: 'rascunho', value: 'rascunho' },
-]
-
-const assetFormatFilterOptions: SelectOption[] = [
-  { label: 'todos os formatos', value: 'todos' },
-  { label: 'PNG', value: 'PNG' },
-  { label: 'JPG', value: 'JPG' },
-  { label: 'WEBP', value: 'WEBP' },
-  { label: 'SVG', value: 'SVG' },
-]
-
-const tagColumns: DataTableColumn[] = [
-  { key: 'name', label: 'Nome' },
-  { key: 'category', label: 'Categoria' },
-  { key: 'description', label: 'Descrição' },
-  { key: 'documentsCount', label: 'Documentos', align: 'center' },
-  { key: 'createdAt', label: 'Criada em' },
-]
-
-const tagBatchActions: BatchAction[] = [{ id: 'delete', label: 'remover', icon: 'delete' }]
+const assetFormatFilterOptions = computed<SelectOption[]>(() => {
+  const uniqueValues = new Set<string>()
+  for (const asset of assets.value) {
+    if (asset.format && asset.format !== 'ARQUIVO') {
+      uniqueValues.add(asset.format)
+    }
+    if (asset.type && asset.type !== 'other') {
+      uniqueValues.add(asset.type)
+    }
+  }
+  const sorted = Array.from(uniqueValues).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  return [
+    { label: 'todos os formatos', value: 'todos' },
+    ...sorted.map((item) => ({ label: item, value: item })),
+  ]
+})
 
 const hasActiveDocFilters = computed(
   () =>
@@ -650,7 +413,7 @@ const filteredDocuments = computed(() => {
 
 const filteredAssets = computed(() => {
   const query = assetSearch.value.trim().toLowerCase()
-  const format = selectedAssetFormatFilter.value
+  const formatOrType = selectedAssetFormatFilter.value
 
   return assets.value.filter((asset) => {
     if (query.length > 0) {
@@ -661,7 +424,12 @@ const filteredAssets = computed(() => {
       }
     }
 
-    if (format && format !== 'todos' && asset.format !== format) {
+    if (
+      formatOrType &&
+      formatOrType !== 'todos' &&
+      asset.format !== formatOrType &&
+      asset.type !== formatOrType
+    ) {
       return false
     }
 
@@ -695,12 +463,22 @@ const activeItem = computed(() => activeAsset.value ?? activeDocument.value)
 
 const availableTagOptionsForActiveItem = computed<SelectOption[]>(() => {
   const item = activeItem.value
-  const linkedLabels = new Set((item?.tags ?? []).map((t) => t.label.toLowerCase()))
+  const linkedIds = new Set((item?.tags ?? []).map((t) => t.id))
 
   return tagsList.value
-    .filter((tag) => !linkedLabels.has(tag.name.toLowerCase()))
-    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
-    .map((tag) => ({ label: tag.name, value: tag.name }))
+    .filter((tag) => !linkedIds.has(tag.id))
+    .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+    .map((tag) => ({ label: tag.label, value: String(tag.id) }))
+})
+
+const tagBatchActions = computed<BatchAction[]>(() => {
+  if (selectedTagKeys.value.length === 1) {
+    return [
+      { id: 'edit', label: 'editar', icon: 'edit' },
+      { id: 'delete', label: 'remover', icon: 'delete' },
+    ]
+  }
+  return [{ id: 'delete', label: 'remover', icon: 'delete' }]
 })
 
 const totalTagPages = computed(() => Math.max(1, Math.ceil(tagsList.value.length / PAGE_SIZE)))
@@ -710,11 +488,267 @@ const paginatedTagRows = computed(() => {
   return tagsList.value.slice(start, start + PAGE_SIZE) as unknown as Record<string, unknown>[]
 })
 
+function getTabFromRouteName(routeName: unknown): RepertoryTab {
+  if (routeName === 'repertory-assets' || routeName === 'repertory-asset-detail') {
+    return 'assets'
+  }
+  if (routeName === 'repertory-tags') {
+    return 'tags'
+  }
+  return 'documents'
+}
+
+function getTargetRouteNameForTab(tab: RepertoryTab): string {
+  if (tab === 'assets') return 'repertory-assets'
+  if (tab === 'tags') return 'repertory-tags'
+  return 'repertory-documents'
+}
+
+function isRouteAlreadyOnTab(tab: RepertoryTab): boolean {
+  const currentName = route.name
+  const hasItemId = parsePositiveIntParam(route.params.itemId) !== null
+  if (tab === 'documents') {
+    return (
+      currentName === 'repertory-documents' ||
+      (currentName === 'repertory-document-detail' && hasItemId)
+    )
+  }
+  if (tab === 'assets') {
+    return (
+      currentName === 'repertory-assets' || (currentName === 'repertory-asset-detail' && hasItemId)
+    )
+  }
+  return currentName === 'repertory-tags'
+}
+
 watch(totalTagPages, (maxPage) => {
   if (tagPage.value > maxPage) {
     tagPage.value = maxPage
   }
 })
+
+watch(
+  () => route.name,
+  (routeName) => {
+    if (
+      routeName === 'repertory-documents' ||
+      routeName === 'repertory-document-detail' ||
+      routeName === 'repertory-assets' ||
+      routeName === 'repertory-asset-detail' ||
+      routeName === 'repertory-tags' ||
+      routeName === 'repertory' ||
+      routeName === 'legacy-repertory'
+    ) {
+      activeTab.value = getTabFromRouteName(routeName)
+    }
+  },
+  { immediate: true },
+)
+
+watch(activeTab, (tab) => {
+  const projectId = resolvedProjectId.value
+  const targetName = getTargetRouteNameForTab(tab)
+  if (projectId && router.hasRoute(targetName) && !isRouteAlreadyOnTab(tab)) {
+    void router.push({
+      name: targetName,
+      params: { projectId: String(projectId) },
+    })
+  }
+})
+
+watch(isDetailsSheetOpen, (isOpen) => {
+  if (!isOpen) {
+    sheetLoadSeq += 1
+    previewState.value = { kind: 'idle' }
+    activeItemHistory.value = []
+    isLoadingHistory.value = false
+
+    const projectId = resolvedProjectId.value
+    if (
+      projectId &&
+      (route.name === 'repertory-document-detail' || route.name === 'repertory-asset-detail')
+    ) {
+      const targetName =
+        route.name === 'repertory-asset-detail' ? 'repertory-assets' : 'repertory-documents'
+      if (router.hasRoute(targetName)) {
+        void router.push({
+          name: targetName,
+          params: { projectId: String(projectId) },
+        })
+      }
+    }
+  }
+})
+
+onBeforeUnmount(() => {
+  isUnmounted = true
+  sheetLoadSeq += 1
+  detailRouteSeq += 1
+})
+
+async function loadActiveTabRepertory(
+  projectId: number | null,
+  tab: RepertoryTab,
+  force = false,
+): Promise<void> {
+  if (!projectId) {
+    return
+  }
+
+  const seq = ++projectLoadSeq
+  try {
+    if (tab === 'documents') {
+      await Promise.all([
+        repertoryState.ensureDocumentsLoaded(projectId, force),
+        repertoryState.ensureTagsLoaded(projectId, force),
+      ])
+    } else if (tab === 'assets') {
+      await Promise.all([
+        repertoryState.ensureAssetsLoaded(projectId, force),
+        repertoryState.ensureTagsLoaded(projectId, force),
+      ])
+    } else {
+      await repertoryState.ensureTagsLoaded(projectId, force)
+    }
+  } catch (error) {
+    if (seq !== projectLoadSeq) {
+      return
+    }
+    toast.error(getApiErrorMessage(error, 'Não foi possível carregar o repertório do projeto.'))
+  }
+}
+
+watch(
+  [resolvedProjectId, activeTab],
+  ([projectId, tab], previous) => {
+    const prevProjectId = previous?.[0]
+    if (projectId !== prevProjectId) {
+      sheetLoadSeq += 1
+      detailRouteSeq += 1
+      selectedTagKeys.value = []
+      tagPage.value = 1
+
+      if (
+        route.name !== 'repertory-document-detail' &&
+        route.name !== 'repertory-asset-detail'
+      ) {
+        isDetailsSheetOpen.value = false
+        activeItemId.value = null
+        activeItemHistory.value = []
+        previewState.value = { kind: 'idle' }
+      }
+    }
+
+    void loadActiveTabRepertory(projectId, tab)
+  },
+  { immediate: true },
+)
+
+watch(
+  [() => route.name, () => route.params.itemId, resolvedProjectId],
+  async ([routeName, rawItemId, projectId]) => {
+    if (routeName !== 'repertory-document-detail' && routeName !== 'repertory-asset-detail') {
+      detailRouteSeq += 1
+      if (isDetailsSheetOpen.value && router.hasRoute('repertory-documents')) {
+        isDetailsSheetOpen.value = false
+        activeItemId.value = null
+      }
+      return
+    }
+
+    if (!projectId) {
+      return
+    }
+
+    const kind: RepertoryItemKind =
+      routeName === 'repertory-asset-detail' ? 'asset' : 'document'
+    const fallbackRouteName = kind === 'asset' ? 'repertory-assets' : 'repertory-documents'
+    const itemId = parsePositiveIntParam(rawItemId)
+
+    if (itemId === null) {
+      toast.error(kind === 'asset' ? 'Asset não encontrado.' : 'Documento não encontrado.')
+      if (router.hasRoute(fallbackRouteName)) {
+        void router.replace({
+          name: fallbackRouteName,
+          params: { projectId: String(projectId) },
+        })
+      }
+      return
+    }
+
+    if (
+      isDetailsSheetOpen.value &&
+      activeItemKind.value === kind &&
+      activeItemId.value === itemId
+    ) {
+      return
+    }
+
+    const seq = ++detailRouteSeq
+    try {
+      const item =
+        kind === 'asset'
+          ? await repertoryState.ensureAssetById(projectId, itemId)
+          : await repertoryState.ensureDocumentById(projectId, itemId)
+
+      if (
+        isUnmounted ||
+        seq !== detailRouteSeq ||
+        resolvedProjectId.value !== projectId ||
+        route.name !== routeName ||
+        parsePositiveIntParam(route.params.itemId) !== itemId
+      ) {
+        return
+      }
+
+      if (!item) {
+        toast.error(kind === 'asset' ? 'Asset não encontrado.' : 'Documento não encontrado.')
+        if (router.hasRoute(fallbackRouteName)) {
+          void router.replace({
+            name: fallbackRouteName,
+            params: { projectId: String(projectId) },
+          })
+        }
+        return
+      }
+
+      await openItemDetails(kind, item.id)
+    } catch (error) {
+      if (isUnmounted || seq !== detailRouteSeq) {
+        return
+      }
+      toast.error(
+        getApiErrorMessage(
+          error,
+          kind === 'asset'
+            ? 'Não foi possível carregar o asset.'
+            : 'Não foi possível carregar o documento.',
+        ),
+      )
+    }
+  },
+  { immediate: true },
+)
+
+async function handleLoadMoreDocuments(): Promise<void> {
+  const projectId = resolvedProjectId.value
+  if (!projectId) return
+  try {
+    await repertoryState.loadMoreDocuments(projectId)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível carregar mais documentos.'))
+  }
+}
+
+async function handleLoadMoreAssets(): Promise<void> {
+  const projectId = resolvedProjectId.value
+  if (!projectId) return
+  try {
+    await repertoryState.loadMoreAssets(projectId)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível carregar mais assets.'))
+  }
+}
 
 function addTagFilter(value: string) {
   const trimmed = value.trim()
@@ -760,34 +794,240 @@ function clearAssetFilters() {
   activeAssetTagFilters.value = []
 }
 
-function openDocumentDetails(docId: string) {
-  activeItemKind.value = 'document'
-  activeItemId.value = docId
+async function loadActiveItemHistory(
+  projectId: number,
+  kind: RepertoryItemKind,
+  itemId: number,
+  seq?: number,
+  force = false,
+): Promise<void> {
+  if (!force) {
+    const cached = repertoryState.getCachedHistory(projectId, kind, itemId)
+    if (cached) {
+      activeItemHistory.value = cached
+      isLoadingHistory.value = false
+      return
+    }
+  }
+
+  activeItemHistory.value = []
+  isLoadingHistory.value = true
+  try {
+    const historyPage =
+      kind === 'asset'
+        ? await repertoryApi.listAssetHistory(projectId, itemId)
+        : await repertoryApi.listDocumentHistory(projectId, itemId)
+
+    if (seq !== undefined && (seq !== sheetLoadSeq || !isDetailsSheetOpen.value)) {
+      return
+    }
+    activeItemHistory.value = repertoryState.setCachedHistory(
+      projectId,
+      kind,
+      itemId,
+      historyPage.items,
+    )
+  } catch (error) {
+    if (seq !== undefined && (seq !== sheetLoadSeq || !isDetailsSheetOpen.value)) {
+      return
+    }
+    toast.error(getApiErrorMessage(error, 'Não foi possível carregar o histórico do item.'))
+  } finally {
+    if (seq === undefined || seq === sheetLoadSeq) {
+      isLoadingHistory.value = false
+    }
+  }
+}
+
+async function loadActiveItemPreview(
+  projectId: number,
+  kind: RepertoryItemKind,
+  item: RepertoryDocument | RepertoryAsset,
+  seq: number,
+): Promise<void> {
+  const cached = repertoryState.getCachedPreview(projectId, kind, item.id)
+  if (cached) {
+    previewState.value = cached
+    return
+  }
+
+  previewState.value = { kind: 'loading' }
+
+  try {
+    const blob =
+      kind === 'asset'
+        ? await repertoryApi.fetchAssetFileBlob(projectId, item.id)
+        : await repertoryApi.fetchDocumentFileBlob(projectId, item.id)
+
+    if (seq !== sheetLoadSeq || !isDetailsSheetOpen.value) {
+      return
+    }
+
+    if (!blob || blob.size === 0) {
+      if (kind === 'asset' && isImageAsset(item as RepertoryAsset)) {
+        previewState.value = repertoryState.setCachedPreview(projectId, kind, item.id, {
+          kind: 'image',
+          url: (item as RepertoryAsset).fileUrl,
+        })
+        return
+      }
+      previewState.value = repertoryState.setCachedPreview(projectId, kind, item.id, {
+        kind: 'fallback',
+        note: 'Arquivo vazio ou sem conteúdo disponível para pré-visualização.',
+      })
+      return
+    }
+
+    const mime = (blob.type || item.contentType || '').split(';')[0]?.trim().toLowerCase() ?? ''
+    const formatUpper = item.format.toUpperCase()
+
+    if (mime.startsWith('image/') || IMAGE_FORMATS.has(formatUpper)) {
+      const objectUrl = createObjectUrl(blob)
+      if (objectUrl) {
+        previewState.value = repertoryState.setCachedPreview(projectId, kind, item.id, {
+          kind: 'image',
+          url: objectUrl,
+          isObjectUrl: true,
+        })
+        return
+      }
+      if (kind === 'asset') {
+        previewState.value = repertoryState.setCachedPreview(projectId, kind, item.id, {
+          kind: 'image',
+          url: (item as RepertoryAsset).fileUrl,
+        })
+        return
+      }
+    }
+
+    if (mime === 'application/pdf' || formatUpper === 'PDF') {
+      const objectUrl = createObjectUrl(blob)
+      if (objectUrl) {
+        previewState.value = repertoryState.setCachedPreview(projectId, kind, item.id, {
+          kind: 'pdf',
+          url: objectUrl,
+          isObjectUrl: true,
+        })
+        return
+      }
+    }
+
+    if (
+      mime.startsWith('text/') ||
+      mime.includes('json') ||
+      mime.includes('markdown') ||
+      mime.includes('xml') ||
+      TEXT_FORMATS.has(formatUpper)
+    ) {
+      const rawText = await readBlobAsText(blob)
+      if (seq !== sheetLoadSeq || !isDetailsSheetOpen.value) {
+        return
+      }
+      const trimmed = rawText.trim()
+      if (trimmed.length > 0) {
+        const snippet =
+          trimmed.length > MAX_TEXT_PREVIEW_CHARS
+            ? `${trimmed.slice(0, MAX_TEXT_PREVIEW_CHARS)}\n...`
+            : trimmed
+        previewState.value = repertoryState.setCachedPreview(projectId, kind, item.id, {
+          kind: 'text',
+          text: snippet,
+        })
+        return
+      }
+    }
+
+    previewState.value = repertoryState.setCachedPreview(projectId, kind, item.id, {
+      kind: 'fallback',
+      note: 'Pré-visualização em navegador indisponível para este formato binário. Use o botão de download para abrir o arquivo.',
+    })
+  } catch {
+    if (seq !== sheetLoadSeq || !isDetailsSheetOpen.value) {
+      return
+    }
+    if (kind === 'asset' && isImageAsset(item as RepertoryAsset)) {
+      previewState.value = { kind: 'image', url: (item as RepertoryAsset).fileUrl }
+      return
+    }
+    previewState.value = {
+      kind: 'fallback',
+      note: 'Não foi possível carregar a pré-visualização do arquivo.',
+    }
+  }
+}
+
+async function openItemDetails(kind: RepertoryItemKind, itemId: number): Promise<void> {
+  const projectId = resolvedProjectId.value
+  const item =
+    kind === 'asset'
+      ? assets.value.find((asset) => asset.id === itemId)
+      : documents.value.find((doc) => doc.id === itemId)
+
+  if (!projectId || !item) {
+    return
+  }
+
+  activeItemKind.value = kind
+  activeItemId.value = itemId
   isDetailsSheetOpen.value = true
+
+  const seq = ++sheetLoadSeq
+  await Promise.all([
+    loadActiveItemHistory(projectId, kind, itemId, seq),
+    loadActiveItemPreview(projectId, kind, item, seq),
+  ])
 }
 
-function openAssetDetails(assetId: string) {
-  activeItemKind.value = 'asset'
-  activeItemId.value = assetId
-  isDetailsSheetOpen.value = true
+function openDocumentDetails(docId: number) {
+  const projectId = resolvedProjectId.value
+  if (
+    projectId &&
+    router.hasRoute('repertory-document-detail') &&
+    !(route.name === 'repertory-document-detail' && parsePositiveIntParam(route.params.itemId) === docId)
+  ) {
+    void router.push({
+      name: 'repertory-document-detail',
+      params: { projectId: String(projectId), itemId: String(docId) },
+    })
+    return
+  }
+  void openItemDetails('document', docId)
 }
 
-function handleDownloadDocument(docId: string) {
-  const target = documents.value.find((doc) => doc.id === docId)
-  toast.info(
-    target
-      ? `Download de "${target.title}" iniciado (demonstração).`
-      : 'Download iniciado (demonstração).',
-  )
+function openAssetDetails(assetId: number) {
+  const projectId = resolvedProjectId.value
+  if (
+    projectId &&
+    router.hasRoute('repertory-asset-detail') &&
+    !(route.name === 'repertory-asset-detail' && parsePositiveIntParam(route.params.itemId) === assetId)
+  ) {
+    void router.push({
+      name: 'repertory-asset-detail',
+      params: { projectId: String(projectId), itemId: String(assetId) },
+    })
+    return
+  }
+  void openItemDetails('asset', assetId)
 }
 
-function handleDownloadAsset(assetId: string) {
-  const target = assets.value.find((asset) => asset.id === assetId)
-  toast.info(
-    target
-      ? `Download de "${target.title}" iniciado (demonstração).`
-      : 'Download iniciado (demonstração).',
-  )
+async function handleDownloadDocument(docId: number) {
+  const projectId = resolvedProjectId.value
+  if (!projectId) return
+  try {
+    await repertoryApi.downloadDocumentFile(projectId, docId)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível baixar o arquivo do documento.'))
+  }
+}
+
+async function handleDownloadAsset(assetId: number) {
+  const projectId = resolvedProjectId.value
+  if (!projectId) return
+  try {
+    await repertoryApi.downloadAssetFile(projectId, assetId)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível baixar o arquivo do asset.'))
+  }
 }
 
 function handleDownloadActiveItem() {
@@ -795,263 +1035,325 @@ function handleDownloadActiveItem() {
     return
   }
   if (activeItemKind.value === 'asset') {
-    handleDownloadAsset(activeItem.value.id)
+    void handleDownloadAsset(activeItem.value.id)
     return
   }
-  handleDownloadDocument(activeItem.value.id)
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes >= 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`
-  }
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`
-}
-
-function inferDocumentFormat(fileName?: string): DocumentFormat {
-  const lower = (fileName ?? '').toLowerCase()
-  if (lower.endsWith('.md') || lower.endsWith('.markdown')) return 'MD'
-  if (lower.endsWith('.docx') || lower.endsWith('.doc')) return 'DOCX'
-  return 'PDF'
-}
-
-function inferAssetFormat(fileName?: string): AssetFormat {
-  const lower = (fileName ?? '').toLowerCase()
-  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'JPG'
-  if (lower.endsWith('.webp')) return 'WEBP'
-  if (lower.endsWith('.svg')) return 'SVG'
-  return 'PNG'
+  void handleDownloadDocument(activeItem.value.id)
 }
 
 function openNewDocModal() {
   newDocTitleError.value = ''
+  newDocFileError.value = ''
   isNewDocModalOpen.value = true
 }
 
-function handleCreateDocument(payload: DocumentFormPayload) {
+async function handleCreateDocument(payload: DocumentFormPayload) {
+  const projectId = resolvedProjectId.value
+  if (!projectId) return
+
   const cleanTitle = payload.title.trim()
-  if (!cleanTitle) {
-    newDocTitleError.value = 'Informe um título para o documento.'
+  const attachedFile = payload.files[0]
+
+  newDocTitleError.value = cleanTitle ? '' : 'Informe um título para o documento.'
+  newDocFileError.value = attachedFile ? '' : 'Selecione um arquivo para enviar.'
+
+  if (!cleanTitle || !attachedFile) {
     return
   }
 
-  const description =
-    payload.description.trim() || 'Documento adicionado ao repertório local do Prismon.'
-  const attachedFile = payload.files[0]
-  const format = inferDocumentFormat(attachedFile?.name)
-  const sizeLabel = formatFileSize(attachedFile?.size || 327680)
-  const fileInfo = attachedFile ? `Arquivo anexado: ${attachedFile.name}` : 'Criado manualmente.'
-
-  const newDoc: RepertoryDocument = {
-    id: `doc-${Date.now()}`,
-    title: cleanTitle,
-    description,
-    status: 'rascunho',
-    format,
-    meta: `${format} • ${sizeLabel} • recém-adicionado`,
-    excerpt: description,
-    tags: [{ id: `tag-${Date.now()}`, label: 'repertório' }],
-    history: [
-      {
-        id: `hist-${Date.now()}`,
-        title: 'Documento criado',
-        summary: fileInfo,
-        author: 'Ana Paula',
-        date: 'Agora',
-      },
-    ],
+  isCreatingDoc.value = true
+  try {
+    const created = await repertoryApi.createDocument(projectId, {
+      name: cleanTitle,
+      description: payload.description.trim() || null,
+      file: attachedFile,
+    })
+    repertoryState.prependDocument(projectId, created)
+    isNewDocModalOpen.value = false
+    newDocTitleError.value = ''
+    newDocFileError.value = ''
+    toast.success(`Documento "${created.title}" adicionado ao repertório.`)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível enviar o documento.'))
+  } finally {
+    isCreatingDoc.value = false
   }
-
-  documents.value = [newDoc, ...documents.value]
-  isNewDocModalOpen.value = false
-  newDocTitleError.value = ''
-  toast.success(`Documento "${cleanTitle}" adicionado ao repertório.`)
 }
 
 function openNewAssetModal() {
   newAssetTitleError.value = ''
+  newAssetFileError.value = ''
   isNewAssetModalOpen.value = true
 }
 
-function handleCreateAsset(payload: DocumentFormPayload) {
+async function handleCreateAsset(payload: DocumentFormPayload) {
+  const projectId = resolvedProjectId.value
+  if (!projectId) return
+
   const cleanTitle = payload.title.trim()
-  if (!cleanTitle) {
-    newAssetTitleError.value = 'Informe um título para o asset.'
+  const attachedFile = payload.files[0]
+
+  newAssetTitleError.value = cleanTitle ? '' : 'Informe um título para o asset.'
+  newAssetFileError.value = attachedFile ? '' : 'Selecione um arquivo para enviar.'
+
+  if (!cleanTitle || !attachedFile) {
     return
   }
 
-  const description =
-    payload.description.trim() || 'Mídia visual cadastrada no repertório local do Prismon.'
-  const attachedFile = payload.files[0]
-  const format = inferAssetFormat(attachedFile?.name)
-  const sizeLabel = formatFileSize(attachedFile?.size || 460800)
-  const fileInfo = attachedFile ? `Arquivo anexado: ${attachedFile.name}` : 'Cadastro manual.'
+  isCreatingAsset.value = true
+  try {
+    const created = await repertoryApi.createAsset(projectId, {
+      name: cleanTitle,
+      description: payload.description.trim() || null,
+      file: attachedFile,
+    })
+    repertoryState.prependAsset(projectId, created)
+    isNewAssetModalOpen.value = false
+    newAssetTitleError.value = ''
+    newAssetFileError.value = ''
+    toast.success(`Asset "${created.title}" adicionado ao repertório.`)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível enviar o asset.'))
+  } finally {
+    isCreatingAsset.value = false
+  }
+}
 
-  let thumbnailUrl = createPrismonSvgDataUri(cleanTitle, format, 'brand')
-  if (attachedFile && typeof URL.createObjectURL === 'function') {
-    try {
-      thumbnailUrl = URL.createObjectURL(attachedFile)
-    } catch {
-      thumbnailUrl = createPrismonSvgDataUri(cleanTitle, format, 'brand')
+function openEditItemModal() {
+  const item = activeItem.value
+  if (!item) return
+  editItemTitle.value = item.title
+  editItemDescription.value = item.description
+  editItemType.value = activeAsset.value?.type ?? ''
+  editItemTitleError.value = ''
+  isEditItemModalOpen.value = true
+}
+
+async function handleUpdateActiveItem() {
+  const projectId = resolvedProjectId.value
+  const item = activeItem.value
+  if (!projectId || !item) return
+
+  const cleanTitle = editItemTitle.value.trim()
+  if (!cleanTitle) {
+    editItemTitleError.value = 'Informe um título válido.'
+    return
+  }
+
+  isUpdatingItem.value = true
+  try {
+    if (activeItemKind.value === 'asset') {
+      const updated = await repertoryApi.updateAsset(projectId, item.id, {
+        name: cleanTitle,
+        description: editItemDescription.value.trim() || null,
+        type: editItemType.value.trim() || undefined,
+      })
+      repertoryState.upsertAsset(projectId, updated)
+      toast.success(`Asset "${updated.title}" atualizado.`)
+    } else {
+      const updated = await repertoryApi.updateDocument(projectId, item.id, {
+        name: cleanTitle,
+        description: editItemDescription.value.trim() || null,
+      })
+      repertoryState.upsertDocument(projectId, updated)
+      toast.success(`Documento "${updated.title}" atualizado.`)
     }
+    isEditItemModalOpen.value = false
+    await loadActiveItemHistory(projectId, activeItemKind.value, item.id, undefined, true)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível atualizar os metadados.'))
+  } finally {
+    isUpdatingItem.value = false
+  }
+}
+
+function requestDeleteActiveItem() {
+  const item = activeItem.value
+  if (!item) return
+
+  if (activeItemKind.value === 'asset') {
+    confirmState.value = {
+      open: true,
+      target: 'asset',
+      title: 'excluir asset',
+      description: `Deseja excluir "${item.title}"? Esta ação não pode ser desfeita.`,
+      confirmLabel: 'Excluir asset',
+    }
+    return
   }
 
-  const newAsset: RepertoryAsset = {
-    id: `asset-${Date.now()}`,
-    title: cleanTitle,
-    description,
-    format,
-    meta: `${format} • 1280×720 px • ${sizeLabel}`,
-    thumbnailUrl,
-    tags: [{ id: `asset-tag-${Date.now()}`, label: 'mídia' }],
-    history: [
-      {
-        id: `ahist-${Date.now()}`,
-        title: 'Asset cadastrado',
-        summary: fileInfo,
-        author: 'Ana Paula',
-        date: 'Agora',
-      },
-    ],
+  confirmState.value = {
+    open: true,
+    target: 'document',
+    title: 'excluir documento',
+    description: `Deseja excluir "${item.title}"? Esta ação não pode ser desfeita.`,
+    confirmLabel: 'Excluir documento',
   }
+}
 
-  assets.value = [newAsset, ...assets.value]
-  isNewAssetModalOpen.value = false
-  newAssetTitleError.value = ''
-  toast.success(`Asset "${cleanTitle}" adicionado ao repertório.`)
+async function reloadItemTags(
+  projectId: number,
+  kind: RepertoryItemKind,
+  itemId: number,
+): Promise<void> {
+  const tags =
+    kind === 'asset'
+      ? await repertoryApi.listAssetTags(projectId, itemId)
+      : await repertoryApi.listDocumentTags(projectId, itemId)
+
+  const mappedRefs: RepertoryItemTagRef[] = tags.map((tag) => ({
+    id: tag.id,
+    label: tag.label,
+    color: tag.color,
+  }))
+
+  repertoryState.updateItemTags(projectId, kind, itemId, mappedRefs)
 }
 
 function openAddTagToItemModal() {
   itemTagNameError.value = ''
+  itemTagColorError.value = ''
   existingTagSelectError.value = ''
-  selectedExistingTagName.value = ''
+  selectedExistingTagId.value = ''
   itemTagModalTab.value = availableTagOptionsForActiveItem.value.length > 0 ? 'existing' : 'create'
   isItemTagModalOpen.value = true
 }
 
-function linkTagToActiveItem(tagName: string, summary: string, createCatalogDescription?: string) {
+async function handleLinkExistingTagToItem() {
+  const projectId = resolvedProjectId.value
   const item = activeItem.value
-  if (!item) {
-    return false
-  }
+  if (!projectId || !item) return
 
-  const cleanName = tagName.trim()
-  const alreadyHasTag = item.tags.some((tag) => tag.label.toLowerCase() === cleanName.toLowerCase())
-  if (alreadyHasTag) {
-    return false
-  }
-
-  const newTag: RepertoryItemTag = {
-    id: `item-tag-${Date.now()}`,
-    label: cleanName,
-  }
-  item.tags = [...item.tags, newTag]
-  item.history = [
-    {
-      id: `hist-${Date.now()}`,
-      title: `Tag "${cleanName}" adicionada`,
-      summary,
-      author: 'Ana Paula',
-      date: 'Agora',
-    },
-    ...item.history,
-  ]
-
-  const existingCatalogTag = tagsList.value.find(
-    (catalogTag) => catalogTag.name.toLowerCase() === cleanName.toLowerCase(),
-  )
-  if (existingCatalogTag) {
-    existingCatalogTag.documentsCount += 1
-  } else {
-    tagsList.value = [
-      {
-        id: `tag-${Date.now()}`,
-        name: cleanName,
-        category: 'Geral',
-        description:
-          createCatalogDescription?.trim() || 'Tag criada a partir dos detalhes do repertório.',
-        documentsCount: 1,
-        createdAt: 'Agora',
-      },
-      ...tagsList.value,
-    ]
-  }
-
-  const kindLabel = activeItemKind.value === 'asset' ? 'asset' : 'documento'
-  isItemTagModalOpen.value = false
-  itemTagNameError.value = ''
-  existingTagSelectError.value = ''
-  selectedExistingTagName.value = ''
-  toast.success(`Tag "${cleanName}" vinculada ao ${kindLabel}.`)
-  return true
-}
-
-function handleLinkExistingTagToItem() {
-  const chosen = selectedExistingTagName.value.trim()
-  if (!chosen) {
+  const tagId = Number(selectedExistingTagId.value)
+  const chosenTag = tagsList.value.find((tag) => tag.id === tagId)
+  if (!selectedExistingTagId.value || !Number.isFinite(tagId) || !chosenTag) {
     existingTagSelectError.value = 'Selecione uma tag cadastrada para vincular.'
     return
   }
 
-  const kindLabel = activeItemKind.value === 'asset' ? 'asset' : 'documento'
-  const linked = linkTagToActiveItem(
-    chosen,
-    `Tag existente vinculada nos detalhes do ${kindLabel}.`,
-  )
-  if (!linked) {
-    existingTagSelectError.value = `Esta tag já está vinculada ao ${kindLabel}.`
+  const kind = activeItemKind.value
+  const kindLabel = kind === 'asset' ? 'asset' : 'documento'
+
+  isSubmittingItemTag.value = true
+  try {
+    if (kind === 'asset') {
+      await repertoryApi.attachTagToAsset(projectId, item.id, chosenTag.id)
+    } else {
+      await repertoryApi.attachTagToDocument(projectId, item.id, chosenTag.id)
+    }
+
+    await Promise.all([
+      reloadItemTags(projectId, kind, item.id),
+      loadActiveItemHistory(projectId, kind, item.id, undefined, true),
+    ])
+
+    isItemTagModalOpen.value = false
+    existingTagSelectError.value = ''
+    selectedExistingTagId.value = ''
+    toast.success(`Tag "${chosenTag.label}" vinculada ao ${kindLabel}.`)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, `Não foi possível vincular a tag ao ${kindLabel}.`))
+  } finally {
+    isSubmittingItemTag.value = false
   }
 }
 
-function handleCreateAndLinkTagToItem(payload: TagFormPayload) {
+async function handleCreateAndLinkTagToItem(payload: TagFormPayload) {
+  const projectId = resolvedProjectId.value
+  const item = activeItem.value
+  if (!projectId || !item) return
+
   const cleanName = payload.name.trim()
-  if (!cleanName) {
-    itemTagNameError.value = 'Informe o nome da tag.'
+  const cleanColor = (payload.color ?? '').trim()
+
+  itemTagNameError.value = cleanName ? '' : 'Informe o nome da tag.'
+  itemTagColorError.value = HEX_COLOR_REGEX.test(cleanColor)
+    ? ''
+    : 'Informe uma cor hexadecimal válida (#RRGGBB).'
+
+  if (!cleanName || !HEX_COLOR_REGEX.test(cleanColor)) {
     return
   }
 
-  const kindLabel = activeItemKind.value === 'asset' ? 'asset' : 'documento'
-  const linked = linkTagToActiveItem(
-    cleanName,
-    payload.description.trim() || `Rótulo criado e vinculado nos detalhes do ${kindLabel}.`,
-    payload.description,
-  )
-  if (!linked) {
-    itemTagNameError.value = `Esta tag já está vinculada ao ${kindLabel}.`
+  const kind = activeItemKind.value
+  const kindLabel = kind === 'asset' ? 'asset' : 'documento'
+
+  isSubmittingItemTag.value = true
+  try {
+    const createdTag = await repertoryApi.createTag(projectId, {
+      label: cleanName,
+      description: payload.description.trim(),
+      color: cleanColor,
+    })
+
+    repertoryState.prependTag(projectId, createdTag)
+
+    if (kind === 'asset') {
+      await repertoryApi.attachTagToAsset(projectId, item.id, createdTag.id)
+    } else {
+      await repertoryApi.attachTagToDocument(projectId, item.id, createdTag.id)
+    }
+
+    await Promise.all([
+      reloadItemTags(projectId, kind, item.id),
+      loadActiveItemHistory(projectId, kind, item.id, undefined, true),
+    ])
+
+    isItemTagModalOpen.value = false
+    itemTagNameError.value = ''
+    itemTagColorError.value = ''
+    toast.success(`Tag "${createdTag.label}" vinculada ao ${kindLabel}.`)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, `Não foi possível criar e vincular a tag.`))
+  } finally {
+    isSubmittingItemTag.value = false
   }
 }
 
-function handleRemoveItemTag(
-  tagId: string,
+async function handleRemoveItemTag(
+  tagId: number,
   explicitKind?: RepertoryItemKind,
-  explicitItemId?: string,
+  explicitItemId?: number,
 ) {
+  const projectId = resolvedProjectId.value
   const kind = explicitKind ?? activeItemKind.value
   const targetId = explicitItemId ?? activeItemId.value
+  if (!projectId || !targetId) return
+
   const targetItem =
     kind === 'asset'
       ? assets.value.find((item) => item.id === targetId)
       : documents.value.find((item) => item.id === targetId)
+  if (!targetItem) return
 
-  if (!targetItem) {
-    return
-  }
+  const removedTag = targetItem.tags.find((tag) => tag.id === tagId)
+  const kindLabel = kind === 'asset' ? 'asset' : 'documento'
 
-  const removed = targetItem.tags.find((tag) => tag.id === tagId)
-  targetItem.tags = targetItem.tags.filter((tag) => tag.id !== tagId)
-  if (removed) {
-    const kindLabel = kind === 'asset' ? 'asset' : 'documento'
-    targetItem.history = [
-      {
-        id: `hist-${Date.now()}`,
-        title: `Tag "${removed.label}" removida`,
-        summary: `Rótulo desvinculado do ${kindLabel}.`,
-        author: 'Ana Paula',
-        date: 'Agora',
-      },
-      ...targetItem.history,
-    ]
-    toast.success(`Tag "${removed.label}" removida do ${kindLabel}.`)
+  try {
+    if (kind === 'asset') {
+      await repertoryApi.detachTagFromAsset(projectId, targetId, tagId)
+    } else {
+      await repertoryApi.detachTagFromDocument(projectId, targetId, tagId)
+    }
+
+    await reloadItemTags(projectId, kind, targetId)
+    if (
+      isDetailsSheetOpen.value &&
+      activeItemKind.value === kind &&
+      activeItemId.value === targetId
+    ) {
+      await loadActiveItemHistory(projectId, kind, targetId, undefined, true)
+    } else {
+      repertoryState.invalidateHistory(projectId, kind, targetId)
+    }
+
+    toast.success(
+      removedTag
+        ? `Tag "${removedTag.label}" removida do ${kindLabel}.`
+        : `Tag removida do ${kindLabel}.`,
+    )
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, `Não foi possível desvincular a tag do ${kindLabel}.`))
   }
 }
 
@@ -1063,43 +1365,113 @@ function toggleTagSelection(rowKey: string | number) {
 
 function openNewTagModal() {
   newTagNameError.value = ''
+  newTagColorError.value = ''
   isNewTagModalOpen.value = true
 }
 
-function handleCreateTag(payload: TagFormPayload) {
+async function handleCreateTag(payload: TagFormPayload) {
+  const projectId = resolvedProjectId.value
+  if (!projectId) return
+
   const cleanName = payload.name.trim()
-  if (!cleanName) {
-    newTagNameError.value = 'Informe um nome para a tag.'
+  const cleanColor = (payload.color ?? '').trim()
+
+  newTagNameError.value = cleanName ? '' : 'Informe um nome para a tag.'
+  newTagColorError.value = HEX_COLOR_REGEX.test(cleanColor)
+    ? ''
+    : 'Informe uma cor hexadecimal válida (#RRGGBB).'
+
+  if (!cleanName || !HEX_COLOR_REGEX.test(cleanColor)) {
     return
   }
 
   const duplicate = tagsList.value.some(
-    (item) => item.name.toLowerCase() === cleanName.toLowerCase(),
+    (item) => item.label.toLowerCase() === cleanName.toLowerCase(),
   )
   if (duplicate) {
     newTagNameError.value = 'Já existe uma tag com este nome.'
     return
   }
 
-  const newTag: RepertoryTag = {
-    id: `tag-${Date.now()}`,
-    name: cleanName,
-    category: 'Personalizada',
-    description: payload.description.trim() || 'Rótulo cadastrado no repertório.',
-    documentsCount: 0,
-    createdAt: 'Agora',
+  isCreatingTag.value = true
+  try {
+    const created = await repertoryApi.createTag(projectId, {
+      label: cleanName,
+      description: payload.description.trim(),
+      color: cleanColor,
+    })
+    repertoryState.prependTag(projectId, created)
+    tagPage.value = 1
+    isNewTagModalOpen.value = false
+    newTagNameError.value = ''
+    newTagColorError.value = ''
+    toast.success(`Tag "${created.label}" criada com sucesso.`)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível criar a tag.'))
+  } finally {
+    isCreatingTag.value = false
+  }
+}
+
+function openEditTagModal(tagId: number) {
+  const found = tagsList.value.find((tag) => tag.id === tagId)
+  if (!found) return
+
+  editingTag.value = { ...found }
+  editTagNameError.value = ''
+  editTagColorError.value = ''
+  isEditTagModalOpen.value = true
+}
+
+async function handleUpdateTag(payload: TagFormPayload) {
+  const projectId = resolvedProjectId.value
+  const target = editingTag.value
+  if (!projectId || !target) return
+
+  const cleanName = payload.name.trim()
+  const cleanColor = (payload.color ?? '').trim()
+
+  editTagNameError.value = cleanName ? '' : 'Informe um nome para a tag.'
+  editTagColorError.value = HEX_COLOR_REGEX.test(cleanColor)
+    ? ''
+    : 'Informe uma cor hexadecimal válida (#RRGGBB).'
+
+  if (!cleanName || !HEX_COLOR_REGEX.test(cleanColor)) {
+    return
   }
 
-  tagsList.value = [newTag, ...tagsList.value]
-  tagPage.value = 1
-  isNewTagModalOpen.value = false
-  newTagNameError.value = ''
-  toast.success(`Tag "${cleanName}" criada com sucesso.`)
+  isUpdatingTag.value = true
+  try {
+    const updated = await repertoryApi.updateTag(projectId, target.id, {
+      label: cleanName,
+      description: payload.description.trim(),
+      color: cleanColor,
+    })
+
+    repertoryState.upsertTag(projectId, updated)
+
+    isEditTagModalOpen.value = false
+    editingTag.value = null
+    toast.success(`Tag "${updated.label}" atualizada.`)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível atualizar a tag.'))
+  } finally {
+    isUpdatingTag.value = false
+  }
 }
 
 function handleTagBatchAction(actionId: string) {
   const count = selectedTagKeys.value.length
   if (count === 0) {
+    return
+  }
+
+  if (actionId === 'edit') {
+    if (count !== 1) return
+    const tagId = Number(selectedTagKeys.value[0])
+    if (Number.isFinite(tagId)) {
+      openEditTagModal(tagId)
+    }
     return
   }
 
@@ -1114,14 +1486,57 @@ function handleTagBatchAction(actionId: string) {
   }
 }
 
-function executeBatchDeletion() {
-  if (confirmState.value.target === 'tags') {
-    const selectedSet = new Set(selectedTagKeys.value)
-    const removedCount = selectedSet.size
-    tagsList.value = tagsList.value.filter((tag) => !selectedSet.has(tag.id))
-    selectedTagKeys.value = []
-    confirmState.value.open = false
-    toast.success(`${removedCount} tag(s) removida(s) com sucesso.`)
+async function executeConfirmDeletion() {
+  const projectId = resolvedProjectId.value
+  if (!projectId || isDeleting.value) {
+    return
+  }
+
+  const target = confirmState.value.target
+  if (!target) {
+    return
+  }
+
+  isDeleting.value = true
+  try {
+    if (target === 'tags') {
+      const ids = selectedTagKeys.value
+        .map((key) => Number(key))
+        .filter((id) => Number.isFinite(id))
+      await Promise.all(ids.map((tagId) => repertoryApi.deleteTag(projectId, tagId)))
+      repertoryState.removeTags(projectId, ids)
+      selectedTagKeys.value = []
+      confirmState.value.open = false
+      toast.success(`${ids.length} tag(s) removida(s) com sucesso.`)
+      return
+    }
+
+    if (target === 'document' && activeDocument.value) {
+      const removedTitle = activeDocument.value.title
+      const removedId = activeDocument.value.id
+      await repertoryApi.deleteDocument(projectId, removedId)
+      repertoryState.removeDocument(projectId, removedId)
+      confirmState.value.open = false
+      isDetailsSheetOpen.value = false
+      activeItemId.value = null
+      toast.success(`Documento "${removedTitle}" excluído.`)
+      return
+    }
+
+    if (target === 'asset' && activeAsset.value) {
+      const removedTitle = activeAsset.value.title
+      const removedId = activeAsset.value.id
+      await repertoryApi.deleteAsset(projectId, removedId)
+      repertoryState.removeAsset(projectId, removedId)
+      confirmState.value.open = false
+      isDetailsSheetOpen.value = false
+      activeItemId.value = null
+      toast.success(`Asset "${removedTitle}" excluído.`)
+    }
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível concluir a remoção.'))
+  } finally {
+    isDeleting.value = false
   }
 }
 </script>
@@ -1135,8 +1550,46 @@ function executeBatchDeletion() {
     </template>
 
     <div class="repertory-view">
+      <!-- Estado sem projeto ativo -->
+      <div v-if="!resolvedProjectId" class="repertory-view__empty" role="status">
+        <Icon name="folder" size="2xl" color="helper" />
+        <div class="repertory-view__empty-copy">
+          <h3 class="repertory-view__empty-title">nenhum projeto selecionado</h3>
+          <p class="repertory-view__empty-description">
+            Selecione ou crie um projeto na barra lateral para gerenciar documentos, assets e tags.
+          </p>
+        </div>
+      </div>
+
+      <!-- Estado de carregamento inicial -->
+      <div v-else-if="isLoadingData" class="repertory-view__empty" role="status" aria-busy="true">
+        <Icon name="documents" size="2xl" color="helper" />
+        <div class="repertory-view__empty-copy">
+          <h3 class="repertory-view__empty-title">carregando repertório...</h3>
+          <p class="repertory-view__empty-description">
+            Buscando documentos, assets e tags cadastrados no projeto.
+          </p>
+        </div>
+      </div>
+
+      <!-- Estado de erro no carregamento -->
+      <div v-else-if="loadError" class="repertory-view__empty" role="alert">
+        <Icon name="exclamation" size="2xl" color="danger" />
+        <div class="repertory-view__empty-copy">
+          <h3 class="repertory-view__empty-title">erro ao carregar repertório</h3>
+          <p class="repertory-view__empty-description">{{ loadError }}</p>
+        </div>
+        <Button
+          variant="tertiary"
+          size="md"
+          @click="loadActiveTabRepertory(resolvedProjectId, activeTab, true)"
+        >
+          tentar novamente
+        </Button>
+      </div>
+
       <!-- Aba 1: Documents -->
-      <section v-if="activeTab === 'documents'" class="repertory-view__section">
+      <section v-else-if="activeTab === 'documents'" class="repertory-view__section">
         <div class="repertory-view__filters-header">
           <h2 class="repertory-view__section-title">filtros</h2>
           <Button variant="primary" size="md" @click="openNewDocModal">novo documento</Button>
@@ -1179,6 +1632,7 @@ function executeBatchDeletion() {
             v-for="tagLabel in activeTagFilters"
             :key="tagLabel"
             :label="tagLabel"
+            :color="getTagColorByLabel(tagLabel)"
             :dismissible="true"
             :dismiss-label="`Remover filtro ${tagLabel}`"
             @dismiss="removeTagFilter(tagLabel)"
@@ -1191,31 +1645,55 @@ function executeBatchDeletion() {
         <div v-if="filteredDocuments.length > 0" class="repertory-view__grid">
           <DocumentCard
             v-for="doc in filteredDocuments"
-            :id="doc.id"
+            :id="String(doc.id)"
             :key="doc.id"
             :title="doc.title"
             :description="doc.description"
-            :tags="doc.tags"
-            :thumbnail-url="doc.thumbnailUrl"
+            :tags="toUiTags(doc.tags)"
             :format="doc.format"
-            :status="doc.status"
+            :status="doc.statusLabel"
             tags-aria-label="Tags do documento"
-            @select="openDocumentDetails"
-            @download="handleDownloadDocument"
-            @remove-tag="(docId, tagId) => handleRemoveItemTag(tagId, 'document', docId)"
+            @select="(id) => openDocumentDetails(Number(id))"
+            @download="(id) => handleDownloadDocument(Number(id))"
+            @remove-tag="
+              (docId, tagId) => handleRemoveItemTag(Number(tagId), 'document', Number(docId))
+            "
           />
         </div>
 
         <div v-else class="repertory-view__empty" role="status">
           <Icon name="documents" size="2xl" color="helper" />
           <div class="repertory-view__empty-copy">
-            <h3 class="repertory-view__empty-title">nenhum documento encontrado</h3>
+            <h3 class="repertory-view__empty-title">
+              {{
+                hasActiveDocFilters ? 'nenhum documento encontrado' : 'nenhum documento cadastrado'
+              }}
+            </h3>
             <p class="repertory-view__empty-description">
-              Ajuste os termos de busca ou remova os filtros aplicados para visualizar os
-              documentos.
+              {{
+                hasActiveDocFilters
+                  ? 'Ajuste os termos de busca ou remova os filtros aplicados para visualizar os documentos.'
+                  : 'Envie o primeiro documento deste projeto clicando em "novo documento".'
+              }}
             </p>
           </div>
-          <Button variant="tertiary" size="md" @click="clearDocFilters">limpar filtros</Button>
+          <Button v-if="hasActiveDocFilters" variant="tertiary" size="md" @click="clearDocFilters">
+            limpar filtros
+          </Button>
+          <Button v-else variant="primary" size="md" @click="openNewDocModal">
+            novo documento
+          </Button>
+        </div>
+
+        <div v-if="documentsState.hasMore" class="repertory-view__load-more">
+          <Button
+            variant="tertiary"
+            size="md"
+            :disabled="documentsState.isLoadingMore"
+            @click="handleLoadMoreDocuments"
+          >
+            {{ documentsState.isLoadingMore ? 'carregando...' : 'carregar mais' }}
+          </Button>
         </div>
       </section>
 
@@ -1265,6 +1743,7 @@ function executeBatchDeletion() {
             v-for="tagLabel in activeAssetTagFilters"
             :key="tagLabel"
             :label="tagLabel"
+            :color="getTagColorByLabel(tagLabel)"
             :dismissible="true"
             :dismiss-label="`Remover filtro ${tagLabel}`"
             @dismiss="removeAssetTagFilter(tagLabel)"
@@ -1277,29 +1756,60 @@ function executeBatchDeletion() {
         <div v-if="filteredAssets.length > 0" class="repertory-view__grid">
           <DocumentCard
             v-for="asset in filteredAssets"
-            :id="asset.id"
+            :id="String(asset.id)"
             :key="asset.id"
             :title="asset.title"
             :description="asset.description"
-            :tags="asset.tags"
-            :thumbnail-url="asset.thumbnailUrl"
+            :tags="toUiTags(asset.tags)"
+            :thumbnail-url="isImageAsset(asset) ? asset.fileUrl : undefined"
             :format="asset.format"
+            :status="asset.statusLabel"
+            icon="attachment"
             tags-aria-label="Tags do asset"
-            @select="openAssetDetails"
-            @download="handleDownloadAsset"
-            @remove-tag="(assetId, tagId) => handleRemoveItemTag(tagId, 'asset', assetId)"
+            @select="(id) => openAssetDetails(Number(id))"
+            @download="(id) => handleDownloadAsset(Number(id))"
+            @remove-tag="
+              (assetId, tagId) => handleRemoveItemTag(Number(tagId), 'asset', Number(assetId))
+            "
           />
         </div>
 
         <div v-else class="repertory-view__empty" role="status">
           <Icon name="attachment" size="2xl" color="helper" />
           <div class="repertory-view__empty-copy">
-            <h3 class="repertory-view__empty-title">nenhum asset encontrado</h3>
+            <h3 class="repertory-view__empty-title">
+              {{ hasActiveAssetFilters ? 'nenhum asset encontrado' : 'nenhum asset cadastrado' }}
+            </h3>
             <p class="repertory-view__empty-description">
-              Ajuste os termos de busca ou remova os filtros aplicados para visualizar os assets.
+              {{
+                hasActiveAssetFilters
+                  ? 'Ajuste os termos de busca ou remova os filtros aplicados para visualizar os assets.'
+                  : 'Envie o primeiro asset visual ou multimídia clicando em "novo asset".'
+              }}
             </p>
           </div>
-          <Button variant="tertiary" size="md" @click="clearAssetFilters">limpar filtros</Button>
+          <Button
+            v-if="hasActiveAssetFilters"
+            variant="tertiary"
+            size="md"
+            @click="clearAssetFilters"
+          >
+            limpar filtros
+          </Button>
+          <Button v-else variant="primary" size="md" icon="upload" @click="openNewAssetModal">
+            novo asset
+          </Button>
+        </div>
+
+        <div v-if="assetsState.hasMore" class="repertory-view__load-more">
+          <Button
+            variant="tertiary"
+            size="md"
+            :disabled="assetsState.isLoadingMore"
+            @click="handleLoadMoreAssets"
+          >
+            {{ assetsState.isLoadingMore ? 'carregando...' : 'carregar mais' }}
+          </Button>
         </div>
       </section>
 
@@ -1324,8 +1834,19 @@ function executeBatchDeletion() {
           @batch-action="handleTagBatchAction"
           @clear-selection="selectedTagKeys = []"
         >
-          <template #cell-category="{ value }">
-            <Badge :label="String(value)" />
+          <template #cell-label="{ row }">
+            <Tag :label="String(row.label ?? '')" :color="String(row.color ?? '')" />
+          </template>
+
+          <template #cell-color="{ value }">
+            <span class="repertory-view__tag-color-cell">
+              <span
+                class="repertory-view__tag-color-swatch"
+                :style="{ backgroundColor: String(value) }"
+                aria-hidden="true"
+              />
+              <span class="repertory-view__tag-color-hex">{{ String(value) }}</span>
+            </span>
           </template>
         </DataTable>
       </section>
@@ -1347,37 +1868,81 @@ function executeBatchDeletion() {
               : 'repertory-view__preview-stage--document',
           ]"
         >
-          <template v-if="activeItemKind === 'asset' && activeAsset">
+          <header class="repertory-view__preview-doc-header">
+            <div class="repertory-view__preview-footer-left">
+              <Icon
+                :name="activeItemKind === 'asset' ? 'attachment' : 'documents'"
+                size="md"
+                color="helper"
+              />
+              <span class="repertory-view__preview-title">{{ activeItem.title }}</span>
+            </div>
+            <div class="repertory-view__preview-doc-badges">
+              <Badge :label="activeItem.format" />
+              <Badge :label="activeItem.statusLabel" />
+            </div>
+          </header>
+
+          <div v-if="previewState.kind === 'loading'" class="repertory-view__preview-doc-body">
+            <p class="repertory-view__preview-doc-note">Carregando pré-visualização...</p>
+          </div>
+
+          <template v-else-if="previewState.kind === 'image' && previewState.url">
             <img
-              :src="activeAsset.thumbnailUrl"
-              :alt="`Pré-visualização de ${activeAsset.title}`"
+              :src="previewState.url"
+              :alt="`Pré-visualização de ${activeItem.title}`"
               class="repertory-view__preview-image"
             />
             <footer class="repertory-view__preview-footer">
-              <div class="repertory-view__preview-footer-left">
-                <Badge :label="activeAsset.format" />
-                <span class="repertory-view__preview-title">{{ activeAsset.title }}</span>
-              </div>
-              <span class="repertory-view__preview-meta">{{ activeAsset.meta }}</span>
+              <span class="repertory-view__preview-meta">
+                {{ getFileBasename(activeItem.filePath) }}
+              </span>
+              <span class="repertory-view__preview-meta">{{ activeItem.createdAtLabel }}</span>
             </footer>
           </template>
 
-          <template v-else-if="activeDocument">
-            <header class="repertory-view__preview-doc-header">
-              <div class="repertory-view__preview-footer-left">
-                <Icon name="documents" size="md" color="helper" />
-                <span class="repertory-view__preview-title">{{ activeDocument.title }}</span>
+          <iframe
+            v-else-if="previewState.kind === 'pdf' && previewState.url"
+            :src="previewState.url"
+            :title="`Pré-visualização PDF de ${activeItem.title}`"
+            class="repertory-view__preview-pdf"
+          />
+
+          <div v-else-if="previewState.kind === 'text'" class="repertory-view__preview-doc-body">
+            <pre class="repertory-view__preview-excerpt">{{ previewState.text }}</pre>
+          </div>
+
+          <div v-else class="repertory-view__preview-doc-body">
+            <dl class="repertory-view__preview-meta-list">
+              <div class="repertory-view__preview-meta-row">
+                <dt class="repertory-view__preview-meta-term">Arquivo</dt>
+                <dd class="repertory-view__preview-meta-value">
+                  {{ getFileBasename(activeItem.filePath) }}
+                </dd>
               </div>
-              <div class="repertory-view__preview-doc-badges">
-                <span class="repertory-view__preview-meta">{{ activeDocument.meta }}</span>
-                <Badge :label="activeDocument.format" />
+              <div class="repertory-view__preview-meta-row">
+                <dt class="repertory-view__preview-meta-term">Formato</dt>
+                <dd class="repertory-view__preview-meta-value">{{ activeItem.format }}</dd>
               </div>
-            </header>
-            <div class="repertory-view__preview-doc-body">
-              <p class="repertory-view__preview-excerpt">{{ activeDocument.excerpt }}</p>
-              <p class="repertory-view__preview-doc-note">{{ activeDocument.description }}</p>
-            </div>
-          </template>
+              <div class="repertory-view__preview-meta-row">
+                <dt class="repertory-view__preview-meta-term">Content-Type</dt>
+                <dd class="repertory-view__preview-meta-value">
+                  {{ activeItem.contentType || 'Não informado' }}
+                </dd>
+              </div>
+              <div class="repertory-view__preview-meta-row">
+                <dt class="repertory-view__preview-meta-term">Status</dt>
+                <dd class="repertory-view__preview-meta-value">{{ activeItem.statusLabel }}</dd>
+              </div>
+              <div class="repertory-view__preview-meta-row">
+                <dt class="repertory-view__preview-meta-term">Criado em</dt>
+                <dd class="repertory-view__preview-meta-value">{{ activeItem.createdAtLabel }}</dd>
+              </div>
+            </dl>
+            <p v-if="previewState.note" class="repertory-view__preview-doc-note">
+              {{ previewState.note }}
+            </p>
+          </div>
         </div>
       </template>
 
@@ -1385,12 +1950,12 @@ function executeBatchDeletion() {
         <RepertoryItemDetails
           :title="activeItem.title"
           :description="activeItem.description"
-          :tags="activeItem.tags"
-          :history="activeItem.history"
+          :tags="toUiTags(activeItem.tags)"
+          :history="toUiHistory(activeItemHistory)"
           :editable-tags="true"
           :show-add-tag="true"
           @add-tag="openAddTagToItemModal"
-          @remove-tag="(tagId) => handleRemoveItemTag(tagId)"
+          @remove-tag="(tagId) => handleRemoveItemTag(Number(tagId))"
         >
           <template #header-actions>
             <IconButton
@@ -1400,26 +1965,47 @@ function executeBatchDeletion() {
               :ariaLabel="`Baixar ${activeItem.title}`"
               @click="handleDownloadActiveItem"
             />
+            <IconButton
+              variant="ghost"
+              size="sm"
+              icon="edit"
+              :ariaLabel="`Editar ${activeItem.title}`"
+              @click="openEditItemModal"
+            />
+            <IconButton
+              variant="ghost"
+              size="sm"
+              icon="delete"
+              :ariaLabel="`Excluir ${activeItem.title}`"
+              @click="requestDeleteActiveItem"
+            />
           </template>
         </RepertoryItemDetails>
+        <p v-if="isLoadingHistory" class="repertory-view__preview-doc-note" role="status">
+          Carregando histórico...
+        </p>
       </div>
     </Sheet>
 
     <!-- Modal Novo Documento -->
     <Modal
       v-model:open="isNewDocModalOpen"
-      size="lg"
+      size="md"
       title="novo documento"
-      subtitle="Adicione um documento ao repertório local."
+      subtitle="Envie um arquivo para adicionar o documento ao projeto."
     >
       <DocumentForm
         v-if="isNewDocModalOpen"
-        accept=".pdf,.doc,.docx,.md,.markdown"
+        accept=".pdf,.doc,.docx,.md,.markdown,.txt,.csv,.json"
         file-label="Suba seu documento (PDF, DOCX, MD)"
-        file-hint="PDF, DOCX ou Markdown até 10mb"
+        file-hint="PDF, DOCX, Markdown ou texto até 10mb"
         title-placeholder="Ex.: Manual de Governança IA"
         :title-error="newDocTitleError"
+        :file-error="newDocFileError"
+        :disabled="isCreatingDoc"
+        :submit-label="isCreatingDoc ? 'Enviando...' : 'Salvar'"
         @update:title="newDocTitleError = ''"
+        @select-files="newDocFileError = ''"
         @submit="handleCreateDocument"
         @cancel="isNewDocModalOpen = false"
       />
@@ -1428,9 +2014,9 @@ function executeBatchDeletion() {
     <!-- Modal Novo Asset -->
     <Modal
       v-model:open="isNewAssetModalOpen"
-      size="lg"
+      size="md"
       title="novo asset"
-      subtitle="Adicione uma imagem ou mídia visual ao repertório local."
+      subtitle="Envie uma mídia visual ou arquivo de apoio para o projeto."
     >
       <DocumentForm
         v-if="isNewAssetModalOpen"
@@ -1440,16 +2026,68 @@ function executeBatchDeletion() {
         title-placeholder="Ex.: Ilustração Hero Prismon"
         description-placeholder="Descreva onde esta mídia é utilizada no ecossistema Prismon."
         :title-error="newAssetTitleError"
+        :file-error="newAssetFileError"
+        :disabled="isCreatingAsset"
+        :submit-label="isCreatingAsset ? 'Enviando...' : 'Salvar'"
         @update:title="newAssetTitleError = ''"
+        @select-files="newAssetFileError = ''"
         @submit="handleCreateAsset"
         @cancel="isNewAssetModalOpen = false"
       />
     </Modal>
 
+    <!-- Modal Editar Metadados (Documento ou Asset) -->
+    <Modal
+      v-model:open="isEditItemModalOpen"
+      size="md"
+      :title="activeItemKind === 'asset' ? 'editar asset' : 'editar documento'"
+      subtitle="Atualize o título e a descrição cadastrados."
+    >
+      <form
+        v-if="isEditItemModalOpen"
+        class="repertory-view__edit-form"
+        @submit.prevent="handleUpdateActiveItem"
+      >
+        <TextInput
+          v-model="editItemTitle"
+          label="Título"
+          placeholder="Informe o título"
+          :error="editItemTitleError"
+          :disabled="isUpdatingItem"
+          @update:model-value="editItemTitleError = ''"
+        />
+        <TextInput
+          v-if="activeItemKind === 'asset'"
+          v-model="editItemType"
+          label="Tipo do asset"
+          placeholder="Ex.: image, video, document"
+          :disabled="isUpdatingItem"
+        />
+        <TextArea
+          v-model="editItemDescription"
+          label="Descrição"
+          placeholder="Descreva o conteúdo deste item"
+          :disabled="isUpdatingItem"
+        />
+        <div class="repertory-view__tag-modal-actions">
+          <Button
+            variant="tertiary"
+            :disabled="isUpdatingItem"
+            @click="isEditItemModalOpen = false"
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" variant="primary" :disabled="isUpdatingItem">
+            {{ isUpdatingItem ? 'Salvando...' : 'Salvar alterações' }}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+
     <!-- Modal Adicionar Tag ao Item (Vincular existente ou Criar nova) -->
     <Modal
       v-model:open="isItemTagModalOpen"
-      size="lg"
+      size="md"
       title="adicionar tag"
       subtitle="Vincule uma tag existente ou crie um novo rótulo para este item."
     >
@@ -1469,18 +2107,27 @@ function executeBatchDeletion() {
         >
           <template v-if="availableTagOptionsForActiveItem.length > 0">
             <Select
-              v-model="selectedExistingTagName"
+              v-model="selectedExistingTagId"
               label="Tag cadastrada"
               placeholder="selecione uma tag"
               :options="availableTagOptionsForActiveItem"
               :error="existingTagSelectError"
+              :disabled="isSubmittingItemTag"
               aria-label="Selecionar tag existente"
               @update:model-value="existingTagSelectError = ''"
             />
 
             <div class="repertory-view__tag-modal-actions">
-              <Button variant="tertiary" @click="isItemTagModalOpen = false"> Cancelar </Button>
-              <Button type="submit" variant="primary">Vincular tag</Button>
+              <Button
+                variant="tertiary"
+                :disabled="isSubmittingItemTag"
+                @click="isItemTagModalOpen = false"
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" variant="primary" :disabled="isSubmittingItemTag">
+                {{ isSubmittingItemTag ? 'Vinculando...' : 'Vincular tag' }}
+              </Button>
             </div>
           </template>
 
@@ -1501,8 +2148,13 @@ function executeBatchDeletion() {
 
         <TagForm
           v-else
+          :show-color="true"
           :name-error="itemTagNameError"
+          :color-error="itemTagColorError"
+          :disabled="isSubmittingItemTag"
+          :submit-label="isSubmittingItemTag ? 'Salvando...' : 'Salvar'"
           @update:name="itemTagNameError = ''"
+          @update:color="itemTagColorError = ''"
           @submit="handleCreateAndLinkTagToItem"
           @cancel="isItemTagModalOpen = false"
         />
@@ -1510,13 +2162,37 @@ function executeBatchDeletion() {
     </Modal>
 
     <!-- Modal Nova Tag -->
-    <Modal v-model:open="isNewTagModalOpen" size="lg" title="nova tag">
+    <Modal v-model:open="isNewTagModalOpen" size="md" title="nova tag">
       <TagForm
         v-if="isNewTagModalOpen"
+        :show-color="true"
         :name-error="newTagNameError"
+        :color-error="newTagColorError"
+        :disabled="isCreatingTag"
+        :submit-label="isCreatingTag ? 'Salvando...' : 'Salvar'"
         @update:name="newTagNameError = ''"
+        @update:color="newTagColorError = ''"
         @submit="handleCreateTag"
         @cancel="isNewTagModalOpen = false"
+      />
+    </Modal>
+
+    <!-- Modal Editar Tag -->
+    <Modal v-model:open="isEditTagModalOpen" size="md" title="editar tag">
+      <TagForm
+        v-if="isEditTagModalOpen && editingTag"
+        :show-color="true"
+        :name="editingTag.label"
+        :description="editingTag.description"
+        :color="editingTag.color"
+        :name-error="editTagNameError"
+        :color-error="editTagColorError"
+        :disabled="isUpdatingTag"
+        :submit-label="isUpdatingTag ? 'Salvando...' : 'Salvar'"
+        @update:name="editTagNameError = ''"
+        @update:color="editTagColorError = ''"
+        @submit="handleUpdateTag"
+        @cancel="isEditTagModalOpen = false"
       />
     </Modal>
 
@@ -1527,7 +2203,7 @@ function executeBatchDeletion() {
       :description="confirmState.description"
       :confirm-label="confirmState.confirmLabel"
       confirm-variant="danger"
-      @confirm="executeBatchDeletion"
+      @confirm="executeConfirmDeletion"
     />
   </AppShell>
 </template>
@@ -1691,6 +2367,45 @@ function executeBatchDeletion() {
   font-weight: var(--repertory-view-empty-description-font-weight);
 }
 
+.repertory-view__tag-color-cell {
+  --repertory-tag-cell-gap: var(--spacing-2);
+  --repertory-tag-swatch-size: 16px;
+  --repertory-tag-swatch-border-color: var(--border-subtle-2);
+  --repertory-tag-swatch-border-width: var(--border-width-thin);
+  --repertory-tag-hex-color: var(--text-secondary);
+  --repertory-tag-hex-font-family: var(--type-label-01-font-family);
+  --repertory-tag-hex-font-size: var(--type-label-01-font-size);
+  --repertory-tag-hex-line-height: var(--type-label-01-line-height);
+  --repertory-tag-hex-font-weight: var(--type-label-01-font-weight);
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--repertory-tag-cell-gap);
+}
+
+.repertory-view__tag-color-swatch {
+  display: inline-block;
+  width: var(--repertory-tag-swatch-size);
+  height: var(--repertory-tag-swatch-size);
+  border: var(--repertory-tag-swatch-border-width) solid var(--repertory-tag-swatch-border-color);
+  flex-shrink: 0;
+}
+
+.repertory-view__tag-color-hex {
+  color: var(--repertory-tag-hex-color);
+  font-family: var(--repertory-tag-hex-font-family);
+  font-size: var(--repertory-tag-hex-font-size);
+  line-height: var(--repertory-tag-hex-line-height);
+  font-weight: var(--repertory-tag-hex-font-weight);
+  text-transform: uppercase;
+}
+
+.repertory-view__load-more {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--spacing-2);
+}
+
 .repertory-view__sheet-content {
   display: flex;
   flex-direction: column;
@@ -1736,6 +2451,14 @@ function executeBatchDeletion() {
   max-height: min(62dvh, 480px);
   object-fit: cover;
   background-color: var(--repertory-preview-placeholder-bg);
+}
+
+.repertory-view__preview-pdf {
+  display: block;
+  width: 100%;
+  height: min(62dvh, 480px);
+  border: none;
+  background-color: var(--repertory-preview-doc-bg);
 }
 
 .repertory-view__preview-footer,
@@ -1789,7 +2512,7 @@ function executeBatchDeletion() {
   flex-direction: column;
   gap: var(--spacing-4);
   padding: var(--spacing-6) var(--repertory-preview-padding);
-  min-height: 280px;
+  min-height: 220px;
   max-height: min(62dvh, 480px);
   overflow-y: auto;
   background-color: var(--repertory-preview-doc-bg);
@@ -1803,11 +2526,54 @@ function executeBatchDeletion() {
   font-size: var(--repertory-preview-body-font-size);
   line-height: var(--repertory-preview-body-line-height);
   font-weight: var(--repertory-preview-body-font-weight);
-  white-space: pre-line;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .repertory-view__preview-doc-note {
   color: var(--repertory-preview-meta-color);
+}
+
+.repertory-view__preview-meta-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  margin: var(--repertory-view-reset-spacing);
+}
+
+.repertory-view__preview-meta-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  padding-bottom: var(--spacing-2);
+  border-bottom: var(--repertory-preview-border-width) solid var(--repertory-preview-border-color);
+}
+
+.repertory-view__preview-meta-term {
+  color: var(--repertory-preview-meta-color);
+  font-family: var(--repertory-preview-meta-font-family);
+  font-size: var(--repertory-preview-meta-font-size);
+  line-height: var(--repertory-preview-meta-line-height);
+  font-weight: var(--repertory-preview-meta-font-weight);
+}
+
+.repertory-view__preview-meta-value {
+  margin: var(--repertory-view-reset-spacing);
+  color: var(--repertory-preview-title-color);
+  font-family: var(--repertory-preview-body-font-family);
+  font-size: var(--repertory-preview-body-font-size);
+  line-height: var(--repertory-preview-body-line-height);
+  font-weight: var(--repertory-preview-body-font-weight);
+  text-align: right;
+  word-break: break-word;
+}
+
+.repertory-view__edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--repertory-view-modal-gap);
+  width: 100%;
 }
 
 .repertory-view__tag-modal {
@@ -1860,6 +2626,10 @@ function executeBatchDeletion() {
 
   .repertory-view__preview-image {
     max-height: 200px;
+  }
+
+  .repertory-view__preview-pdf {
+    height: 220px;
   }
 
   .repertory-view__preview-doc-body {

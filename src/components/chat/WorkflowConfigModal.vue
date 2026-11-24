@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import heroRobotImg from '@/assets/images/2da21ad867bb41c5bb1b67c4a94cdda9ac4949e1.jpg'
+import chatWorkflowImage from '@/assets/images/9d170a1eb9fe2e47d22162cd576ea7e1e82394e9.jpg'
+import { getApiErrorMessage } from '@/api/errors'
+import { buildWorkflowConfigValues } from '@/api/mappers/workflowMapper'
 import {
   Badge,
   Button,
   Icon,
   Modal,
+  Notification,
   Select,
   Tag,
   TextArea,
@@ -13,43 +16,37 @@ import {
   WorkflowSlideCard,
   type SelectOption,
 } from '@/components/ui'
+import { useWorkflowsApi } from '@/composables/api'
+import type {
+  WorkflowConfigField,
+  WorkflowConfigFieldValue,
+  WorkflowConfigNode,
+  WorkflowConfigValues,
+  WorkflowItem,
+} from '@/types/workflows'
 
-export interface WorkflowPreset {
-  id: string
-  name: string
-  version: string
+export interface WorkflowSlide extends WorkflowItem {
   badge: string
-  description: string
-  defaultEffort: string
   imageUrl: string
 }
 
-export interface WorkflowGraphNodeConfig {
-  nodeId: string
-  label: string
-  model: string
-  effort: string
-  nextNodeId: string
-  instruction: string
-}
-
 export interface WorkflowConfigApplyPayload {
-  workflowId: string
+  workflowId: number
   workflowName: string
   version: string
-  iterations: string
-  summaryEffort: string
-  stageOneEffort: string
-  nodesConfig: Record<string, WorkflowGraphNodeConfig>
+  description: string
+  config: WorkflowConfigValues
 }
 
 interface Props {
   open: boolean
-  selectedWorkflowId?: string | null
+  selectedWorkflowId?: number | null
+  selectedWorkflowConfig?: WorkflowConfigValues | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
   selectedWorkflowId: null,
+  selectedWorkflowConfig: null,
 })
 
 const emit = defineEmits<{
@@ -57,9 +54,9 @@ const emit = defineEmits<{
   apply: [payload: WorkflowConfigApplyPayload]
 }>()
 
-function createWorkflowBackdropSvg(
-  variant: 'strategy' | 'engineering' | 'knowledge' | 'compliance',
-): string {
+const BACKDROP_VARIANTS = ['strategy', 'engineering', 'knowledge', 'compliance'] as const
+
+function createWorkflowBackdropSvg(variant: (typeof BACKDROP_VARIANTS)[number]): string {
   const motifs = {
     strategy: `
       <defs>
@@ -129,184 +126,41 @@ function createWorkflowBackdropSvg(
   )}`
 }
 
-const WORKFLOW_PRESETS: WorkflowPreset[] = [
-  {
-    id: 'wf-analise-critica',
-    name: 'análise crítica',
-    version: 'Versão: 2.4.0',
-    badge: 'jurídico & compliance',
-    description:
-      'Avalia contratos, pareceres e cláusulas de risco com verificação cruzada em grafo de etapas e justificativa rastreável por documento.',
-    defaultEffort: 'Médio',
-    imageUrl: heroRobotImg,
-  },
-  {
-    id: 'wf-sintese-executiva',
-    name: 'síntese executiva',
-    version: 'Versão: 2.1.0',
-    badge: 'estratégia',
-    description:
-      'Condensa relatórios extensos em recomendações objetivas, pontos de decisão e próximos passos priorizados para liderança.',
-    defaultEffort: 'Baixo',
-    imageUrl: createWorkflowBackdropSvg('strategy'),
-  },
-  {
-    id: 'wf-revisao-tecnica',
-    name: 'revisão técnica',
-    version: 'Versão: 3.0.0',
-    badge: 'engenharia',
-    description:
-      'Inspeciona especificações, requisitos de arquitetura e lacunas entre documentação técnica e contratos de implementação.',
-    defaultEffort: 'Alto',
-    imageUrl: createWorkflowBackdropSvg('engineering'),
-  },
-  {
-    id: 'wf-pesquisa-repertorio',
-    name: 'pesquisa de repertório',
-    version: 'Versão: 1.8.0',
-    badge: 'conhecimento',
-    description:
-      'Cruza a solicitação com documentos indexados e assets visuais para fundamentar respostas com citações diretas.',
-    defaultEffort: 'Médio',
-    imageUrl: createWorkflowBackdropSvg('knowledge'),
-  },
-  {
-    id: 'wf-auditoria-regulatoria',
-    name: 'auditoria regulatória',
-    version: 'Versão: 1.5.0',
-    badge: 'compliance',
-    description:
-      'Confronta políticas internas, pareceres de risco e requisitos normativos com trilha de evidências auditável.',
-    defaultEffort: 'Alto',
-    imageUrl: createWorkflowBackdropSvg('compliance'),
-  },
-]
-
-const NODE_IDS = ['n1', 'n2', 'n3'] as const
-type NodeId = (typeof NODE_IDS)[number]
-
-const MODEL_OPTIONS: SelectOption[] = [
-  { label: 'Prismon Pro 2.5', value: 'Prismon Pro 2.5' },
-  { label: 'Prismon Flash', value: 'Prismon Flash' },
-  { label: 'Claude Sonnet', value: 'Claude Sonnet' },
-  { label: 'GPT-5 Mini', value: 'GPT-5 Mini' },
-]
-
-const EFFORT_OPTIONS: SelectOption[] = [
-  { label: 'Baixo', value: 'Baixo' },
-  { label: 'Médio', value: 'Médio' },
-  { label: 'Alto', value: 'Alto' },
-]
-
-const ITERATION_OPTIONS: SelectOption[] = [
-  { label: '1 rodada', value: '1 rodada' },
-  { label: '2 rodadas', value: '2 rodadas' },
-  { label: '3 rodadas', value: '3 rodadas' },
-]
-
-function buildPresetNodes(workflowId: string | null): Record<NodeId, WorkflowGraphNodeConfig> {
-  const preset = WORKFLOW_PRESETS.find((item) => item.id === workflowId)
-  const defaultEffort = preset?.defaultEffort ?? 'Médio'
-
-  if (workflowId === 'wf-revisao-tecnica') {
-    return {
-      n1: {
-        nodeId: 'n1',
-        label: 'Ingestão',
-        model: 'Prismon Flash',
-        effort: defaultEffort,
-        nextNodeId: 'n2',
-        instruction: 'Mapear requisitos arquiteturais, interfaces públicas e restrições técnicas.',
-      },
-      n2: {
-        nodeId: 'n2',
-        label: 'Análise Crítica',
-        model: 'Prismon Pro 2.5',
-        effort: defaultEffort,
-        nextNodeId: 'n3',
-        instruction: 'Detectar gargalos de concorrência, falhas de contrato e riscos de regressão.',
-      },
-      n3: {
-        nodeId: 'n3',
-        label: 'Síntese',
-        model: 'Claude Sonnet',
-        effort: defaultEffort,
-        nextNodeId: 'output',
-        instruction: 'Gerar plano de mitigação priorizado com critérios objetivos de validação.',
-      },
-    }
-  }
-
-  if (workflowId === 'wf-sintese-executiva') {
-    return {
-      n1: {
-        nodeId: 'n1',
-        label: 'Ingestão',
-        model: 'Prismon Flash',
-        effort: defaultEffort,
-        nextNodeId: 'n2',
-        instruction: 'Extrair métricas-chave, marcos operacionais e desvios do período.',
-      },
-      n2: {
-        nodeId: 'n2',
-        label: 'Análise Crítica',
-        model: 'Prismon Pro 2.5',
-        effort: defaultEffort,
-        nextNodeId: 'n3',
-        instruction: 'Priorizar impactos estratégicos e dependências entre áreas.',
-      },
-      n3: {
-        nodeId: 'n3',
-        label: 'Síntese',
-        model: 'GPT-5 Mini',
-        effort: defaultEffort,
-        nextNodeId: 'output',
-        instruction: 'Redigir sumário executivo conciso com próximos passos acionáveis.',
-      },
-    }
-  }
-
+function mapWorkflowToSlide(workflow: WorkflowItem, index: number): WorkflowSlide {
+  const variant = BACKDROP_VARIANTS[index % BACKDROP_VARIANTS.length]!
+  const isChatWorkflow = workflow.name.trim().toLowerCase() === 'chat'
   return {
-    n1: {
-      nodeId: 'n1',
-      label: 'Ingestão',
-      model: 'Prismon Flash',
-      effort: defaultEffort,
-      nextNodeId: 'n2',
-      instruction: 'Extrair contexto, entidades relevantes e documentos anexados ao pedido.',
-    },
-    n2: {
-      nodeId: 'n2',
-      label: 'Análise Crítica',
-      model: 'Prismon Pro 2.5',
-      effort: defaultEffort,
-      nextNodeId: 'n3',
-      instruction: 'Cruzar evidências com o repertório institucional e apontar divergências.',
-    },
-    n3: {
-      nodeId: 'n3',
-      label: 'Síntese',
-      model: 'Claude Sonnet',
-      effort: defaultEffort,
-      nextNodeId: 'output',
-      instruction: 'Consolidar recomendações estruturadas com rastreabilidade clara.',
-    },
+    ...workflow,
+    badge: `v${workflow.version}`,
+    imageUrl: isChatWorkflow ? chatWorkflowImage : createWorkflowBackdropSvg(variant),
   }
 }
+
+const BOOLEAN_SELECT_OPTIONS: SelectOption[] = [
+  { label: 'Ativado', value: 'true' },
+  { label: 'Desativado', value: 'false' },
+]
 
 const DRAG_SWIPE_THRESHOLD_PX = 48
 const DRAG_VELOCITY_THRESHOLD = 0.25
 
+const { listWorkflows, getWorkflowConfig } = useWorkflowsApi()
+
+const workflowSlides = ref<WorkflowSlide[]>([])
+const isLoadingWorkflows = ref(false)
+const workflowError = ref('')
+let workflowsRequestSeq = 0
+let configRequestSeq = 0
+
 const step = ref<1 | 2>(1)
 const activeSlideIndex = ref(0)
-const draftWorkflowId = ref<string>(props.selectedWorkflowId ?? WORKFLOW_PRESETS[0]!.id)
-const configuredForWorkflowId = ref<string | null>(null)
-const activeNodeId = ref<NodeId>('n1')
-const lastEditedNodeId = ref<NodeId>('n1')
-const nodesMap = ref<Record<NodeId, WorkflowGraphNodeConfig>>(
-  buildPresetNodes(props.selectedWorkflowId),
-)
-const iterations = ref('2 rodadas')
+const draftWorkflowId = ref<number | null>(props.selectedWorkflowId ?? null)
+
+const configNodes = ref<WorkflowConfigNode[]>([])
+const configValues = ref<WorkflowConfigValues>({})
+const activeNodeId = ref('')
+const isLoadingConfig = ref(false)
+const configError = ref('')
 
 const isDragging = ref(false)
 const dragOffsetX = ref(0)
@@ -315,35 +169,117 @@ let dragStartX = 0
 let dragStartTime = 0
 let suppressSlideClick = false
 
-const activeSlidePreset = computed(
-  () => WORKFLOW_PRESETS[activeSlideIndex.value] ?? WORKFLOW_PRESETS[0]!,
+const activeSlidePreset = computed<WorkflowSlide | null>(
+  () => workflowSlides.value[activeSlideIndex.value] ?? workflowSlides.value[0] ?? null,
 )
 
-const selectedWorkflow = computed(
+const selectedWorkflow = computed<WorkflowSlide | null>(
   () =>
-    WORKFLOW_PRESETS.find((item) => item.id === draftWorkflowId.value) ?? activeSlidePreset.value,
+    workflowSlides.value.find((item) => item.id === draftWorkflowId.value) ??
+    activeSlidePreset.value,
 )
 
-const orderedNodes = computed(() => NODE_IDS.map((id) => nodesMap.value[id]))
+const activeNode = computed<WorkflowConfigNode | null>(
+  () => configNodes.value.find((node) => node.id === activeNodeId.value) ?? configNodes.value[0] ?? null,
+)
 
-const activeNode = computed(() => nodesMap.value[activeNodeId.value])
-
-const nextNodeOptions = computed<SelectOption[]>(() => {
-  const currentIndex = NODE_IDS.indexOf(activeNodeId.value)
-  const followingOptions: SelectOption[] = NODE_IDS.slice(currentIndex + 1).map((id) => ({
-    label: `${id}: ${nodesMap.value[id].label}`,
-    value: id,
-  }))
-  return [...followingOptions, { label: 'Saída final', value: 'output' }]
-})
+const activeNodeIndex = computed(() =>
+  activeNode.value ? configNodes.value.findIndex((node) => node.id === activeNode.value!.id) : -1,
+)
 
 const activeEdgeSummaryTag = computed(() => {
-  const incomingNode = orderedNodes.value.find((node) => node.nextNodeId === activeNodeId.value)
-  const entryLabel = incomingNode ? incomingNode.nodeId : 'entrada'
+  if (!activeNode.value) return ''
+  const idx = activeNodeIndex.value
+  const entryLabel = idx > 0 ? configNodes.value[idx - 1]!.id : 'entrada'
   const exitLabel =
-    activeNode.value.nextNodeId === 'output' ? 'saída final' : activeNode.value.nextNodeId
+    idx >= 0 && idx < configNodes.value.length - 1 ? configNodes.value[idx + 1]!.id : 'saída'
   return `${entryLabel} → ${exitLabel}`
 })
+
+async function loadWorkflows() {
+  const requestId = ++workflowsRequestSeq
+  isLoadingWorkflows.value = true
+  workflowError.value = ''
+
+  try {
+    const page = await listWorkflows({ limit: 100 })
+    if (requestId !== workflowsRequestSeq) {
+      return
+    }
+    const mapped = page.items.map(mapWorkflowToSlide)
+    workflowSlides.value = mapped
+
+    if (mapped.length > 0) {
+      const matchedIdx = mapped.findIndex((item) => item.id === props.selectedWorkflowId)
+      const resolvedIndex = matchedIdx >= 0 ? matchedIdx : 0
+      activeSlideIndex.value = resolvedIndex
+      draftWorkflowId.value = mapped[resolvedIndex]!.id
+    } else {
+      activeSlideIndex.value = 0
+      draftWorkflowId.value = null
+    }
+  } catch (error) {
+    if (requestId !== workflowsRequestSeq) {
+      return
+    }
+    workflowSlides.value = []
+    workflowError.value = getApiErrorMessage(error, 'Não foi possível carregar os workflows.')
+  } finally {
+    if (requestId === workflowsRequestSeq) {
+      isLoadingWorkflows.value = false
+    }
+  }
+}
+
+function seedNodesForWorkflow(
+  workflow: WorkflowSlide,
+  nodes: WorkflowConfigNode[],
+  preservedValues?: WorkflowConfigValues | null,
+) {
+  configNodes.value = nodes
+  configValues.value = buildWorkflowConfigValues(nodes, preservedValues)
+  if (!nodes.some((node) => node.id === activeNodeId.value)) {
+    activeNodeId.value = nodes[0]?.id ?? ''
+  }
+}
+
+async function loadWorkflowConfigForSlide(workflow: WorkflowSlide) {
+  const requestId = ++configRequestSeq
+  const priorSaved =
+    props.selectedWorkflowId === workflow.id ? props.selectedWorkflowConfig : null
+
+  configError.value = ''
+  seedNodesForWorkflow(workflow, workflow.configNodes, priorSaved)
+
+  isLoadingConfig.value = workflow.configNodes.length === 0
+  try {
+    const fetchedNodes = await getWorkflowConfig(workflow.name)
+    if (requestId !== configRequestSeq) {
+      return
+    }
+    if (fetchedNodes.length > 0 || workflow.configNodes.length === 0) {
+      seedNodesForWorkflow(workflow, fetchedNodes, {
+        ...priorSaved,
+        ...configValues.value,
+      })
+    }
+  } catch (error) {
+    if (requestId !== configRequestSeq) {
+      return
+    }
+    if (workflow.configNodes.length === 0) {
+      configNodes.value = []
+      configError.value = getApiErrorMessage(
+        error,
+        'Não foi possível carregar a configuração do workflow.',
+      )
+    }
+  } finally {
+    if (requestId === configRequestSeq) {
+      isLoadingConfig.value = false
+    }
+  }
+}
 
 watch(
   () => props.open,
@@ -353,16 +289,16 @@ watch(
       isDragging.value = false
       dragOffsetX.value = 0
       activePointerId = null
-      const matchedIdx = WORKFLOW_PRESETS.findIndex((item) => item.id === props.selectedWorkflowId)
-      const resolvedIndex = matchedIdx >= 0 ? matchedIdx : 0
-      activeSlideIndex.value = resolvedIndex
-      draftWorkflowId.value = WORKFLOW_PRESETS[resolvedIndex]!.id
+      configError.value = ''
+      void loadWorkflows()
     }
   },
+  { immediate: true },
 )
 
 function getRelativeOffset(index: number): number {
-  const total = WORKFLOW_PRESETS.length
+  const total = workflowSlides.value.length
+  if (total === 0) return 0
   let diff = (index - activeSlideIndex.value) % total
   if (diff > total / 2) diff -= total
   if (diff < -total / 2) diff += total
@@ -390,10 +326,11 @@ function getSlideSlotStyle(index: number): Record<string, string> | undefined {
 }
 
 function setSlideIndex(index: number) {
-  const total = WORKFLOW_PRESETS.length
+  const total = workflowSlides.value.length
+  if (total === 0) return
   const normalized = ((index % total) + total) % total
   activeSlideIndex.value = normalized
-  draftWorkflowId.value = WORKFLOW_PRESETS[normalized]!.id
+  draftWorkflowId.value = workflowSlides.value[normalized]!.id
 }
 
 function goPreviousSlide() {
@@ -413,7 +350,10 @@ function handleSlideClick(index: number) {
     setSlideIndex(index)
     return
   }
-  draftWorkflowId.value = WORKFLOW_PRESETS[index]!.id
+  const target = workflowSlides.value[index]
+  if (target) {
+    draftWorkflowId.value = target.id
+  }
 }
 
 function handleStagePointerDown(event: PointerEvent) {
@@ -478,34 +418,71 @@ function handleStageKeydown(event: KeyboardEvent) {
   }
 }
 
-function initializeNodesForWorkflow(workflowId: string | null) {
-  nodesMap.value = buildPresetNodes(workflowId)
-  configuredForWorkflowId.value = workflowId
-  activeNodeId.value = 'n1'
-  lastEditedNodeId.value = 'n1'
-}
-
-function selectNode(nodeId: NodeId) {
+function selectNode(nodeId: string) {
   activeNodeId.value = nodeId
 }
 
-function updateActiveNodeField<K extends keyof Omit<WorkflowGraphNodeConfig, 'nodeId'>>(
-  field: K,
-  value: WorkflowGraphNodeConfig[K],
-) {
-  const targetId = activeNodeId.value
-  nodesMap.value = {
-    ...nodesMap.value,
-    [targetId]: {
-      ...nodesMap.value[targetId],
-      [field]: value,
-    },
-  }
-  lastEditedNodeId.value = targetId
+function formatEdgeTarget(index: number): string {
+  const nextNode = configNodes.value[index + 1]
+  return nextNode ? `→ ${nextNode.id}` : 'Saída'
 }
 
-function formatEdgeTarget(nextNodeId: string): string {
-  return nextNodeId === 'output' ? 'Saída' : `→ ${nextNodeId}`
+function getNodeSummaryBadge(node: WorkflowConfigNode): string {
+  const nodeState = configValues.value[node.id] ?? {}
+  const modelValue = nodeState.model
+  if (typeof modelValue === 'string' && modelValue.trim().length > 0) {
+    return modelValue.trim()
+  }
+  const providerValue = nodeState.provider
+  if (typeof providerValue === 'string' && providerValue.trim().length > 0) {
+    return providerValue.trim()
+  }
+  return `${node.fields.length} ${node.fields.length === 1 ? 'campo' : 'campos'}`
+}
+
+function getFieldValue(nodeId: string, fieldName: string): string {
+  const val = configValues.value[nodeId]?.[fieldName]
+  if (val === undefined) return ''
+  return String(val)
+}
+
+function updateFieldValue(
+  nodeId: string,
+  field: WorkflowConfigField,
+  rawValue: string,
+) {
+  let nextValue: WorkflowConfigFieldValue = rawValue
+  if (field.type === 'boolean' || field.type === 'checkbox' || field.type === 'toggle') {
+    nextValue = rawValue === 'true'
+  } else if (field.type === 'number' || field.type === 'integer' || field.type === 'float') {
+    const trimmed = rawValue.trim()
+    nextValue = trimmed === '' ? '' : Number.isFinite(Number(trimmed)) ? Number(trimmed) : rawValue
+  }
+
+  configValues.value = {
+    ...configValues.value,
+    [nodeId]: {
+      ...configValues.value[nodeId],
+      [field.name]: nextValue,
+    },
+  }
+}
+
+function getFieldPlaceholder(nodeId: string, field: WorkflowConfigField): string {
+  if (field.placeholder) {
+    return field.placeholder
+  }
+  if (field.type === 'model') {
+    const provider = configValues.value[nodeId]?.provider
+    if (provider === 'openrouter') {
+      return 'Ex: openai/gpt-4o-mini (opcional)'
+    }
+    return 'Ex: bonsai-2:4b (padrão se vazio)'
+  }
+  if (field.type === 'select') {
+    return 'Selecione uma opção'
+  }
+  return field.description || `Informe ${field.label}`
 }
 
 function handleClose() {
@@ -513,31 +490,32 @@ function handleClose() {
 }
 
 function selectCurrentSlideAndContinue() {
-  draftWorkflowId.value = activeSlidePreset.value.id
-  if (configuredForWorkflowId.value !== draftWorkflowId.value) {
-    initializeNodesForWorkflow(draftWorkflowId.value)
+  const current = activeSlidePreset.value
+  if (!current) {
+    return
   }
+  draftWorkflowId.value = current.id
   step.value = 2
+  void loadWorkflowConfigForSlide(current)
+}
+
+function handleRetryConfig() {
+  if (!selectedWorkflow.value) return
+  void loadWorkflowConfigForSlide(selectedWorkflow.value)
 }
 
 function handleApply() {
   const chosenWorkflow = selectedWorkflow.value
-  const summaryEffort =
-    nodesMap.value[lastEditedNodeId.value]?.effort ?? chosenWorkflow.defaultEffort
-
-  const clonedNodes: Record<string, WorkflowGraphNodeConfig> = {}
-  for (const id of NODE_IDS) {
-    clonedNodes[id] = { ...nodesMap.value[id] }
+  if (!chosenWorkflow) {
+    return
   }
 
   emit('apply', {
     workflowId: chosenWorkflow.id,
     workflowName: chosenWorkflow.name,
     version: chosenWorkflow.version,
-    iterations: iterations.value,
-    summaryEffort,
-    stageOneEffort: summaryEffort,
-    nodesConfig: clonedNodes,
+    description: chosenWorkflow.description,
+    config: buildWorkflowConfigValues(configNodes.value, configValues.value),
   })
   emit('update:open', false)
 }
@@ -550,193 +528,272 @@ function handleApply() {
     :title="step === 1 ? 'workflows' : 'configurações'"
     :subtitle="
       step === 1
-        ? 'Arraste ou navegue no slide para escolher qual workflow deseja configurar.'
-        : 'Selecione os nós do grafo para configurar papel, modelo, aresta e instruções.'
+        ? 'Arraste ou navegue no slide para escolher qual workflow deseja visualizar.'
+        : 'Configure os parâmetros dos nós do workflow selecionado.'
     "
     @update:open="emit('update:open', $event)"
   >
     <div class="workflow-modal">
       <div v-if="step === 1" class="workflow-modal__slide-view">
-        <div
-          :class="[
-            'workflow-modal__carousel-stage',
-            isDragging ? 'workflow-modal__carousel-stage--dragging' : undefined,
-          ]"
-          data-drawer-no-drag
-          tabindex="0"
-          role="region"
-          aria-roledescription="carrossel"
-          aria-label="Slide de seleção de workflow"
-          @pointerdown="handleStagePointerDown"
-          @pointermove="handleStagePointerMove"
-          @pointerup="handleStagePointerUp"
-          @pointercancel="handleStagePointerUp"
-          @keydown="handleStageKeydown"
-        >
+        <div v-if="isLoadingWorkflows" class="workflow-modal__state" role="status">
+          <Icon name="robot" size="lg" color="brand" />
+          <p class="workflow-modal__state-text">Carregando workflows...</p>
+        </div>
+
+        <div v-else-if="workflowError" class="workflow-modal__state">
+          <Notification
+            variant="danger"
+            icon="exclamation"
+            title="Erro ao carregar workflows"
+            :message="workflowError"
+          />
+          <div class="workflow-modal__state-actions">
+            <Button variant="secondary" size="sm" @click="loadWorkflows">Tentar novamente</Button>
+          </div>
+        </div>
+
+        <div v-else-if="workflowSlides.length === 0" class="workflow-modal__state">
+          <Notification
+            icon="robot"
+            title="Nenhum workflow disponível"
+            message="A API não retornou workflows disponíveis no momento."
+          />
+          <div class="workflow-modal__state-actions">
+            <Button variant="secondary" size="sm" @click="loadWorkflows">Atualizar</Button>
+          </div>
+        </div>
+
+        <template v-else>
           <div
-            v-for="(item, index) in WORKFLOW_PRESETS"
-            :key="item.id"
-            :class="['workflow-modal__slide-slot', getSlideSlotClass(index)]"
-            :style="getSlideSlotStyle(index)"
+            :class="[
+              'workflow-modal__carousel-stage',
+              isDragging ? 'workflow-modal__carousel-stage--dragging' : undefined,
+            ]"
+            data-drawer-no-drag
+            tabindex="0"
+            role="region"
+            aria-roledescription="carrossel"
+            aria-label="Slide de seleção de workflow"
+            @pointerdown="handleStagePointerDown"
+            @pointermove="handleStagePointerMove"
+            @pointerup="handleStagePointerUp"
+            @pointercancel="handleStagePointerUp"
+            @keydown="handleStageKeydown"
           >
-            <WorkflowSlideCard
-              :name="item.name"
-              :version="item.version"
-              :description="item.description"
-              :image-url="item.imageUrl"
-              :selected="activeSlideIndex === index"
-              @select="handleSlideClick(index)"
-            >
-              <template #badge>
-                <Badge :label="item.badge" />
-              </template>
-            </WorkflowSlideCard>
-          </div>
-        </div>
-
-        <div class="workflow-modal__slide-controls">
-          <Button variant="tertiary" size="sm" @click="goPreviousSlide">
-            <span class="workflow-modal__nav-btn-content">
-              <Icon name="arrow-left" size="sm" />
-              <span>Anterior</span>
-            </span>
-          </Button>
-
-          <div class="workflow-modal__slide-indicators" aria-label="Indicadores do slide">
-            <button
-              v-for="(item, index) in WORKFLOW_PRESETS"
+            <div
+              v-for="(item, index) in workflowSlides"
               :key="item.id"
-              type="button"
-              :class="[
-                'workflow-modal__slide-dot',
-                activeSlideIndex === index ? 'workflow-modal__slide-dot--active' : undefined,
-              ]"
-              :aria-label="`Ir para workflow ${item.name}`"
-              :aria-current="activeSlideIndex === index ? 'true' : undefined"
-              @click="setSlideIndex(index)"
-            />
-            <span class="workflow-modal__slide-counter">
-              {{ activeSlideIndex + 1 }} / {{ WORKFLOW_PRESETS.length }}
-            </span>
+              :class="['workflow-modal__slide-slot', getSlideSlotClass(index)]"
+              :style="getSlideSlotStyle(index)"
+            >
+              <WorkflowSlideCard
+                :name="item.name"
+                :version="item.versionLabel"
+                :description="item.description"
+                :image-url="item.imageUrl"
+                :selected="activeSlideIndex === index"
+                @select="handleSlideClick(index)"
+              >
+                <template #badge>
+                  <Badge :label="item.badge" />
+                </template>
+              </WorkflowSlideCard>
+            </div>
           </div>
 
-          <Button variant="tertiary" size="sm" @click="goNextSlide">
-            <span class="workflow-modal__nav-btn-content">
-              <span>Próximo</span>
-              <Icon name="arrow-right" size="sm" />
-            </span>
-          </Button>
-        </div>
+          <div class="workflow-modal__slide-controls">
+            <Button variant="tertiary" size="sm" @click="goPreviousSlide">
+              <span class="workflow-modal__nav-btn-content">
+                <Icon name="arrow-left" size="sm" />
+                <span>Anterior</span>
+              </span>
+            </Button>
+
+            <div class="workflow-modal__slide-indicators" aria-label="Indicadores do slide">
+              <button
+                v-for="(item, index) in workflowSlides"
+                :key="item.id"
+                type="button"
+                :class="[
+                  'workflow-modal__slide-dot',
+                  activeSlideIndex === index ? 'workflow-modal__slide-dot--active' : undefined,
+                ]"
+                :aria-label="`Ir para workflow ${item.name}`"
+                :aria-current="activeSlideIndex === index ? 'true' : undefined"
+                @click="setSlideIndex(index)"
+              />
+              <span class="workflow-modal__slide-counter">
+                {{ activeSlideIndex + 1 }} / {{ workflowSlides.length }}
+              </span>
+            </div>
+
+            <Button variant="tertiary" size="sm" @click="goNextSlide">
+              <span class="workflow-modal__nav-btn-content">
+                <span>Próximo</span>
+                <Icon name="arrow-right" size="sm" />
+              </span>
+            </Button>
+          </div>
+        </template>
       </div>
 
       <div v-else class="workflow-modal__config">
         <div v-if="selectedWorkflow" class="workflow-modal__summary">
           <div class="workflow-modal__summary-meta">
             <span class="workflow-modal__summary-name">{{ selectedWorkflow.name }}</span>
-            <span class="workflow-modal__summary-version">{{ selectedWorkflow.version }}</span>
+            <span class="workflow-modal__summary-version">{{ selectedWorkflow.versionLabel }}</span>
           </div>
           <Badge :label="selectedWorkflow.badge" />
         </div>
 
-        <div
-          class="workflow-modal__graph"
-          data-drawer-no-drag
-          role="group"
-          aria-label="Grafo de etapas do workflow"
-        >
-          <template v-for="(node, index) in orderedNodes" :key="node.nodeId">
-            <button
-              type="button"
-              :class="[
-                'workflow-modal__graph-node',
-                activeNodeId === node.nodeId ? 'workflow-modal__graph-node--selected' : undefined,
-              ]"
-              :aria-pressed="activeNodeId === node.nodeId"
-              @click="selectNode(node.nodeId as NodeId)"
-            >
-              <span class="workflow-modal__node-meta">
-                <span class="workflow-modal__node-id">{{ node.nodeId }}</span>
-                <span class="workflow-modal__node-edge">
-                  {{ formatEdgeTarget(node.nextNodeId) }}
+        <div v-if="isLoadingConfig && configNodes.length === 0" class="workflow-modal__state" role="status">
+          <Icon name="robot" size="lg" color="brand" />
+          <p class="workflow-modal__state-text">Carregando configuração do workflow...</p>
+        </div>
+
+        <div v-else-if="configError && configNodes.length === 0" class="workflow-modal__state">
+          <Notification
+            variant="danger"
+            icon="exclamation"
+            title="Erro ao carregar configuração"
+            :message="configError"
+          />
+          <div class="workflow-modal__state-actions">
+            <Button variant="secondary" size="sm" @click="handleRetryConfig">Tentar novamente</Button>
+          </div>
+        </div>
+
+        <Notification
+          v-else-if="configNodes.length === 0"
+          icon="info"
+          title="Sem parâmetros configuráveis"
+          message="Este workflow não possui parâmetros adicionais para configurar."
+        />
+
+        <template v-else>
+          <div
+            class="workflow-modal__graph"
+            data-drawer-no-drag
+            role="group"
+            aria-label="Grafo de etapas do workflow"
+          >
+            <template v-for="(node, index) in configNodes" :key="node.id">
+              <button
+                type="button"
+                :class="[
+                  'workflow-modal__graph-node',
+                  activeNode?.id === node.id ? 'workflow-modal__graph-node--selected' : undefined,
+                ]"
+                :aria-pressed="activeNode?.id === node.id"
+                @click="selectNode(node.id)"
+              >
+                <span class="workflow-modal__node-meta">
+                  <span class="workflow-modal__node-id">{{ node.id }}</span>
+                  <span class="workflow-modal__node-edge">
+                    {{ formatEdgeTarget(index) }}
+                  </span>
                 </span>
-              </span>
-              <span class="workflow-modal__node-title">{{ node.label }}</span>
-              <span class="workflow-modal__node-badge">
-                <Badge :label="node.model" />
-              </span>
-            </button>
+                <span class="workflow-modal__node-title">{{ node.label }}</span>
+                <span class="workflow-modal__node-badge">
+                  <Badge :label="getNodeSummaryBadge(node)" />
+                </span>
+              </button>
 
-            <span
-              v-if="index < orderedNodes.length - 1"
-              class="workflow-modal__graph-connector"
-              aria-hidden="true"
-            >
-              <Icon name="arrow-right" size="md" color="helper" />
-            </span>
-          </template>
-        </div>
-
-        <div class="workflow-modal__node-form">
-          <div class="workflow-modal__node-form-header">
-            <h3 class="workflow-modal__node-form-title">configurando nó: {{ activeNode.label }}</h3>
-            <Tag :label="activeEdgeSummaryTag" />
+              <span
+                v-if="index < configNodes.length - 1"
+                class="workflow-modal__graph-connector"
+                aria-hidden="true"
+              >
+                <Icon name="arrow-right" size="md" color="helper" />
+              </span>
+            </template>
           </div>
 
-          <div class="workflow-modal__node-fields">
-            <TextInput
-              :model-value="activeNode.label"
-              label="Rótulo / papel do nó"
-              placeholder="Ex: Análise Crítica"
-              @update:model-value="updateActiveNodeField('label', $event)"
-            />
-            <Select
-              :model-value="activeNode.model"
-              label="Modelo"
-              :options="MODEL_OPTIONS"
-              @update:model-value="updateActiveNodeField('model', $event)"
-            />
-            <Select
-              :model-value="activeNode.effort"
-              label="Esforço"
-              :options="EFFORT_OPTIONS"
-              @update:model-value="updateActiveNodeField('effort', $event)"
-            />
-            <Select
-              :model-value="activeNode.nextNodeId"
-              label="Próximo nó (aresta de saída)"
-              :options="nextNodeOptions"
-              @update:model-value="updateActiveNodeField('nextNodeId', $event)"
-            />
+          <div v-if="activeNode" class="workflow-modal__node-form">
+            <div class="workflow-modal__node-form-header">
+              <h3 class="workflow-modal__node-form-title">nó: {{ activeNode.label }}</h3>
+              <div class="workflow-modal__node-form-tags">
+                <Tag v-if="activeEdgeSummaryTag" :label="activeEdgeSummaryTag" />
+                <Badge :label="`${activeNode.fields.length} campos`" />
+              </div>
+            </div>
+
+            <div class="workflow-modal__node-fields">
+              <template v-for="field in activeNode.fields" :key="`${activeNode.id}-${field.name}`">
+                <Select
+                  v-if="field.type === 'select'"
+                  :model-value="getFieldValue(activeNode.id, field.name)"
+                  :label="field.label"
+                  :options="field.options"
+                  :placeholder="getFieldPlaceholder(activeNode.id, field)"
+                  :help-text="field.description"
+                  :required="field.required"
+                  @update:model-value="updateFieldValue(activeNode.id, field, $event)"
+                />
+
+                <Select
+                  v-else-if="
+                    field.type === 'boolean' ||
+                    field.type === 'checkbox' ||
+                    field.type === 'toggle'
+                  "
+                  :model-value="getFieldValue(activeNode.id, field.name)"
+                  :label="field.label"
+                  :options="BOOLEAN_SELECT_OPTIONS"
+                  :help-text="field.description"
+                  :required="field.required"
+                  @update:model-value="updateFieldValue(activeNode.id, field, $event)"
+                />
+
+                <TextArea
+                  v-else-if="field.type === 'textarea'"
+                  :model-value="getFieldValue(activeNode.id, field.name)"
+                  :label="field.label"
+                  :placeholder="getFieldPlaceholder(activeNode.id, field)"
+                  :help-text="field.description"
+                  :required="field.required"
+                  :rows="3"
+                  class="workflow-modal__node-instruction"
+                  @update:model-value="updateFieldValue(activeNode.id, field, $event)"
+                />
+
+                <TextInput
+                  v-else
+                  :type="
+                    field.type === 'number' || field.type === 'integer' || field.type === 'float'
+                      ? 'number'
+                      : 'text'
+                  "
+                  :model-value="getFieldValue(activeNode.id, field.name)"
+                  :label="field.label"
+                  :placeholder="getFieldPlaceholder(activeNode.id, field)"
+                  :help-text="field.description"
+                  :required="field.required"
+                  @update:model-value="updateFieldValue(activeNode.id, field, $event)"
+                />
+              </template>
+            </div>
           </div>
-
-          <TextArea
-            :model-value="activeNode.instruction"
-            label="Instrução do nó"
-            :rows="3"
-            placeholder="Descreva a instrução deste nó no pipeline"
-            class="workflow-modal__node-instruction"
-            @update:model-value="updateActiveNodeField('instruction', $event)"
-          />
-        </div>
-
-        <div class="workflow-modal__iterations">
-          <Select
-            v-model="iterations"
-            label="Rodadas de iteração global"
-            :options="ITERATION_OPTIONS"
-          />
-        </div>
+        </template>
       </div>
     </div>
 
     <template #footer>
       <template v-if="step === 1">
         <Button variant="tertiary" @click="handleClose">Cancelar</Button>
-        <Button variant="primary" @click="selectCurrentSlideAndContinue">Selecionar</Button>
+        <Button
+          variant="primary"
+          :disabled="isLoadingWorkflows || Boolean(workflowError) || !activeSlidePreset"
+          @click="selectCurrentSlideAndContinue"
+        >
+          Selecionar
+        </Button>
       </template>
       <template v-else>
         <Button variant="tertiary" @click="step = 1">Voltar</Button>
-        <Button variant="primary" @click="handleApply">Aplicar workflow</Button>
+        <Button variant="primary" :disabled="!selectedWorkflow" @click="handleApply">
+          Aplicar workflow
+        </Button>
       </template>
     </template>
   </Modal>
@@ -821,6 +878,35 @@ function handleApply() {
   display: flex;
   flex-direction: column;
   gap: var(--workflow-modal-gap);
+}
+
+.workflow-modal__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--workflow-modal-stage-height);
+  padding: var(--spacing-6);
+  gap: var(--spacing-4);
+  box-sizing: border-box;
+  background-color: var(--workflow-modal-summary-bg);
+  border: var(--workflow-modal-summary-border-width) solid
+    var(--workflow-modal-summary-border-color);
+  text-align: center;
+}
+
+.workflow-modal__state-text {
+  margin: var(--spacing-0);
+  color: var(--workflow-modal-version-color);
+  font-family: var(--type-body-01-font-family);
+  font-size: var(--type-body-01-font-size);
+  line-height: var(--type-body-01-line-height);
+  font-weight: var(--type-body-01-font-weight);
+}
+
+.workflow-modal__state-actions {
+  display: flex;
+  justify-content: center;
 }
 
 .workflow-modal__carousel-stage {
@@ -1102,6 +1188,13 @@ function handleApply() {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--spacing-3);
+}
+
+.workflow-modal__node-form-tags {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
 }
 
 .workflow-modal__node-form-title {

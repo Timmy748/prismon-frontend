@@ -191,21 +191,23 @@ function handleClearSelection() {
 
       <Transition name="data-table-batch">
         <div v-if="selectedRowKeys.length > 0" class="data-table__batch-wrapper">
-          <slot
-            name="batch-bar"
-            :selected-count="selectedRowKeys.length"
-            :selected-row-keys="selectedRowKeys"
-            :actions="batchActions"
-            :clear-selection="handleClearSelection"
-          >
-            <BatchActionBar
-              class="data-table__batch-bar"
+          <div class="data-table__batch-inner">
+            <slot
+              name="batch-bar"
               :selected-count="selectedRowKeys.length"
+              :selected-row-keys="selectedRowKeys"
               :actions="batchActions"
-              @action="emit('batch-action', $event)"
-              @cancel="handleClearSelection"
-            />
-          </slot>
+              :clear-selection="handleClearSelection"
+            >
+              <BatchActionBar
+                class="data-table__batch-bar"
+                :selected-count="selectedRowKeys.length"
+                :actions="batchActions"
+                @action="emit('batch-action', $event)"
+                @cancel="handleClearSelection"
+              />
+            </slot>
+          </div>
         </div>
       </Transition>
     </div>
@@ -239,6 +241,7 @@ function handleClearSelection() {
   --data-table-header-cell-line-height: var(--type-body-compact-02-line-height);
   --data-table-header-cell-font-weight: var(--type-body-compact-02-font-weight);
   --data-table-header-cell-text-transform: var(--type-body-compact-02-text-transform);
+  --data-table-table-bg: var(--surface-base);
   --data-table-row-bg: var(--surface-transparent);
   --data-table-row-bg-hover: var(--surface-subtle);
   --data-table-row-bg-selected: var(--surface-table-selected);
@@ -247,8 +250,6 @@ function handleClearSelection() {
   --data-table-row-transition-easing: var(--easing-hover);
   --data-table-batch-transition-duration: var(--duration-normal);
   --data-table-batch-transition-easing: var(--easing-out);
-  --data-table-batch-closed-scale: var(--scale-press-subtle);
-  --data-table-batch-closed-offset: var(--spacing-2);
   --data-table-row-focus-shadow: var(--shadow-focus-ring);
   --data-table-cell-padding: var(--spacing-3);
   --data-table-cell-border-width: var(--border-width-thin);
@@ -293,6 +294,7 @@ function handleClearSelection() {
 }
 
 .data-table__container {
+  position: relative;
   width: 100%;
 }
 
@@ -311,8 +313,11 @@ function handleClearSelection() {
 }
 
 .data-table__table-wrapper {
+  position: relative;
+  z-index: 2;
   width: 100%;
   overflow-x: auto;
+  background-color: var(--data-table-table-bg);
 }
 
 .data-table__table {
@@ -358,23 +363,56 @@ function handleClearSelection() {
   --data-table-row-bg: var(--data-table-row-bg-selected);
 }
 
+.data-table__batch-wrapper {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+}
+
+.data-table__batch-inner {
+  min-height: 0;
+}
+
 .data-table-batch-enter-active,
 .data-table-batch-leave-active {
-  transition:
-    opacity var(--data-table-batch-transition-duration) var(--data-table-batch-transition-easing),
-    transform var(--data-table-batch-transition-duration) var(--data-table-batch-transition-easing);
+  transition: grid-template-rows var(--data-table-batch-transition-duration)
+    var(--data-table-batch-transition-easing);
+}
+
+.data-table-batch-enter-active .data-table__batch-inner,
+.data-table-batch-leave-active .data-table__batch-inner {
+  transition: transform var(--data-table-batch-transition-duration)
+    var(--data-table-batch-transition-easing);
 }
 
 .data-table-batch-enter-from,
 .data-table-batch-leave-to {
-  opacity: var(--opacity-hidden);
-  transform: translateY(var(--data-table-batch-closed-offset))
-    scale(var(--data-table-batch-closed-scale));
+  grid-template-rows: 0fr;
+  opacity: var(--opacity-visible);
+}
+
+.data-table-batch-enter-from .data-table__batch-inner,
+.data-table-batch-leave-to .data-table__batch-inner {
+  transform: translateY(-100%);
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .data-table-batch-enter-active,
+  .data-table-batch-leave-active,
+  .data-table-batch-enter-active .data-table__batch-inner,
+  .data-table-batch-leave-active .data-table__batch-inner {
+    transition: none;
+  }
+
   .data-table-batch-enter-from,
   .data-table-batch-leave-to {
+    grid-template-rows: 1fr;
+  }
+
+  .data-table-batch-enter-from .data-table__batch-inner,
+  .data-table-batch-leave-to .data-table__batch-inner {
     transform: none;
   }
 }

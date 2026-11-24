@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { AppShell } from '@/components/shell'
 import {
   Badge,
@@ -7,6 +7,7 @@ import {
   ConfirmDialog,
   DataTable,
   Modal,
+  Notification,
   SearchInput,
   Select,
   Tag,
@@ -16,81 +17,35 @@ import {
   type DataTableColumn,
   type SelectOption,
 } from '@/components/ui'
-
-type MemberRole = 'Administrador' | 'Editor' | 'Visualizador'
-type MemberStatus = 'Ativo' | 'Convite pendente'
-
-type MemberRow = {
-  id: string
-  name: string
-  email: string
-  role: MemberRole
-  status: MemberStatus
-  joinedAt: string
-}
+import { getApiErrorMessage } from '@/api/errors'
+import { getMemberRoleLabel } from '@/api/mappers/memberMapper'
+import { useMembersApi } from '@/composables/api'
+import { useAuthState } from '@/stores/authState'
+import { useWorkspaceState } from '@/stores/workspaceState'
+import type { MemberRole, ProjectMember } from '@/types/members'
 
 const PAGE_SIZE = 10
 
-const INITIAL_MEMBERS: MemberRow[] = [
-  {
-    id: 'mem-1',
-    name: 'Ana Paula Ribeiro',
-    email: 'ana@prismon.ai',
-    role: 'Administrador',
-    status: 'Ativo',
-    joinedAt: '12/01/2026',
-  },
-  {
-    id: 'mem-2',
-    name: 'Lucas Ferreira',
-    email: 'lucas@prismon.ai',
-    role: 'Editor',
-    status: 'Ativo',
-    joinedAt: '03/02/2026',
-  },
-  {
-    id: 'mem-3',
-    name: 'Camila Andrade',
-    email: 'camila@prismon.ai',
-    role: 'Editor',
-    status: 'Ativo',
-    joinedAt: '19/02/2026',
-  },
-  {
-    id: 'mem-4',
-    name: 'Rafael Nogueira',
-    email: 'rafael@prismon.ai',
-    role: 'Visualizador',
-    status: 'Convite pendente',
-    joinedAt: '04/03/2026',
-  },
-  {
-    id: 'mem-5',
-    name: 'Beatriz Mendes',
-    email: 'beatriz@prismon.ai',
-    role: 'Visualizador',
-    status: 'Ativo',
-    joinedAt: '15/03/2026',
-  },
-]
-
 const columns: DataTableColumn[] = [
-  { key: 'name', label: 'nome' },
-  { key: 'email', label: 'email' },
-  { key: 'role', label: 'cargo' },
-  { key: 'status', label: 'status' },
-  { key: 'joinedAt', label: 'entrada' },
-]
-
-const roleOptions: SelectOption[] = [
-  { label: 'Administrador', value: 'Administrador' },
-  { label: 'Editor', value: 'Editor' },
-  { label: 'Visualizador', value: 'Visualizador' },
+  { key: 'userLabel', label: 'usuário' },
+  { key: 'roleLabel', label: 'cargo' },
+  { key: 'statusLabel', label: 'status' },
+  { key: 'createdAtLabel', label: 'entrada' },
 ]
 
 const roleFilterOptions: SelectOption[] = [
   { label: 'todos os cargos', value: 'all' },
-  ...roleOptions,
+  { label: 'Proprietário', value: 'owner' },
+  { label: 'Diretor', value: 'director' },
+  { label: 'Membro', value: 'member' },
+  { label: 'Colaborador', value: 'collaborator' },
+]
+
+const batchRoleOptions: SelectOption[] = [
+  { label: 'Diretor', value: 'director' },
+  { label: 'Membro', value: 'member' },
+  { label: 'Colaborador', value: 'collaborator' },
+  { label: 'Proprietário', value: 'owner' },
 ]
 
 const batchActions: BatchAction[] = [
@@ -98,25 +53,41 @@ const batchActions: BatchAction[] = [
   { id: 'remove', label: 'remover', icon: 'delete' },
 ]
 
-const members = ref<MemberRow[]>(INITIAL_MEMBERS.map((item) => ({ ...item })))
+const { activeProjectId, loadProjects } = useWorkspaceState()
+const { currentUser } = useAuthState()
+const membersApi = useMembersApi()
+
+const members = ref<ProjectMember[]>([])
+const isLoading = ref(false)
+const isSubmittingInvite = ref(false)
+const isSubmittingBatchRole = ref(false)
+const isSubmittingRemove = ref(false)
+const isRespondingInvite = ref(false)
+let latestLoadRequestId = 0
+
 const searchQuery = ref('')
 const roleFilter = ref('')
-const selectedKeys = ref<string[]>([])
+const selectedKeys = ref<number[]>([])
 const currentPage = ref(1)
 
 const isInviteModalOpen = ref(false)
-const inviteName = ref('')
-const inviteEmail = ref('')
-const inviteRole = ref<MemberRole>('Editor')
-const inviteErrors = reactive({
-  name: '',
-  email: '',
-})
+const inviteUserId = ref('')
+const inviteUserIdError = ref('')
 
 const isRoleModalOpen = ref(false)
-const batchRoleTarget = ref<MemberRole>('Editor')
+const batchRoleTarget = ref<MemberRole>('member')
 
 const isRemoveDialogOpen = ref(false)
+
+const pendingInvite = computed(() => {
+  const userId = currentUser.value?.id
+  if (userId === undefined || userId === null) {
+    return null
+  }
+  return (
+    members.value.find((member) => member.userId === userId && member.status === 'pending') ?? null
+  )
+})
 
 const filteredMembers = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
@@ -125,8 +96,9 @@ const filteredMembers = computed(() => {
   return members.value.filter((member) => {
     const matchesQuery =
       query.length === 0 ||
-      member.name.toLowerCase().includes(query) ||
-      member.email.toLowerCase().includes(query)
+      member.userLabel.toLowerCase().includes(query) ||
+      String(member.userId).includes(query) ||
+      member.roleLabel.toLowerCase().includes(query)
 
     const matchesRole = !activeRole || activeRole === 'all' || member.role === activeRole
 
@@ -139,29 +111,74 @@ const paginatedMembers = computed(() => {
   return filteredMembers.value.slice(start, start + PAGE_SIZE)
 })
 
+const tableRows = computed<Array<Record<string, unknown>>>(() =>
+  paginatedMembers.value.map((member) => ({ ...member })),
+)
+
 const canPrevious = computed(() => currentPage.value > 1)
 const canNext = computed(() => currentPage.value * PAGE_SIZE < filteredMembers.value.length)
+
+async function loadMembers(projectId: number): Promise<void> {
+  const requestId = ++latestLoadRequestId
+  isLoading.value = true
+
+  try {
+    const page = await membersApi.listMembers(projectId, { limit: 100 })
+    if (requestId === latestLoadRequestId && activeProjectId.value === projectId) {
+      members.value = page.items
+    }
+  } catch (error) {
+    if (requestId === latestLoadRequestId) {
+      toast.error(getApiErrorMessage(error, 'Não foi possível carregar os membros do projeto.'))
+    }
+  } finally {
+    if (requestId === latestLoadRequestId) {
+      isLoading.value = false
+    }
+  }
+}
+
+watch(
+  activeProjectId,
+  (projectId) => {
+    selectedKeys.value = []
+    currentPage.value = 1
+
+    if (projectId === null) {
+      latestLoadRequestId += 1
+      members.value = []
+      isLoading.value = false
+      return
+    }
+
+    void loadMembers(projectId)
+  },
+  { immediate: true },
+)
 
 watch([searchQuery, roleFilter], () => {
   currentPage.value = 1
 })
 
 function getRoleModifier(role: string): string {
-  if (role === 'Administrador') {
+  if (role === 'owner' || role === 'director') {
     return 'admin'
   }
-  if (role === 'Editor') {
+  if (role === 'member') {
     return 'editor'
   }
   return 'viewer'
 }
 
 function getStatusModifier(status: string): string {
-  return status === 'Ativo' ? 'active' : 'pending'
+  return status === 'active' ? 'active' : 'pending'
 }
 
 function toggleSelect(rowKey: string | number) {
-  const key = String(rowKey)
+  const key = Number(rowKey)
+  if (!Number.isFinite(key)) {
+    return
+  }
   if (selectedKeys.value.includes(key)) {
     selectedKeys.value = selectedKeys.value.filter((item) => item !== key)
     return
@@ -174,7 +191,7 @@ function handleBatchAction(actionId: string) {
     return
   }
   if (actionId === 'change-role') {
-    batchRoleTarget.value = 'Editor'
+    batchRoleTarget.value = 'member'
     isRoleModalOpen.value = true
     return
   }
@@ -183,12 +200,25 @@ function handleBatchAction(actionId: string) {
   }
 }
 
+function handleRefreshMembers() {
+  if (activeProjectId.value === null || isLoading.value) {
+    return
+  }
+  void loadMembers(activeProjectId.value)
+}
+
+function openInviteModal() {
+  if (activeProjectId.value === null) {
+    toast.error('Selecione um projeto ativo antes de convidar membros.')
+    return
+  }
+  resetInviteForm()
+  isInviteModalOpen.value = true
+}
+
 function resetInviteForm() {
-  inviteName.value = ''
-  inviteEmail.value = ''
-  inviteRole.value = 'Editor'
-  inviteErrors.name = ''
-  inviteErrors.email = ''
+  inviteUserId.value = ''
+  inviteUserIdError.value = ''
 }
 
 function closeInviteModal() {
@@ -196,88 +226,184 @@ function closeInviteModal() {
   resetInviteForm()
 }
 
-function handleInviteSubmit() {
-  const name = inviteName.value.trim()
-  const email = inviteEmail.value.trim()
-  let valid = true
-
-  inviteErrors.name = ''
-  inviteErrors.email = ''
-
-  if (!name) {
-    inviteErrors.name = 'Informe o nome do membro.'
-    valid = false
-  }
-
-  if (!email) {
-    inviteErrors.email = 'Informe o email do membro.'
-    valid = false
-  } else if (!email.includes('@')) {
-    inviteErrors.email = 'Informe um email válido contendo @.'
-    valid = false
-  }
-
-  if (!valid) {
-    toast.error('Revise os campos do convite antes de enviar.')
+async function handleInviteSubmit() {
+  const projectId = activeProjectId.value
+  if (projectId === null) {
+    toast.error('Selecione um projeto ativo antes de convidar.')
     return
   }
 
-  const newMember: MemberRow = {
-    id: `mem-${Date.now()}`,
-    name,
-    email,
-    role: inviteRole.value,
-    status: 'Convite pendente',
-    joinedAt: 'agora',
+  const rawValue = inviteUserId.value.trim()
+  const parsedUserId = Number(rawValue)
+  inviteUserIdError.value = ''
+
+  if (!rawValue || !Number.isInteger(parsedUserId) || parsedUserId <= 0) {
+    inviteUserIdError.value = 'Informe um ID de usuário válido (inteiro positivo).'
+    toast.error('Informe um ID de usuário válido antes de enviar.')
+    return
   }
 
-  members.value = [newMember, ...members.value]
-  currentPage.value = 1
-  closeInviteModal()
-  toast.success(`Convite simulado enviado para ${name}.`)
+  if (isSubmittingInvite.value) {
+    return
+  }
+
+  isSubmittingInvite.value = true
+  try {
+    const invited = await membersApi.inviteMember(projectId, { userId: parsedUserId })
+    await loadMembers(projectId)
+    currentPage.value = 1
+    closeInviteModal()
+    toast.success(`Convite enviado para ${invited.userLabel}.`)
+  } catch (error) {
+    const message = getApiErrorMessage(error, 'Não foi possível enviar o convite.')
+    inviteUserIdError.value = message
+    toast.error(message)
+  } finally {
+    isSubmittingInvite.value = false
+  }
 }
 
-function confirmBatchRoleChange() {
-  const targetIds = new Set(selectedKeys.value)
-  const count = targetIds.size
-  if (count === 0) {
+async function handleAcceptInvite() {
+  const projectId = activeProjectId.value
+  if (projectId === null || isRespondingInvite.value) {
+    return
+  }
+
+  isRespondingInvite.value = true
+  try {
+    await membersApi.acceptProjectInvite(projectId)
+    await Promise.all([loadMembers(projectId), loadProjects(true)])
+    toast.success('Convite aceito com sucesso.')
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível aceitar o convite.'))
+  } finally {
+    isRespondingInvite.value = false
+  }
+}
+
+async function handleRefuseInvite() {
+  const projectId = activeProjectId.value
+  if (projectId === null || isRespondingInvite.value) {
+    return
+  }
+
+  isRespondingInvite.value = true
+  try {
+    await membersApi.refuseProjectInvite(projectId)
+    await loadProjects(true)
+    if (activeProjectId.value === projectId) {
+      await loadMembers(projectId)
+    }
+    toast.info('Convite recusado.')
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível recusar o convite.'))
+  } finally {
+    isRespondingInvite.value = false
+  }
+}
+
+async function confirmBatchRoleChange() {
+  const projectId = activeProjectId.value
+  const targetIds = [...selectedKeys.value]
+  if (projectId === null || targetIds.length === 0) {
     isRoleModalOpen.value = false
     return
   }
 
-  members.value = members.value.map((member) =>
-    targetIds.has(member.id) ? { ...member, role: batchRoleTarget.value } : member,
-  )
+  if (isSubmittingBatchRole.value) {
+    return
+  }
 
-  isRoleModalOpen.value = false
-  selectedKeys.value = []
-  toast.success(`Cargo atualizado para ${batchRoleTarget.value} em ${count} membro(s).`)
+  isSubmittingBatchRole.value = true
+  try {
+    await Promise.all(
+      targetIds.map((memberId) =>
+        membersApi.changeMemberRole(projectId, memberId, { role: batchRoleTarget.value }),
+      ),
+    )
+    await loadMembers(projectId)
+    isRoleModalOpen.value = false
+    selectedKeys.value = []
+    toast.success(
+      `Cargo atualizado para ${getMemberRoleLabel(batchRoleTarget.value)} em ${targetIds.length} membro(s).`,
+    )
+  } catch (error) {
+    toast.error(
+      getApiErrorMessage(error, 'Não foi possível alterar o cargo dos membros selecionados.'),
+    )
+  } finally {
+    isSubmittingBatchRole.value = false
+  }
 }
 
-function confirmRemoveMembers() {
-  const targetIds = new Set(selectedKeys.value)
-  const count = targetIds.size
-  if (count === 0) {
+async function confirmRemoveMembers() {
+  const projectId = activeProjectId.value
+  const targetIds = [...selectedKeys.value]
+  if (projectId === null || targetIds.length === 0) {
     isRemoveDialogOpen.value = false
     return
   }
 
-  members.value = members.value.filter((member) => !targetIds.has(member.id))
-  isRemoveDialogOpen.value = false
-  selectedKeys.value = []
-  toast.success(`${count} membro(s) removido(s) da lista simulada.`)
+  if (isSubmittingRemove.value) {
+    return
+  }
+
+  isSubmittingRemove.value = true
+  try {
+    await Promise.all(targetIds.map((memberId) => membersApi.removeMember(projectId, memberId)))
+    await loadMembers(projectId)
+    isRemoveDialogOpen.value = false
+    selectedKeys.value = []
+    toast.success(`${targetIds.length} membro(s) removido(s) do projeto.`)
+  } catch (error) {
+    toast.error(getApiErrorMessage(error, 'Não foi possível remover os membros selecionados.'))
+  } finally {
+    isSubmittingRemove.value = false
+  }
 }
 </script>
 
 <template>
   <AppShell title="membros" active-nav="members">
     <div class="members-view">
+      <div
+        v-if="pendingInvite"
+        class="members-view__invite-banner"
+        role="region"
+        aria-label="Convite pendente"
+      >
+        <Notification
+          variant="default"
+          icon="add-member"
+          title="Convite pendente para este projeto"
+          :message="`Você recebeu um convite como ${pendingInvite.roleLabel}. Deseja aceitar ou recusar o acesso?`"
+        />
+        <div class="members-view__invite-actions">
+          <Button
+            variant="tertiary"
+            size="sm"
+            :disabled="isRespondingInvite"
+            @click="handleRefuseInvite"
+          >
+            Recusar
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            :disabled="isRespondingInvite"
+            @click="handleAcceptInvite"
+          >
+            Aceitar
+          </Button>
+        </div>
+      </div>
+
       <div class="members-view__filters">
         <div class="members-view__search">
           <SearchInput
             v-model="searchQuery"
-            placeholder="Buscar membro por nome ou email"
-            aria-label="Buscar membro por nome ou email"
+            placeholder="Buscar membro por usuário, ID ou cargo"
+            aria-label="Buscar membro por usuário, ID ou cargo"
           />
         </div>
         <div class="members-view__role-select">
@@ -288,13 +414,22 @@ function confirmRemoveMembers() {
             aria-label="Filtrar por cargo"
           />
         </div>
+        <Button
+          variant="tertiary"
+          size="md"
+          icon="refresh"
+          :disabled="isLoading || activeProjectId === null"
+          @click="handleRefreshMembers"
+        >
+          Atualizar
+        </Button>
       </div>
 
       <DataTable
         title="membros do workspace"
         description="gerencie permissões e acessos da equipe no prismon"
         :columns="columns"
-        :rows="paginatedMembers"
+        :rows="tableRows"
         :selectable="true"
         :selected-row-keys="selectedKeys"
         :show-pagination="true"
@@ -306,73 +441,74 @@ function confirmRemoveMembers() {
         @toggle-select="toggleSelect"
         @previous-page="currentPage--"
         @next-page="currentPage++"
-        @primary-action="isInviteModalOpen = true"
+        @primary-action="openInviteModal"
         @batch-action="handleBatchAction"
         @clear-selection="selectedKeys = []"
       >
-        <template #cell-role="{ row }">
+        <template #cell-roleLabel="{ row }">
           <Badge
             :class="[
               'members-view__role-badge',
-              `members-view__role-badge--${getRoleModifier(String(row.role))}`,
+              `members-view__role-badge--${getRoleModifier(String(row.role ?? ''))}`,
             ]"
-            :label="String(row.role)"
+            :label="String(row.roleLabel ?? '')"
           />
         </template>
 
-        <template #cell-status="{ row }">
+        <template #cell-statusLabel="{ row }">
           <Tag
             :class="[
               'members-view__status-tag',
-              `members-view__status-tag--${getStatusModifier(String(row.status))}`,
+              `members-view__status-tag--${getStatusModifier(String(row.status ?? ''))}`,
             ]"
-            :label="String(row.status)"
+            :label="String(row.statusLabel ?? '')"
           />
         </template>
       </DataTable>
 
-      <p v-if="filteredMembers.length === 0" class="members-view__empty" role="status">
+      <p v-if="isLoading" class="members-view__empty" role="status">Carregando membros...</p>
+
+      <p v-else-if="activeProjectId === null" class="members-view__empty" role="status">
+        Selecione um projeto para visualizar os membros.
+      </p>
+
+      <p v-else-if="filteredMembers.length === 0" class="members-view__empty" role="status">
         Nenhum membro encontrado para os filtros aplicados.
       </p>
     </div>
 
     <Modal
       v-model:open="isInviteModalOpen"
-      size="lg"
+      size="md"
       title="convidar membro"
-      subtitle="Adicione um integrante ao workspace."
+      subtitle="Informe o ID numérico do usuário para enviar o convite ao projeto."
       @close="resetInviteForm"
     >
       <div class="members-view__modal-fields">
         <TextInput
-          v-model="inviteName"
-          label="nome"
-          name="invite-name"
-          placeholder="Ex.: Mariana Costa"
-          :error="inviteErrors.name"
-          @update:model-value="inviteErrors.name = ''"
+          v-model="inviteUserId"
+          type="number"
+          label="ID do usuário"
+          name="invite-user-id"
+          placeholder="Ex.: 42"
+          :error="inviteUserIdError"
+          @update:model-value="inviteUserIdError = ''"
         />
-        <TextInput
-          v-model="inviteEmail"
-          type="email"
-          label="email"
-          name="invite-email"
-          placeholder="mariana@empresa.com"
-          :error="inviteErrors.email"
-          @update:model-value="inviteErrors.email = ''"
-        />
-        <Select v-model="inviteRole" label="cargo" name="invite-role" :options="roleOptions" />
       </div>
 
       <template #footer>
-        <Button variant="tertiary" @click="closeInviteModal">Cancelar</Button>
-        <Button variant="primary" @click="handleInviteSubmit">Enviar convite</Button>
+        <Button variant="tertiary" :disabled="isSubmittingInvite" @click="closeInviteModal">
+          Cancelar
+        </Button>
+        <Button variant="primary" :disabled="isSubmittingInvite" @click="handleInviteSubmit">
+          Enviar convite
+        </Button>
       </template>
     </Modal>
 
     <Modal
       v-model:open="isRoleModalOpen"
-      size="lg"
+      size="md"
       title="alterar cargo"
       subtitle="Defina o novo nível de acesso dos membros selecionados."
     >
@@ -381,20 +517,28 @@ function confirmRemoveMembers() {
           v-model="batchRoleTarget"
           label="novo cargo"
           name="batch-role-target"
-          :options="roleOptions"
+          :options="batchRoleOptions"
         />
       </div>
 
       <template #footer>
-        <Button variant="tertiary" @click="isRoleModalOpen = false">Cancelar</Button>
-        <Button variant="primary" @click="confirmBatchRoleChange">Aplicar</Button>
+        <Button
+          variant="tertiary"
+          :disabled="isSubmittingBatchRole"
+          @click="isRoleModalOpen = false"
+        >
+          Cancelar
+        </Button>
+        <Button variant="primary" :disabled="isSubmittingBatchRole" @click="confirmBatchRoleChange">
+          Aplicar
+        </Button>
       </template>
     </Modal>
 
     <ConfirmDialog
       v-model:open="isRemoveDialogOpen"
       title="remover membros"
-      :description="`Deseja remover ${selectedKeys.length} membro(s) desta lista simulada?`"
+      :description="`Deseja remover ${selectedKeys.length} membro(s) deste projeto?`"
       confirm-label="Remover"
       confirm-variant="danger"
       @confirm="confirmRemoveMembers"
@@ -411,6 +555,12 @@ function confirmRemoveMembers() {
   --members-view-filters-gap: var(--spacing-4);
   --members-view-role-select-width: 220px;
   --members-view-modal-gap: var(--spacing-4);
+  --members-view-banner-gap: var(--spacing-3);
+  --members-view-banner-actions-gap: var(--spacing-2);
+  --members-view-banner-bg: var(--surface-brand-subtle);
+  --members-view-banner-border-color: var(--border-brand-subtle);
+  --members-view-banner-border-width: var(--border-width-thin);
+  --members-view-banner-padding: var(--spacing-3);
   --members-view-empty-padding: var(--spacing-5);
   --members-view-empty-bg: var(--surface-elevated);
   --members-view-empty-border-color: var(--border-subtle-1);
@@ -438,6 +588,22 @@ function confirmRemoveMembers() {
   margin: var(--spacing-0) auto;
   padding: var(--members-view-padding);
   box-sizing: border-box;
+}
+
+.members-view__invite-banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--members-view-banner-gap);
+  padding: var(--members-view-banner-padding);
+  background-color: var(--members-view-banner-bg);
+  border: var(--members-view-banner-border-width) solid var(--members-view-banner-border-color);
+}
+
+.members-view__invite-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--members-view-banner-actions-gap);
 }
 
 .members-view__filters {

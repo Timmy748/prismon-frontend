@@ -89,4 +89,41 @@ describe('Tag', () => {
     expect(emitted).toHaveLength(1)
     expect(emitted?.[0]).toEqual([])
   })
+
+  it('binds only --tag-dot-bg when a valid hex, rgb, or hsl color prop is provided', () => {
+    const hexWrapper = mount(Tag, {
+      props: { label: 'Azul', color: '  #2563eb  ' },
+    })
+    const hexEl = hexWrapper.element as HTMLElement
+    expect(hexWrapper.classes()).toContain('tag--colored')
+    expect(hexEl.style.getPropertyValue('--tag-dot-bg')).toBe('#2563eb')
+    expect(hexEl.style.getPropertyValue('--tag-border-color')).toBe('')
+    expect(hexEl.style.getPropertyValue('--tag-bg')).toBe('')
+
+    const rgbWrapper = mount(Tag, {
+      props: { label: 'Verde', color: 'rgb(16, 185, 129)' },
+    })
+    const rgbEl = rgbWrapper.element as HTMLElement
+    expect(rgbWrapper.classes()).toContain('tag--colored')
+    expect(rgbEl.style.getPropertyValue('--tag-dot-bg')).toBe('rgb(16, 185, 129)')
+
+    const hslWrapper = mount(Tag, {
+      props: { label: 'Roxo', color: 'hsl(260, 75%, 55%)' },
+    })
+    const hslEl = hslWrapper.element as HTMLElement
+    expect(hslWrapper.classes()).toContain('tag--colored')
+    expect(hslEl.style.getPropertyValue('--tag-dot-bg')).toBe('hsl(260, 75%, 55%)')
+  })
+
+  it.each(['', '   ', 'not-a-color', '#12345', 'var(--icon-brand)', 'red; background: url(evil)'])(
+    'falls back to default styling when color %j is empty or invalid',
+    (invalidColor) => {
+      const wrapper = mount(Tag, {
+        props: { label: 'Fallback', color: invalidColor },
+      })
+      const el = wrapper.element as HTMLElement
+      expect(wrapper.classes()).not.toContain('tag--colored')
+      expect(el.style.getPropertyValue('--tag-dot-bg')).toBe('')
+    },
+  )
 })

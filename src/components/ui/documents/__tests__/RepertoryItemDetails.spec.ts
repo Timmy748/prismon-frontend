@@ -13,7 +13,7 @@ import { Icon } from '../../icons'
 import { ScrollContainer } from '../../layout'
 
 const sampleTags: RepertoryItemTag[] = [
-  { id: 't1', label: 'Contrato' },
+  { id: 't1', label: 'Contrato', color: '#2563EB' },
   { id: 't2', label: 'Financeiro' },
 ]
 
@@ -109,8 +109,10 @@ describe('RepertoryItemDetails (DocumentDetails)', () => {
     const tagComponents = wrapper.findAllComponents(Tag)
     expect(tagComponents).toHaveLength(2)
     expect(tagComponents[0]?.props('label')).toBe('Contrato')
+    expect(tagComponents[0]?.props('color')).toBe('#2563EB')
     expect(tagComponents[0]?.props('dismissible')).toBe(true)
     expect(tagComponents[1]?.props('label')).toBe('Financeiro')
+    expect(tagComponents[1]?.props('color')).toBeUndefined()
 
     const addButton = wrapper.findComponent(IconButton)
     expect(addButton.exists()).toBe(true)

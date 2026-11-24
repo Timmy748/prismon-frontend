@@ -160,4 +160,75 @@ describe('FileUpload', () => {
     expect(wrapper.emitted('select')).toBeUndefined()
     clickSpy.mockRestore()
   })
+
+  it('displays uploaded state indicator, formatted byte sizes, replace and remove actions', async () => {
+    const smallFile = new File(['hello'], 'nota.txt', { type: 'text/plain' })
+    const kbFile = new File([new Uint8Array(2048)], 'manual.pdf', { type: 'application/pdf' })
+    const mbFile = new File([new Uint8Array(2 * 1024 * 1024)], 'video.mp4', {
+      type: 'video/mp4',
+    })
+
+    const wrapper = mount(FileUpload, {
+      props: {
+        multiple: true,
+      },
+    })
+
+    const input = wrapper.find('input[type="file"]')
+    Object.defineProperty(input.element, 'files', {
+      value: [smallFile, kbFile, mbFile],
+      configurable: true,
+    })
+    await input.trigger('change')
+
+    expect(wrapper.classes()).toContain('file-upload--uploaded')
+    expect(wrapper.find('.file-upload__uploaded-status').text()).toBe('Arquivos carregados')
+    expect(wrapper.find('.file-upload__uploaded-badge svg').exists()).toBe(true)
+
+    const items = wrapper.findAll('.file-upload__uploaded-item')
+    expect(items).toHaveLength(3)
+    expect(items[0]?.text()).toContain('nota.txt')
+    expect(items[0]?.text()).toContain('5 B')
+    expect(items[1]?.text()).toContain('manual.pdf')
+    expect(items[1]?.text()).toContain('2 KB')
+    expect(items[2]?.text()).toContain('video.mp4')
+    expect(items[2]?.text()).toContain('2 MB')
+
+    const clickSpy = vi.spyOn(input.element as HTMLInputElement, 'click').mockImplementation(() => {})
+    await wrapper.find('.file-upload__action-btn--primary').trigger('click')
+    expect(clickSpy).toHaveBeenCalledTimes(1)
+
+    await items[1]!.find('.file-upload__action-btn--remove').trigger('click')
+    expect(clickSpy).toHaveBeenCalledTimes(1)
+    expect(wrapper.emitted('remove')).toEqual([[1]])
+    expect(wrapper.findAll('.file-upload__uploaded-item')).toHaveLength(2)
+
+    await wrapper.find('.file-upload__action-btn--clear').trigger('click')
+    expect(clickSpy).toHaveBeenCalledTimes(1)
+    expect(wrapper.emitted('clear')).toEqual([[]])
+    expect(wrapper.classes()).not.toContain('file-upload--uploaded')
+    expect(wrapper.find('.file-upload__title').exists()).toBe(true)
+    clickSpy.mockRestore()
+  })
+
+  it('syncs controlled files prop and emits remove and clear for single file', async () => {
+    const file = new File(['abc'], 'contrato.pdf', { type: 'application/pdf' })
+    const wrapper = mount(FileUpload, {
+      props: {
+        files: [file],
+      },
+    })
+
+    expect(wrapper.classes()).toContain('file-upload--uploaded')
+    expect(wrapper.find('.file-upload__uploaded-status').text()).toBe('Arquivo carregado')
+    expect(wrapper.find('.file-upload__uploaded-name').text()).toBe('contrato.pdf')
+    expect(wrapper.find('.file-upload__uploaded-size').text()).toBe('3 B')
+
+    await wrapper.find('.file-upload__action-btn--remove').trigger('click')
+    expect(wrapper.emitted('remove')).toEqual([[0]])
+    expect(wrapper.emitted('clear')).toEqual([[]])
+
+    await wrapper.setProps({ files: [] })
+    expect(wrapper.classes()).not.toContain('file-upload--uploaded')
+  })
 })

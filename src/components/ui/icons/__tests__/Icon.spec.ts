@@ -21,13 +21,16 @@ const SEMANTIC_COLORS: Exclude<IconColor, 'inherit'>[] = [
 ]
 
 describe('Icon', () => {
-  it('registers all 28 UI icons with viewBox and paths', () => {
-    expect(ALL_ICON_NAMES).toHaveLength(28)
+  it('registers all 35 UI icons with integer 24x24 viewBox and paths', () => {
+    expect(ALL_ICON_NAMES).toHaveLength(35)
 
     for (const name of ALL_ICON_NAMES) {
       const entry = ICON_PATHS[name]
       expect(entry.viewBox).toBe('0 0 24 24')
       expect(entry.paths.length).toBeGreaterThan(0)
+      for (const d of entry.paths) {
+        expect(d).not.toMatch(/\d\.\d/)
+      }
     }
   })
 
