@@ -30,6 +30,8 @@ vi.mock('@/api/client', () => ({
     delete: vi.fn<(...args: unknown[]) => Promise<{ data: unknown }>>(),
   },
   setUnauthorizedHandler: vi.fn<(handler: (() => void) | null) => void>(),
+  setAuthRefreshEnabled: vi.fn<(enabled: boolean) => void>(),
+  runWithoutAuthRefresh: <T>(operation: () => Promise<T>) => operation(),
   resolveApiUrl: (path: string) => path,
 }))
 

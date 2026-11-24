@@ -44,6 +44,8 @@ vi.mock('@/api/client', () => ({
     (path: string) => `/api${path.startsWith('/') ? path : `/${path}`}`,
   ),
   setUnauthorizedHandler: vi.fn<(...args: unknown[]) => void>(),
+  setAuthRefreshEnabled: vi.fn<(enabled: boolean) => void>(),
+  runWithoutAuthRefresh: <T>(operation: () => Promise<T>) => operation(),
 }))
 
 const mockedGet = vi.mocked(apiClient.get)

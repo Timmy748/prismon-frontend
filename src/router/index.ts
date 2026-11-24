@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { setUnauthorizedHandler } from '@/api/client'
+import { setAuthRefreshEnabled, setUnauthorizedHandler } from '@/api/client'
 import { useAuthState } from '@/stores/authState'
 import { useWorkspaceState } from '@/stores/workspaceState'
 import ApiKeysView from '@/views/ApiKeysView.vue'
@@ -151,22 +151,29 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const { isAuthenticated, sessionChecked, loadSession, clearSession } = useAuthState()
+  const isProtectedRoute = Boolean(to.meta.requiresAuth)
 
-  if (!sessionChecked.value && (to.meta.requiresAuth || to.meta.guestOnly || to.path === '/')) {
+  setAuthRefreshEnabled(isProtectedRoute || isAuthenticated.value)
+
+  if (!sessionChecked.value && (isProtectedRoute || to.meta.guestOnly || to.path === '/')) {
     try {
-      await loadSession()
+      await loadSession({ skipRefresh: !isProtectedRoute })
     } catch {
       clearSession()
     }
   }
 
   if (to.meta.requiresAuth && !isAuthenticated.value) {
+    setAuthRefreshEnabled(false)
     return { name: 'login' }
   }
 
   if (!isAuthenticated.value) {
+    setAuthRefreshEnabled(false)
     return true
   }
+
+  setAuthRefreshEnabled(true)
 
   const { projects, activeProjectId, ensureWorkspaceInitialized, syncFromRoute } =
     useWorkspaceState()

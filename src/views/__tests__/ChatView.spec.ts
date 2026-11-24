@@ -33,6 +33,8 @@ vi.mock('@/api/client', () => ({
     delete: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   },
   setUnauthorizedHandler: vi.fn<(handler: (() => void) | null) => void>(),
+  setAuthRefreshEnabled: vi.fn<(enabled: boolean) => void>(),
+  runWithoutAuthRefresh: <T>(operation: () => Promise<T>) => operation(),
   uploadFileToPresignedUrl: vi.fn<(...args: unknown[]) => Promise<void>>(),
   resolveApiUrl: vi.fn<(path: string) => string>(
     (path: string) => `/api${path.startsWith('/') ? path : `/${path}`}`,

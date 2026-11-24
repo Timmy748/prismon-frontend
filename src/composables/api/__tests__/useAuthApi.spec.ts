@@ -28,6 +28,8 @@ const { mockClient, mockSetUnauthorizedHandler, unauthorizedCallbacks } = vi.hoi
 vi.mock('@/api/client', () => ({
   apiClient: mockClient,
   setUnauthorizedHandler: mockSetUnauthorizedHandler,
+  setAuthRefreshEnabled: vi.fn<(enabled: boolean) => void>(),
+  runWithoutAuthRefresh: <T>(operation: () => Promise<T>) => operation(),
 }))
 
 import { ApiRequestError } from '@/api/errors'

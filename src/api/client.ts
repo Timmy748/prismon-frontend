@@ -2,6 +2,7 @@ import axios, { type AxiosRequestConfig } from 'axios'
 
 interface RetryableRequestConfig extends AxiosRequestConfig {
   _retry?: boolean
+  _skipAuthRefresh?: boolean
 }
 
 /**
@@ -25,6 +26,8 @@ const AUTH_BYPASS_PATHS = ['/login', '/refresh-token', '/logout', '/users']
 
 let refreshPromise: Promise<void> | null = null
 let unauthorizedHandler: (() => void) | null = null
+let authRefreshEnabled = true
+let skipRefreshDepth = 0
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -42,9 +45,51 @@ export function setUnauthorizedHandler(handler: (() => void) | null): void {
   unauthorizedHandler = handler
 }
 
-function shouldSkipRefresh(url?: string): boolean {
-  if (!url) return false
-  return AUTH_BYPASS_PATHS.some((path) => url === path || url.startsWith(`${path}?`))
+/**
+ * Controls whether 401 responses trigger automatic `/refresh-token` retries.
+ * Disabled on public auth routes (`/login`, `/cadastro`) and enabled once inside the app.
+ */
+export function setAuthRefreshEnabled(enabled: boolean): void {
+  authRefreshEnabled = enabled
+}
+
+/**
+ * Executes an async operation without triggering `/refresh-token` on 401 responses.
+ */
+export async function runWithoutAuthRefresh<T>(operation: () => Promise<T>): Promise<T> {
+  skipRefreshDepth += 1
+  try {
+    return await operation()
+  } finally {
+    skipRefreshDepth = Math.max(0, skipRefreshDepth - 1)
+  }
+}
+
+function normalizeRequestPath(url?: string): string {
+  if (!url) return ''
+  let path = url.split('?')[0]?.split('#')[0] ?? ''
+  if (/^https?:\/\//i.test(path)) {
+    try {
+      path = new URL(path).pathname
+    } catch {
+      // Keep raw path if URL parsing fails
+    }
+  }
+  if (API_BASE_URL && API_BASE_URL.startsWith('/') && path.startsWith(`${API_BASE_URL}/`)) {
+    path = path.slice(API_BASE_URL.length)
+  }
+  return path.startsWith('/') ? path : `/${path}`
+}
+
+function shouldSkipRefresh(config: RetryableRequestConfig): boolean {
+  if (config._skipAuthRefresh || !authRefreshEnabled) {
+    return true
+  }
+  const normalizedPath = normalizeRequestPath(config.url)
+  if (!normalizedPath) {
+    return false
+  }
+  return AUTH_BYPASS_PATHS.some((path) => normalizedPath === path)
 }
 
 async function runTokenRefresh(): Promise<void> {
@@ -59,6 +104,14 @@ async function runTokenRefresh(): Promise<void> {
   return refreshPromise
 }
 
+apiClient.interceptors.request.use((config) => {
+  const retryable = config as RetryableRequestConfig
+  if (skipRefreshDepth > 0 || !authRefreshEnabled) {
+    retryable._skipAuthRefresh = true
+  }
+  return config
+})
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -69,7 +122,7 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config as RetryableRequestConfig
     const status = error.response?.status
 
-    if (status !== 401 || originalRequest._retry || shouldSkipRefresh(originalRequest.url)) {
+    if (status !== 401 || originalRequest._retry || shouldSkipRefresh(originalRequest)) {
       return Promise.reject(error)
     }
 

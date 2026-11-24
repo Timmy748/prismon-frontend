@@ -1,5 +1,9 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
-import { setUnauthorizedHandler } from '@/api/client'
+import {
+  runWithoutAuthRefresh,
+  setAuthRefreshEnabled,
+  setUnauthorizedHandler,
+} from '@/api/client'
 import { parseApiError } from '@/api/errors'
 import { useAuthApi } from '@/composables/api/useAuthApi'
 import type {
@@ -13,12 +17,19 @@ import type {
 /**
  * Reactive auth state and session actions returned by `useAuthState()`.
  */
+export interface LoadSessionOptions {
+  skipRefresh?: boolean
+}
+
+/**
+ * Auth state contract.
+ */
 export interface AuthState {
   currentUser: Ref<AuthUser | null>
   isAuthenticated: ComputedRef<boolean>
   sessionChecked: Ref<boolean>
   isAuthenticating: Ref<boolean>
-  loadSession(): Promise<AuthUser | null>
+  loadSession(options?: LoadSessionOptions): Promise<AuthUser | null>
   login(input: LoginInput): Promise<AuthUser>
   register(input: RegisterInput): Promise<AuthUser>
   updateProfile(input: UpdateProfileInput): Promise<AuthUser>
@@ -42,6 +53,7 @@ const authApi = useAuthApi()
 export function clearSession(): void {
   currentUserState.value = null
   sessionCheckedState.value = true
+  setAuthRefreshEnabled(false)
 }
 
 setUnauthorizedHandler(() => {
@@ -51,22 +63,29 @@ setUnauthorizedHandler(() => {
 /**
  * Loads the current session from `/me`, deduplicating concurrent calls and treating 401 as unauthenticated.
  */
-export async function loadSession(): Promise<AuthUser | null> {
+export async function loadSession(options?: LoadSessionOptions): Promise<AuthUser | null> {
   if (pendingSessionPromise) {
     return pendingSessionPromise
   }
 
+  const fetchUser = () =>
+    options?.skipRefresh
+      ? runWithoutAuthRefresh(() => authApi.fetchCurrentUser())
+      : authApi.fetchCurrentUser()
+
   pendingSessionPromise = (async () => {
     try {
-      const user = await authApi.fetchCurrentUser()
+      const user = await fetchUser()
       currentUserState.value = user
       sessionCheckedState.value = true
+      setAuthRefreshEnabled(true)
       return user
     } catch (error) {
       const parsed = parseApiError(error)
       sessionCheckedState.value = true
       if (parsed.status === 401) {
         currentUserState.value = null
+        setAuthRefreshEnabled(false)
         return null
       }
       throw parsed
@@ -84,11 +103,14 @@ export async function loadSession(): Promise<AuthUser | null> {
 export async function login(input: LoginInput): Promise<AuthUser> {
   isAuthenticatingState.value = true
   try {
-    await authApi.login(input)
-    const user = await authApi.fetchCurrentUser()
-    currentUserState.value = user
-    sessionCheckedState.value = true
-    return user
+    return await runWithoutAuthRefresh(async () => {
+      await authApi.login(input)
+      const user = await authApi.fetchCurrentUser()
+      currentUserState.value = user
+      sessionCheckedState.value = true
+      setAuthRefreshEnabled(true)
+      return user
+    })
   } finally {
     isAuthenticatingState.value = false
   }
@@ -100,11 +122,14 @@ export async function login(input: LoginInput): Promise<AuthUser> {
 export async function register(input: RegisterInput): Promise<AuthUser> {
   isAuthenticatingState.value = true
   try {
-    const user = await authApi.register(input)
-    await authApi.login({ email: input.email, password: input.password })
-    currentUserState.value = user
-    sessionCheckedState.value = true
-    return user
+    return await runWithoutAuthRefresh(async () => {
+      const user = await authApi.register(input)
+      await authApi.login({ email: input.email, password: input.password })
+      currentUserState.value = user
+      sessionCheckedState.value = true
+      setAuthRefreshEnabled(true)
+      return user
+    })
   } finally {
     isAuthenticatingState.value = false
   }
@@ -142,6 +167,7 @@ export async function logout(): Promise<void> {
   } finally {
     currentUserState.value = null
     sessionCheckedState.value = true
+    setAuthRefreshEnabled(false)
   }
 }
 
